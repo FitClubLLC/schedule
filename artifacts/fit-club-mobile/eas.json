@@ -7,6 +7,9 @@
     "production": {
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "credentialsSource": "remote"
       }
     }
   },

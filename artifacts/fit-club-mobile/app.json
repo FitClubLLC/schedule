@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.fitclub15.app"
+      "bundleIdentifier": "com.fitclub15.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.fitclub15.app",
