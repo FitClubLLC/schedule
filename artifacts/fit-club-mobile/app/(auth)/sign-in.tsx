@@ -11,7 +11,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
 } from 'react-native';
-import { useSignIn } from '@clerk/expo';
+import { useSignIn, useClerk } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,7 +21,12 @@ import { Feather } from '@expo/vector-icons';
 type Screen = 'login' | 'forgot-email' | 'forgot-code';
 
 export default function SignInScreen() {
-  const { isLoaded, signIn, setActive } = useSignIn();
+  const { isLoaded, signIn: hookSignIn, setActive } = useSignIn();
+  const clerk = useClerk();
+  // useSignIn().signIn is undefined while Clerk restores a cached session.
+  // Fall back to clerk.client.signIn which is always populated once the
+  // client is ready, regardless of session-restoration state.
+  const signIn = hookSignIn ?? (clerk as any).client?.signIn;
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -84,7 +89,8 @@ export default function SignInScreen() {
 
   // ── Send reset code ────────────────────────────────────────────────────────
   const handleSendCode = async () => {
-    if (!isLoaded || !signIn || !resetEmail.trim() || loading) return;
+    if (!isLoaded || !resetEmail.trim() || loading) return;
+    if (!signIn) { setError('Still loading — please try again in a moment.'); return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     clearError();
@@ -107,7 +113,8 @@ export default function SignInScreen() {
 
   // ── Confirm reset ──────────────────────────────────────────────────────────
   const handleResetPassword = async () => {
-    if (!isLoaded || !signIn || !resetCode || !newPassword || loading) return;
+    if (!isLoaded || !resetCode || !newPassword || loading) return;
+    if (!signIn) { setError('Still loading — please try again in a moment.'); return; }
     if (newPassword !== confirmPassword) {
       setError('Passwords don\'t match.');
       return;
@@ -173,9 +180,9 @@ export default function SignInScreen() {
             {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary }, (!isLoaded || !signIn || !resetEmail.trim() || loading) && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: colors.primary }, (!isLoaded || !resetEmail.trim() || loading) && styles.buttonDisabled]}
               onPress={handleSendCode}
-              disabled={!isLoaded || !signIn || !resetEmail.trim() || loading}
+              disabled={!isLoaded || !resetEmail.trim() || loading}
               activeOpacity={0.8}
             >
               {loading
@@ -241,9 +248,9 @@ export default function SignInScreen() {
             {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary }, (!isLoaded || !signIn || !resetCode || !newPassword || !confirmPassword || loading) && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: colors.primary }, (!isLoaded || !resetCode || !newPassword || !confirmPassword || loading) && styles.buttonDisabled]}
               onPress={handleResetPassword}
-              disabled={!isLoaded || !signIn || !resetCode || !newPassword || !confirmPassword || loading}
+              disabled={!isLoaded || !resetCode || !newPassword || !confirmPassword || loading}
               activeOpacity={0.8}
             >
               {loading
