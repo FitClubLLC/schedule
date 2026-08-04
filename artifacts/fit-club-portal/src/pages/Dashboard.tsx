@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useGetAppointmentSummary, useGetUpcomingAppointments } from "@workspace/api-client-react";
 import { Shell } from "@/components/layout/Shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dumbbell, CalendarRange, History, ArrowRight, KeyRound, Eye, EyeOff, CheckCircle, AlertCircle, ShoppingBag } from "lucide-react";
+import { Dumbbell, CalendarRange, History, ArrowRight, KeyRound, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -175,8 +175,7 @@ export default function Dashboard() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Button size="lg" variant="outline" className="gap-2">
-                <ShoppingBag className="w-4 h-4" />
+              <Button size="lg" className="shadow-md">
                 Purchase a Membership
               </Button>
             </a>
