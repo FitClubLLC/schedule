@@ -10,6 +10,7 @@ import Home from "@/pages/Home";
 import Dashboard from "@/pages/Dashboard";
 import Appointments from "@/pages/Appointments";
 import Book from "@/pages/Book";
+import Admin from "@/pages/Admin";
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -194,6 +195,10 @@ function ClerkProviderWithRoutes() {
           
           <Route path="/book">
             <ProtectedRoute component={Book} />
+          </Route>
+
+          <Route path="/admin">
+            <ProtectedRoute component={Admin} />
           </Route>
           
           <Route>

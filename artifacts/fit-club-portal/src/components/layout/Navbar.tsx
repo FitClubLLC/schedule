@@ -12,10 +12,14 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+  const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
+  const isAdmin = user?.emailAddresses?.[0]?.emailAddress === adminEmail;
+
   const navLinks = [
     { href: "/dashboard", label: "Dashboard" },
     { href: "/appointments", label: "Appointments" },
     { href: "/book", label: "Book a Session" },
+    ...(isAdmin ? [{ href: "/admin", label: "Members" }] : []),
   ];
 
   return (
