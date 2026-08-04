@@ -209,6 +209,7 @@ router.get("/booking/certificates", requireAuth, async (req: any, res): Promise<
       return;
     }
     const data = await response.json();
+    req.log.info({ rawCerts: JSON.stringify(data).slice(0, 2000) }, "Acuity certificates raw response");
     const certs = (Array.isArray(data) ? data : [])
       .filter((c: any) => parseFloat(c.remainingValue ?? c.value ?? "0") > 0)
       .map((c: any) => ({
