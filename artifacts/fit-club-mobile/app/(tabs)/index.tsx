@@ -47,6 +47,9 @@ export default function DashboardScreen() {
   const summaryError = summaryQuery.isError;
   const upcomingError = upcomingQuery.isError;
 
+  const todayYMD = new Date().toISOString().split('T')[0];
+  const todaysSessions = upcoming.filter((a) => a.date === todayYMD);
+
   // Change password modal state
   const [pwModalVisible, setPwModalVisible] = useState(false);
   const [currentPw, setCurrentPw] = useState('');
@@ -301,6 +304,47 @@ export default function DashboardScreen() {
           </View>
         )}
 
+        {/* Today's sessions */}
+        {!upcomingQuery.isLoading && !upcomingError && (
+          <View style={[styles.todayCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {/* Left accent + date column */}
+            <View style={[styles.todayAccent, { backgroundColor: colors.primary }]} />
+            <View style={styles.todayDateCol}>
+              <Text style={[styles.todayDayNum, { color: colors.primary }]}>
+                {new Date().getDate()}
+              </Text>
+              <Text style={[styles.todayDayName, { color: colors.mutedForeground }]}>
+                {new Date().toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
+              </Text>
+              <Text style={[styles.todayMonth, { color: colors.mutedForeground }]}>
+                {new Date().toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
+              </Text>
+            </View>
+
+            {/* Divider */}
+            <View style={[styles.todayDivider, { backgroundColor: colors.border }]} />
+
+            {/* Sessions column */}
+            <View style={styles.todaySessions}>
+              <Text style={[styles.todayLabel, { color: colors.mutedForeground }]}>TODAY</Text>
+              {todaysSessions.length === 0 ? (
+                <Text style={[styles.todayRestText, { color: colors.foreground }]}>Rest day</Text>
+              ) : (
+                todaysSessions.map((appt) => (
+                  <View key={appt.id} style={styles.todayRow}>
+                    <Text style={[styles.todayTime, { color: colors.primary }]}>
+                      {new Date(appt.time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                    </Text>
+                    <Text style={[styles.todayType, { color: colors.foreground }]} numberOfLines={1}>
+                      {appt.type}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Next session */}
         {summary?.nextAppointment && (
           <View style={styles.section}>
@@ -500,6 +544,80 @@ const styles = StyleSheet.create({
     fontFamily: 'BarlowCondensed_700Bold',
     fontSize: 14,
     letterSpacing: 1.5,
+  },
+  todayCard: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 24,
+    overflow: 'hidden',
+    minHeight: 100,
+  },
+  todayAccent: {
+    width: 4,
+  },
+  todayDateCol: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    minWidth: 60,
+  },
+  todayDayNum: {
+    fontFamily: 'BarlowCondensed_800ExtraBold',
+    fontSize: 36,
+    lineHeight: 36,
+  },
+  todayDayName: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  todayMonth: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+  todayDivider: {
+    width: StyleSheet.hairlineWidth,
+    marginVertical: 16,
+  },
+  todaySessions: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    justifyContent: 'center',
+    gap: 6,
+  },
+  todayLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    letterSpacing: 2,
+    marginBottom: 4,
+  },
+  todayRestText: {
+    fontFamily: 'BarlowCondensed_700Bold',
+    fontSize: 18,
+    letterSpacing: 0.5,
+  },
+  todayRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  todayTime: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    minWidth: 72,
+  },
+  todayType: {
+    fontFamily: 'BarlowCondensed_700Bold',
+    fontSize: 15,
+    letterSpacing: 0.3,
+    flex: 1,
   },
   bookBtn: {
     flexDirection: 'row',
