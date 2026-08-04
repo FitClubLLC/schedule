@@ -306,7 +306,11 @@ export default function DashboardScreen() {
 
         {/* Today's sessions */}
         {!upcomingQuery.isLoading && !upcomingError && (
-          <View style={[styles.todayCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => router.push('/(tabs)/appointments')}
+            style={[styles.todayCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
             {/* Left accent + date column */}
             <View style={[styles.todayAccent, { backgroundColor: colors.primary }]} />
             <View style={styles.todayDateCol}>
@@ -342,7 +346,7 @@ export default function DashboardScreen() {
                 ))
               )}
             </View>
-          </View>
+          </TouchableOpacity>
         )}
 
         {/* Next session */}
