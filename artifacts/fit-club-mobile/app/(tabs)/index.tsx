@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,10 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Alert,
 } from 'react-native';
 import { useUser, useAuth } from '@clerk/expo';
 import { useColors } from '@/hooks/useColors';
@@ -41,6 +45,51 @@ export default function DashboardScreen() {
   const isLoading = summaryQuery.isLoading;
   const isRefreshing = summaryQuery.isFetching && !summaryQuery.isLoading;
 
+  // Change password modal state
+  const [pwModalVisible, setPwModalVisible] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
+
+  const resetPwForm = () => {
+    setCurrentPw(''); setNewPw(''); setConfirmPw('');
+    setShowCurrent(false); setShowNew(false); setPwLoading(false);
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPw || !newPw || !confirmPw) {
+      Alert.alert('Missing fields', 'Please fill in all fields.');
+      return;
+    }
+    if (newPw !== confirmPw) {
+      Alert.alert('Passwords don\'t match', 'Your new passwords must match.');
+      return;
+    }
+    if (newPw.length < 8) {
+      Alert.alert('Too short', 'New password must be at least 8 characters.');
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPwLoading(true);
+    try {
+      await user?.updatePassword({ currentPassword: currentPw, newPassword: newPw });
+      resetPwForm();
+      setPwModalVisible(false);
+      Alert.alert('Password updated', 'Your password has been changed successfully.');
+    } catch (err: any) {
+      const msg =
+        err?.errors?.[0]?.longMessage ??
+        err?.errors?.[0]?.message ??
+        'Failed to update password. Check your current password and try again.';
+      Alert.alert('Error', msg);
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
   const onRefresh = () => {
     summaryQuery.refetch();
     upcomingQuery.refetch();
@@ -56,6 +105,108 @@ export default function DashboardScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Change Password Modal */}
+      <Modal
+        visible={pwModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => { setPwModalVisible(false); resetPwForm(); }}
+      >
+        <KeyboardAvoidingView
+          style={[styles.modalContainer, { backgroundColor: colors.background }]}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          {/* Modal header */}
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>CHANGE PASSWORD</Text>
+            <TouchableOpacity
+              onPress={() => { setPwModalVisible(false); resetPwForm(); }}
+              hitSlop={12}
+              activeOpacity={0.7}
+            >
+              <Feather name="x" size={22} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={styles.modalContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Current password */}
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>CURRENT PASSWORD</Text>
+            <View style={[styles.inputRow, { backgroundColor: colors.input, borderColor: colors.border }]}>
+              <TextInput
+                style={[styles.input, { color: colors.foreground }]}
+                placeholder="Enter current password"
+                placeholderTextColor={colors.mutedForeground}
+                secureTextEntry={!showCurrent}
+                value={currentPw}
+                onChangeText={setCurrentPw}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity onPress={() => setShowCurrent(v => !v)} hitSlop={8}>
+                <Feather name={showCurrent ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            {/* New password */}
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 20 }]}>NEW PASSWORD</Text>
+            <View style={[styles.inputRow, { backgroundColor: colors.input, borderColor: colors.border }]}>
+              <TextInput
+                style={[styles.input, { color: colors.foreground }]}
+                placeholder="At least 8 characters"
+                placeholderTextColor={colors.mutedForeground}
+                secureTextEntry={!showNew}
+                value={newPw}
+                onChangeText={setNewPw}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity onPress={() => setShowNew(v => !v)} hitSlop={8}>
+                <Feather name={showNew ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Confirm password */}
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 20 }]}>CONFIRM NEW PASSWORD</Text>
+            <View style={[styles.inputRow, { backgroundColor: colors.input, borderColor: colors.border }]}>
+              <TextInput
+                style={[styles.input, { color: colors.foreground }]}
+                placeholder="Repeat new password"
+                placeholderTextColor={colors.mutedForeground}
+                secureTextEntry
+                value={confirmPw}
+                onChangeText={setConfirmPw}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+
+            {/* Submit */}
+            <TouchableOpacity
+              style={[
+                styles.pwSubmitBtn,
+                { backgroundColor: colors.primary },
+                (pwLoading || !currentPw || !newPw || !confirmPw) && { opacity: 0.45 },
+              ]}
+              onPress={handleChangePassword}
+              disabled={pwLoading || !currentPw || !newPw || !confirmPw}
+              activeOpacity={0.8}
+            >
+              {pwLoading ? (
+                <ActivityIndicator color={colors.primaryForeground} />
+              ) : (
+                <Text style={[styles.pwSubmitText, { color: colors.primaryForeground }]}>
+                  UPDATE PASSWORD
+                </Text>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Custom header */}
       <View
         style={[
@@ -72,9 +223,19 @@ export default function DashboardScreen() {
           style={styles.headerLogo}
           resizeMode="contain"
         />
-        <TouchableOpacity onPress={handleSignOut} hitSlop={8} activeOpacity={0.7}>
-          <Feather name="log-out" size={20} color={colors.mutedForeground} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => setPwModalVisible(true)}
+            hitSlop={8}
+            activeOpacity={0.7}
+            style={styles.headerBtn}
+          >
+            <Feather name="key" size={20} color={colors.mutedForeground} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSignOut} hitSlop={8} activeOpacity={0.7}>
+            <Feather name="log-out" size={20} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -321,5 +482,65 @@ const styles = StyleSheet.create({
     fontFamily: 'BarlowCondensed_800ExtraBold',
     fontSize: 18,
     letterSpacing: 2,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  headerBtn: {},
+  // Change password modal
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  modalTitle: {
+    fontFamily: 'BarlowCondensed_800ExtraBold',
+    fontSize: 22,
+    letterSpacing: 2,
+  },
+  modalContent: {
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 48,
+  },
+  fieldLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  input: {
+    flex: 1,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+  },
+  pwSubmitBtn: {
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 32,
+  },
+  pwSubmitText: {
+    fontFamily: 'BarlowCondensed_800ExtraBold',
+    fontSize: 18,
+    letterSpacing: 2.5,
   },
 });
