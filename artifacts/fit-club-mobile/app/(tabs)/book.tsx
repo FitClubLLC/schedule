@@ -38,12 +38,13 @@ interface MemberCert {
   remainingValue: string;
 }
 
+const MEMBER_SESSION_TYPE = '83398355';
+
 function acuityUrl(calendarId: string, certificate?: string) {
-  let url = `https://app.acuityscheduling.com/schedule.php?owner=${OWNER_ID}&calendarID=${calendarId}`;
   if (certificate?.trim()) {
-    url += `&certificate=${encodeURIComponent(certificate.trim())}`;
+    return `https://app.acuityscheduling.com/schedule.php?owner=${OWNER_ID}&appointmentType=${MEMBER_SESSION_TYPE}&certificate=${encodeURIComponent(certificate.trim())}`;
   }
-  return url;
+  return `https://app.acuityscheduling.com/schedule.php?owner=${OWNER_ID}&calendarID=${calendarId}`;
 }
 
 export default function BookScreen() {
