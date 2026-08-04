@@ -162,9 +162,9 @@ export default function SignInScreen() {
             />
             {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || loading || !isLoaded) && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || loading) && styles.buttonDisabled]}
               onPress={handleSendResetCode}
-              disabled={!email || loading || !isLoaded}
+              disabled={!email || loading}
               activeOpacity={0.8}
             >
               {loading
