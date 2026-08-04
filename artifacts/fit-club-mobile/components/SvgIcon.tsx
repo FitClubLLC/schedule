@@ -13,6 +13,9 @@ export type SvgIconName =
   | 'alert-circle'
   | 'arrow-left'
   | 'calendar'
+  | 'check'
+  | 'chevron-left'
+  | 'chevron-right'
   | 'clock'
   | 'external-link'
   | 'eye'
@@ -23,6 +26,8 @@ export type SvgIconName =
   | 'map-pin'
   | 'plus'
   | 'plus-circle'
+  | 'rotate-ccw'
+  | 'trash-2'
   | 'wifi-off'
   | 'x';
 
@@ -148,6 +153,28 @@ export default function SvgIcon({ name, size = 24, color = 'currentColor' }: Pro
             <Path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" {...s} />
             <Path d="M8.53 16.11a6 6 0 0 1 6.95 0" {...s} />
             <Line x1="12" y1="20" x2="12.01" y2="20" {...s} />
+          </>
+        );
+      case 'check':
+        return <Polyline points="20 6 9 11 4 16" {...s} />;
+      case 'chevron-left':
+        return <Polyline points="15 18 9 12 15 6" {...s} />;
+      case 'chevron-right':
+        return <Polyline points="9 18 15 12 9 6" {...s} />;
+      case 'rotate-ccw':
+        return (
+          <>
+            <Polyline points="1 4 1 10 7 10" {...s} />
+            <Path d="M3.51 15a9 9 0 1 0 .49-3.65" {...s} />
+          </>
+        );
+      case 'trash-2':
+        return (
+          <>
+            <Polyline points="3 6 5 6 21 6" {...s} />
+            <Path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" {...s} />
+            <Line x1="10" y1="11" x2="10" y2="17" {...s} />
+            <Line x1="14" y1="11" x2="14" y2="17" {...s} />
           </>
         );
       case 'x':

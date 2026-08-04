@@ -8,12 +8,15 @@ import {
   Platform,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGetPastAppointments, useGetUpcomingAppointments } from '@workspace/api-client-react';
 import SvgIcon from '@/components/SvgIcon';
 import AppointmentCard from '@/components/AppointmentCard';
+import RescheduleModal from '@/components/RescheduleModal';
+import { useAppointmentActions } from '@/hooks/useAppointmentActions';
 
 type Tab = 'upcoming' | 'past';
 
@@ -21,6 +24,8 @@ export default function AppointmentsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<Tab>('upcoming');
+  const [rescheduleTarget, setRescheduleTarget] = useState<{ id: number; type: string } | null>(null);
+  const { cancelAppointment } = useAppointmentActions();
 
   const upcomingQuery = useGetUpcomingAppointments({
     query: { enabled: activeTab === 'upcoming' },
@@ -34,6 +39,27 @@ export default function AppointmentsScreen() {
   const isLoading = query.isLoading;
   const isError = query.isError;
   const isRefreshing = query.isFetching && !query.isLoading;
+
+  function handleCancel(id: number) {
+    Alert.alert(
+      'Cancel Session',
+      'Are you sure you want to cancel this session?',
+      [
+        { text: 'Keep it', style: 'cancel' },
+        {
+          text: 'Cancel session',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await cancelAppointment(id);
+            } catch (err: any) {
+              Alert.alert('Error', err?.message ?? 'Could not cancel. Please try again.');
+            }
+          },
+        },
+      ],
+    );
+  }
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
@@ -124,7 +150,13 @@ export default function AppointmentsScreen() {
         <FlatList
           data={appointments}
           keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => <AppointmentCard appointment={item} />}
+          renderItem={({ item }) => (
+            <AppointmentCard
+              appointment={item}
+              onReschedule={activeTab === 'upcoming' ? () => setRescheduleTarget({ id: item.id, type: item.type }) : undefined}
+              onCancel={activeTab === 'upcoming' ? () => handleCancel(item.id) : undefined}
+            />
+          )}
           contentContainerStyle={[
             styles.listContent,
             appointments.length === 0 && styles.emptyContainer,
@@ -157,6 +189,17 @@ export default function AppointmentsScreen() {
               </Text>
             </View>
           }
+        />
+      )}
+
+      {/* Reschedule modal */}
+      {rescheduleTarget && (
+        <RescheduleModal
+          visible={!!rescheduleTarget}
+          appointmentId={rescheduleTarget.id}
+          appointmentType={rescheduleTarget.type}
+          onClose={() => setRescheduleTarget(null)}
+          onSuccess={() => setRescheduleTarget(null)}
         />
       )}
     </View>

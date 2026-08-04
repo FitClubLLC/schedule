@@ -170,6 +170,113 @@ router.get(
   },
 );
 
+// DELETE /appointments/:id  — cancel an appointment
+router.delete(
+  "/appointments/:id",
+  requireAuth,
+  async (req: any, res): Promise<void> => {
+    const { id } = req.params;
+    const email = await getClerkUserEmail(req.userId);
+    if (!email) { res.status(400).json({ error: "Could not resolve user email" }); return; }
+
+    // Verify the appointment belongs to this user before cancelling.
+    const apptRes = await fetch(`${ACUITY_BASE_URL}/appointments/${id}`, {
+      headers: { Authorization: acuityAuthHeader() },
+    });
+    if (!apptRes.ok) { res.status(404).json({ error: "Appointment not found" }); return; }
+    const appt = await apptRes.json();
+    if (appt.email?.toLowerCase() !== email.toLowerCase()) {
+      res.status(403).json({ error: "Forbidden" }); return;
+    }
+
+    const cancelRes = await fetch(`${ACUITY_BASE_URL}/appointments/${id}/cancel`, {
+      method: "PUT",
+      headers: { Authorization: acuityAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ cancelNote: "Cancelled via Fit Club app" }),
+    });
+    if (!cancelRes.ok) {
+      res.status(502).json({ error: "Failed to cancel appointment" }); return;
+    }
+    res.json({ success: true });
+  },
+);
+
+// GET /appointments/:id/times?date=YYYY-MM-DD — available slots for rescheduling
+router.get(
+  "/appointments/:id/times",
+  requireAuth,
+  async (req: any, res): Promise<void> => {
+    const { id } = req.params;
+    const { date } = req.query as { date?: string };
+    if (!date) { res.status(400).json({ error: "date query param required" }); return; }
+
+    const email = await getClerkUserEmail(req.userId);
+    if (!email) { res.status(400).json({ error: "Could not resolve user email" }); return; }
+
+    const apptRes = await fetch(`${ACUITY_BASE_URL}/appointments/${id}`, {
+      headers: { Authorization: acuityAuthHeader() },
+    });
+    if (!apptRes.ok) { res.status(404).json({ error: "Appointment not found" }); return; }
+    const appt = await apptRes.json();
+    if (appt.email?.toLowerCase() !== email.toLowerCase()) {
+      res.status(403).json({ error: "Forbidden" }); return;
+    }
+
+    const timesUrl =
+      `${ACUITY_BASE_URL}/availability/times` +
+      `?date=${date}` +
+      `&appointmentTypeID=${appt.appointmentTypeID}` +
+      `&calendarID=${appt.calendarID}`;
+
+    const timesRes = await fetch(timesUrl, { headers: { Authorization: acuityAuthHeader() } });
+    if (!timesRes.ok) {
+      res.status(502).json({ error: "Failed to fetch available times" }); return;
+    }
+    const times = await timesRes.json();
+    // Return only what the client needs.
+    res.json(
+      Array.isArray(times)
+        ? times.map((t: any) => ({ time: t.time, datetime: t.datetime }))
+        : [],
+    );
+  },
+);
+
+// PUT /appointments/:id  — reschedule to a new datetime
+router.put(
+  "/appointments/:id",
+  requireAuth,
+  async (req: any, res): Promise<void> => {
+    const { id } = req.params;
+    const { datetime } = req.body as { datetime?: string };
+    if (!datetime) { res.status(400).json({ error: "datetime required in body" }); return; }
+
+    const email = await getClerkUserEmail(req.userId);
+    if (!email) { res.status(400).json({ error: "Could not resolve user email" }); return; }
+
+    const apptRes = await fetch(`${ACUITY_BASE_URL}/appointments/${id}`, {
+      headers: { Authorization: acuityAuthHeader() },
+    });
+    if (!apptRes.ok) { res.status(404).json({ error: "Appointment not found" }); return; }
+    const appt = await apptRes.json();
+    if (appt.email?.toLowerCase() !== email.toLowerCase()) {
+      res.status(403).json({ error: "Forbidden" }); return;
+    }
+
+    const reschedRes = await fetch(`${ACUITY_BASE_URL}/appointments/${id}`, {
+      method: "PUT",
+      headers: { Authorization: acuityAuthHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ datetime }),
+    });
+    if (!reschedRes.ok) {
+      const body = await reschedRes.json().catch(() => null);
+      res.status(502).json({ error: body?.message ?? "Failed to reschedule appointment" });
+      return;
+    }
+    res.json({ success: true });
+  },
+);
+
 function mapAcuityAppointments(raw: any[]): any[] {
   if (!Array.isArray(raw)) return [];
   return raw.map((appt) => ({

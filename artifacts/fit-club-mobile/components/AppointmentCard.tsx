@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
 
@@ -65,11 +65,16 @@ function formatTime(isoStr: string): string {
 export default function AppointmentCard({
   appointment,
   highlighted = false,
+  onReschedule,
+  onCancel,
 }: {
   appointment: Appointment;
   highlighted?: boolean;
+  onReschedule?: () => void;
+  onCancel?: () => void;
 }) {
   const colors = useColors();
+  const showActions = !!(onReschedule || onCancel);
 
   return (
     <View
@@ -122,6 +127,31 @@ export default function AppointmentCard({
           <LocationBadge calendarName={appointment.calendar} />
         </View>
       </View>
+
+      {showActions && (
+        <View style={[styles.actionsRow, { borderTopColor: colors.border }]}>
+          {onReschedule && (
+            <TouchableOpacity
+              onPress={onReschedule}
+              style={[styles.actionBtn, styles.actionBtnLeft, { borderRightColor: colors.border }]}
+              activeOpacity={0.7}
+            >
+              <SvgIcon name="rotate-ccw" size={13} color={colors.primary} />
+              <Text style={[styles.actionText, { color: colors.primary }]}>RESCHEDULE</Text>
+            </TouchableOpacity>
+          )}
+          {onCancel && (
+            <TouchableOpacity
+              onPress={onCancel}
+              style={[styles.actionBtn, styles.actionBtnRight]}
+              activeOpacity={0.7}
+            >
+              <SvgIcon name="trash-2" size={13} color={colors.destructive} />
+              <Text style={[styles.actionText, { color: colors.destructive }]}>CANCEL</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -176,5 +206,26 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 11,
     letterSpacing: 0.3,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+  },
+  actionBtnLeft: {
+    borderRightWidth: StyleSheet.hairlineWidth,
+  },
+  actionBtnRight: {},
+  actionText: {
+    fontFamily: 'BarlowCondensed_700Bold',
+    fontSize: 12,
+    letterSpacing: 1.2,
   },
 });
