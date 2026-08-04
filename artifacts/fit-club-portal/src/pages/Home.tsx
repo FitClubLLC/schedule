@@ -1,7 +1,6 @@
-import { Link } from "wouter";
+import { Link, Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@clerk/react";
-import { Redirect } from "wouter";
 
 export default function Home() {
   const { isSignedIn, isLoaded } = useUser();
@@ -18,12 +17,12 @@ export default function Home() {
           <img src={`${basePath}/fitclub-logo.png`} alt="Fit Club" className="h-10 w-auto" />
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/sign-in" className="text-sm font-semibold hover:text-primary transition-colors text-foreground">
-            Sign In
-          </Link>
-          <Link href="/sign-up">
-            <Button className="hidden sm:flex rounded-full px-6 bg-primary text-black hover:bg-primary/90">Join Now</Button>
-          </Link>
+          <Button variant="ghost" size="sm" asChild className="font-semibold">
+            <Link href="/sign-in">Sign In</Link>
+          </Button>
+          <Button asChild className="hidden sm:flex rounded-full px-6 bg-primary text-black hover:bg-primary/90">
+            <Link href="/sign-up">Join Now</Link>
+          </Button>
         </div>
       </header>
 
@@ -49,16 +48,12 @@ export default function Home() {
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row gap-4">
-          <Link href="/sign-up">
-            <Button size="lg" className="rounded-full w-full sm:w-auto bg-primary text-black hover:bg-primary/90">
-              Create an Account
-            </Button>
-          </Link>
-          <Link href="/sign-in">
-            <Button size="lg" variant="outline" className="rounded-full w-full sm:w-auto border-border text-foreground hover:bg-muted">
-              Sign In to Portal
-            </Button>
-          </Link>
+          <Button size="lg" asChild className="rounded-full w-full sm:w-auto bg-primary text-black hover:bg-primary/90">
+            <Link href="/sign-up">Create an Account</Link>
+          </Button>
+          <Button size="lg" variant="outline" asChild className="rounded-full w-full sm:w-auto border-border text-foreground hover:bg-muted">
+            <Link href="/sign-in">Sign In to Portal</Link>
+          </Button>
         </div>
       </main>
       
