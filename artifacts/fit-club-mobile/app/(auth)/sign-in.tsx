@@ -84,7 +84,7 @@ export default function SignInScreen() {
 
   // ── Send reset code ────────────────────────────────────────────────────────
   const handleSendCode = async () => {
-    if (!isLoaded || !resetEmail.trim() || loading) return;
+    if (!isLoaded || !signIn || !resetEmail.trim() || loading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     clearError();
@@ -107,7 +107,7 @@ export default function SignInScreen() {
 
   // ── Confirm reset ──────────────────────────────────────────────────────────
   const handleResetPassword = async () => {
-    if (!isLoaded || !resetCode || !newPassword || loading) return;
+    if (!isLoaded || !signIn || !resetCode || !newPassword || loading) return;
     if (newPassword !== confirmPassword) {
       setError('Passwords don\'t match.');
       return;
@@ -173,9 +173,9 @@ export default function SignInScreen() {
             {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary }, (!resetEmail.trim() || loading) && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: colors.primary }, (!isLoaded || !signIn || !resetEmail.trim() || loading) && styles.buttonDisabled]}
               onPress={handleSendCode}
-              disabled={!resetEmail.trim() || loading}
+              disabled={!isLoaded || !signIn || !resetEmail.trim() || loading}
               activeOpacity={0.8}
             >
               {loading
@@ -241,9 +241,9 @@ export default function SignInScreen() {
             {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary }, (!resetCode || !newPassword || !confirmPassword || loading) && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: colors.primary }, (!isLoaded || !signIn || !resetCode || !newPassword || !confirmPassword || loading) && styles.buttonDisabled]}
               onPress={handleResetPassword}
-              disabled={!resetCode || !newPassword || !confirmPassword || loading}
+              disabled={!isLoaded || !signIn || !resetCode || !newPassword || !confirmPassword || loading}
               activeOpacity={0.8}
             >
               {loading
