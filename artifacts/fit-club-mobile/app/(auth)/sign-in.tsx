@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
+  Alert,
 } from 'react-native';
 import { useSignIn } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
@@ -85,6 +86,8 @@ export default function SignInScreen() {
         err?.message ??
         'Could not send reset code. Check the email and try again.';
       setError(msg);
+      // Guarantee visibility — some error shapes don't render in the inline text
+      Alert.alert('Reset failed', msg);
     } finally {
       setLoading(false);
     }
