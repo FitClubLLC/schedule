@@ -97,20 +97,23 @@ export default function SignInScreen() {
 
   // ── Send reset code ────────────────────────────────────────────────────────
   const handleSendCode = async () => {
-    if (!isLoaded || !resetEmail.trim() || loading) return;
-    if (!signIn) { setError('Still loading — please try again in a moment.'); return; }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (loading || !isLoaded || !resetEmail.trim()) return;
+    const si = (clerk as any).client?.signIn ?? hookSignIn;
+    if (!si) { setError('Still loading — please try again in a moment.'); return; }
     setLoading(true);
     clearError();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      await signIn.create({
+      // create() returns the live attempt object — store IT, not the source ref.
+      // This is the exact instance we must pass to attemptFirstFactor.
+      const attempt = await si.create({
         strategy: 'reset_password_email_code',
         identifier: resetEmail.trim(),
       });
-      // Pin the exact instance so attemptFirstFactor uses the same object.
-      signInRef.current = signIn;
+      signInRef.current = attempt;
       setScreen('forgot-code');
     } catch (err: any) {
+      console.error('[ForgotPassword] create error:', JSON.stringify(err));
       setError(
         err?.errors?.[0]?.longMessage ??
         err?.errors?.[0]?.message ??
@@ -123,38 +126,42 @@ export default function SignInScreen() {
 
   // ── Confirm reset ──────────────────────────────────────────────────────────
   const handleResetPassword = async () => {
-    if (!isLoaded || !resetCode || !newPassword || loading) return;
-    const activeSignIn = signInRef.current ?? signIn;
-    if (!activeSignIn) { setError('Still loading — please try again in a moment.'); return; }
-    if (newPassword !== confirmPassword) {
-      setError('Passwords don\'t match.');
+    if (loading || !isLoaded || !resetCode || !newPassword) return;
+    if (newPassword !== confirmPassword) { setError("Passwords don't match."); return; }
+    if (newPassword.length < 8) { setError('Password must be at least 8 characters.'); return; }
+
+    // Use ONLY the stored attempt — never re-fetch from clerk.client.
+    // Re-fetching could return a different object and lose the session context.
+    const si = signInRef.current;
+    if (!si) {
+      setError('Reset session lost — go back and request a new code.');
       return;
     }
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters.');
-      return;
-    }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     setLoading(true);
     clearError();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      const result = await activeSignIn.attemptFirstFactor({
+      const result = await si.attemptFirstFactor({
         strategy: 'reset_password_email_code',
         code: resetCode.trim(),
         password: newPassword,
       });
       if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
+        await (clerk as any).setActive({ session: result.createdSessionId });
         router.replace('/(tabs)');
       } else {
-        setError('Reset could not be completed. Please try again.');
+        setError(`Unexpected status: ${result.status}. Please try again.`);
       }
     } catch (err: any) {
-      setError(
+      console.error('[ForgotPassword] attemptFirstFactor error:', JSON.stringify(err));
+      const msg =
         err?.errors?.[0]?.longMessage ??
         err?.errors?.[0]?.message ??
-        'Invalid or expired code. Please try again.',
-      );
+        err?.message ??
+        'Invalid or expired code.';
+      const errCode = err?.errors?.[0]?.code ? ` (${err.errors[0].code})` : '';
+      setError(msg + errCode);
     } finally {
       setLoading(false);
     }
