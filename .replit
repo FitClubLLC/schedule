@@ -26,3 +26,4 @@ ACUITY_CALENDAR_URL = "https://app.acuityscheduling.com/schedule.php?owner=36930
 ACUITY_USER_ID = "36930698"
 VITE_ACUITY_CALENDAR_URL = "https://app.acuityscheduling.com/schedule.php?owner=36930698"
 VITE_BUSINESS_NAME = "Fit Club"
+EXPO_PUBLIC_ACUITY_CALENDAR_URL = "https://app.acuityscheduling.com/schedule.php?owner=36930698"
