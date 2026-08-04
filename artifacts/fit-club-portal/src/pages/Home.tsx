@@ -1,9 +1,10 @@
-import { Link, Redirect } from "wouter";
+import { useLocation, Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@clerk/react";
 
 export default function Home() {
   const { isSignedIn, isLoaded } = useUser();
+  const [, navigate] = useLocation();
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   if (isLoaded && isSignedIn) {
@@ -17,11 +18,11 @@ export default function Home() {
           <img src={`${basePath}/fitclub-logo.png`} alt="Fit Club" className="h-10 w-auto" />
         </div>
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild className="font-semibold">
-            <Link href="/sign-in">Sign In</Link>
+          <Button variant="ghost" size="sm" className="font-semibold" onClick={() => navigate("/sign-in")}>
+            Sign In
           </Button>
-          <Button asChild className="hidden sm:flex rounded-full px-6 bg-primary text-black hover:bg-primary/90">
-            <Link href="/sign-up">Join Now</Link>
+          <Button className="hidden sm:flex rounded-full px-6 bg-primary text-black hover:bg-primary/90" onClick={() => navigate("/sign-up")}>
+            Join Now
           </Button>
         </div>
       </header>
@@ -48,11 +49,11 @@ export default function Home() {
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row gap-4">
-          <Button size="lg" asChild className="rounded-full w-full sm:w-auto bg-primary text-black hover:bg-primary/90">
-            <Link href="/sign-up">Create an Account</Link>
+          <Button size="lg" className="rounded-full w-full sm:w-auto bg-primary text-black hover:bg-primary/90" onClick={() => navigate("/sign-up")}>
+            Create an Account
           </Button>
-          <Button size="lg" variant="outline" asChild className="rounded-full w-full sm:w-auto border-border text-foreground hover:bg-muted">
-            <Link href="/sign-in">Sign In to Portal</Link>
+          <Button size="lg" variant="outline" className="rounded-full w-full sm:w-auto border-border text-foreground hover:bg-muted" onClick={() => navigate("/sign-in")}>
+            Sign In to Portal
           </Button>
         </div>
       </main>
