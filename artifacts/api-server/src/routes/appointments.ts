@@ -178,7 +178,10 @@ function mapAcuityAppointments(raw: any[]): any[] {
     lastName: appt.lastName ?? "",
     email: appt.email ?? "",
     phone: appt.phone ?? null,
-    date: appt.date ?? "",
+    // appt.date is a human-readable string from Acuity ("August 10, 2026").
+    // Extract YYYY-MM-DD from the ISO datetime instead so the client can safely
+    // parse it with new Date(date + 'T00:00:00').
+    date: appt.datetime ? appt.datetime.split('T')[0] : (appt.date ?? ""),
     time: appt.datetime ?? appt.time ?? "",
     endTime: appt.endTime ?? "",
     duration: Number(appt.duration ?? 0),
