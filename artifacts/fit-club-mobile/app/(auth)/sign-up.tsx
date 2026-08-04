@@ -16,11 +16,12 @@ import { Link, useRouter } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { Feather } from '@expo/vector-icons';
 
 type Step = 'form' | 'verify';
 
 export default function SignUpScreen() {
-  const { signUp, errors, fetchStatus } = useSignUp();
+  const { isLoaded, signUp, setActive } = useSignUp();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -28,38 +29,84 @@ export default function SignUpScreen() {
   const [step, setStep] = useState<Step>('form');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [verifyCode, setVerifyCode] = useState('');
-
-  const isLoading = fetchStatus === 'fetching';
-
-  const handleSignUp = async () => {
-    if (!email || !password || isLoading) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const { error } = await signUp.password({ emailAddress: email, password, firstName, lastName });
-    if (error) return;
-    await signUp.verifications.sendEmailCode();
-    setStep('verify');
-  };
-
-  const handleVerify = async () => {
-    if (!verifyCode || isLoading) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await signUp.verifications.verifyEmailCode({ code: verifyCode });
-    if (signUp.status === 'complete') {
-      await signUp.finalize({
-        navigate: ({ session }) => {
-          if (session?.currentTask) return;
-          router.replace('/(tabs)');
-        },
-      });
-    }
-  };
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 20);
   const bottomPad = insets.bottom + (Platform.OS === 'web' ? 34 : 24);
 
+  const clearError = () => setError('');
+
+  // ── Sign up: create account + send verification code ──────────────────────
+  const handleSignUp = async () => {
+    if (!isLoaded || !email || !password || loading) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setLoading(true);
+    clearError();
+    try {
+      await signUp.create({
+        emailAddress: email.trim(),
+        password,
+        ...(firstName ? { firstName } : {}),
+        ...(lastName ? { lastName } : {}),
+      });
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      setStep('verify');
+    } catch (err: any) {
+      setError(
+        err?.errors?.[0]?.longMessage ??
+        err?.errors?.[0]?.message ??
+        'Could not create account. Please try again.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Verify email ───────────────────────────────────────────────────────────
+  const handleVerify = async () => {
+    if (!isLoaded || !verifyCode || loading) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setLoading(true);
+    clearError();
+    try {
+      const result = await signUp.attemptEmailAddressVerification({ code: verifyCode });
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+        router.replace('/(tabs)');
+      } else {
+        setError('Verification could not be completed. Please try again.');
+      }
+    } catch (err: any) {
+      setError(
+        err?.errors?.[0]?.longMessage ??
+        err?.errors?.[0]?.message ??
+        'Invalid verification code.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Resend verification code ───────────────────────────────────────────────
+  const handleResend = async () => {
+    if (!isLoaded || loading) return;
+    setLoading(true);
+    clearError();
+    try {
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+    } catch (err: any) {
+      setError(err?.errors?.[0]?.message ?? 'Could not resend code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Email verification screen ──────────────────────────────────────────────
   if (step === 'verify') {
     return (
       <KeyboardAvoidingView
@@ -67,112 +114,71 @@ export default function SignUpScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingTop: topPad, paddingBottom: bottomPad },
-          ]}
+          contentContainerStyle={[styles.scrollContent, { paddingTop: topPad, paddingBottom: bottomPad }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={[styles.title, { color: colors.primary }]}>
-            CHECK YOUR EMAIL
-          </Text>
+          <Text style={[styles.title, { color: colors.primary }]}>CHECK YOUR EMAIL</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             Enter the verification code sent to {email}
           </Text>
+
           <View style={styles.form}>
             <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.input,
-                  borderColor: colors.border,
-                  color: colors.foreground,
-                },
-              ]}
+              style={[styles.input, { backgroundColor: colors.input, borderColor: colors.border, color: colors.foreground }]}
               placeholder="Verification code"
               placeholderTextColor={colors.mutedForeground}
               value={verifyCode}
-              onChangeText={setVerifyCode}
+              onChangeText={(v) => { setVerifyCode(v); clearError(); }}
               keyboardType="number-pad"
               autoFocus
             />
-            {errors?.fields?.code && (
-              <Text style={[styles.errorText, { color: colors.destructive }]}>
-                {errors.fields.code.message}
-              </Text>
-            )}
+            {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
             <TouchableOpacity
-              style={[
-                styles.button,
-                { backgroundColor: colors.primary, marginTop: 8 },
-                isLoading && styles.buttonDisabled,
-              ]}
+              style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!verifyCode || loading) && styles.buttonDisabled]}
               onPress={handleVerify}
-              disabled={isLoading}
+              disabled={!verifyCode || loading}
               activeOpacity={0.8}
             >
-              {isLoading ? (
-                <ActivityIndicator color={colors.primaryForeground} />
-              ) : (
-                <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
-                  VERIFY & JOIN
-                </Text>
-              )}
+              {loading
+                ? <ActivityIndicator color={colors.primaryForeground} />
+                : <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>VERIFY & JOIN</Text>}
             </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={{ marginTop: 16 }}
-            onPress={() => signUp.verifications.sendEmailCode()}
-          >
+
+          <TouchableOpacity style={{ marginTop: 20 }} onPress={handleResend} disabled={loading}>
             <Text style={[styles.linkText, { color: colors.primary }]}>Resend code</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={{ marginTop: 8 }} onPress={() => setStep('form')}>
-            <Text style={[styles.linkText, { color: colors.mutedForeground }]}>Go back</Text>
+          <TouchableOpacity style={{ marginTop: 10 }} onPress={() => { setStep('form'); clearError(); }}>
+            <Text style={[styles.linkText, { color: colors.mutedForeground }]}>← Go back</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     );
   }
 
+  // ── Sign-up form ───────────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: topPad, paddingBottom: bottomPad },
-        ]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: topPad, paddingBottom: bottomPad }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.logoContainer}>
-          <Image
-            source={require('@/assets/images/fitclub-logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          <Image source={require('@/assets/images/fitclub-logo.png')} style={styles.logo} resizeMode="contain" />
         </View>
 
         <Text style={[styles.title, { color: colors.primary }]}>JOIN FIT CLUB</Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          Create your member account
-        </Text>
+        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Create your member account</Text>
 
         <View style={styles.form}>
           <View style={styles.nameRow}>
             <TextInput
-              style={[
-                styles.input,
-                styles.halfInput,
-                {
-                  backgroundColor: colors.input,
-                  borderColor: colors.border,
-                  color: colors.foreground,
-                },
-              ]}
+              style={[styles.input, styles.halfInput, { backgroundColor: colors.input, borderColor: colors.border, color: colors.foreground }]}
               placeholder="First name"
               placeholderTextColor={colors.mutedForeground}
               value={firstName}
@@ -180,15 +186,7 @@ export default function SignUpScreen() {
               autoCapitalize="words"
             />
             <TextInput
-              style={[
-                styles.input,
-                styles.halfInput,
-                {
-                  backgroundColor: colors.input,
-                  borderColor: colors.border,
-                  color: colors.foreground,
-                },
-              ]}
+              style={[styles.input, styles.halfInput, { backgroundColor: colors.input, borderColor: colors.border, color: colors.foreground }]}
               placeholder="Last name"
               placeholderTextColor={colors.mutedForeground}
               value={lastName}
@@ -196,66 +194,45 @@ export default function SignUpScreen() {
               autoCapitalize="words"
             />
           </View>
+
           <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.input,
-                borderColor: colors.border,
-                color: colors.foreground,
-              },
-            ]}
+            style={[styles.input, { backgroundColor: colors.input, borderColor: colors.border, color: colors.foreground }]}
             placeholder="Email address"
             placeholderTextColor={colors.mutedForeground}
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(v) => { setEmail(v); clearError(); }}
             autoCapitalize="none"
             keyboardType="email-address"
             autoCorrect={false}
           />
-          {errors?.fields?.emailAddress && (
-            <Text style={[styles.errorText, { color: colors.destructive }]}>
-              {errors.fields.emailAddress.message}
-            </Text>
-          )}
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.input,
-                borderColor: colors.border,
-                color: colors.foreground,
-              },
-            ]}
-            placeholder="Password"
-            placeholderTextColor={colors.mutedForeground}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-          {errors?.fields?.password && (
-            <Text style={[styles.errorText, { color: colors.destructive }]}>
-              {errors.fields.password.message}
-            </Text>
-          )}
+
+          <View style={[styles.inputRow, { backgroundColor: colors.input, borderColor: colors.border }]}>
+            <TextInput
+              style={[styles.inputInner, { color: colors.foreground }]}
+              placeholder="Password (min 8 chars)"
+              placeholderTextColor={colors.mutedForeground}
+              value={password}
+              onChangeText={(v) => { setPassword(v); clearError(); }}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(v => !v)} hitSlop={8}>
+              <Feather name={showPassword ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
+
+          {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
 
           <TouchableOpacity
-            style={[
-              styles.button,
-              { backgroundColor: colors.primary, marginTop: 8 },
-              (!email || !password || isLoading) && styles.buttonDisabled,
-            ]}
+            style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || !password || loading) && styles.buttonDisabled]}
             onPress={handleSignUp}
-            disabled={!email || !password || isLoading}
+            disabled={!email || !password || loading}
             activeOpacity={0.8}
           >
-            {isLoading ? (
-              <ActivityIndicator color={colors.primaryForeground} />
-            ) : (
-              <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
-                CREATE ACCOUNT
-              </Text>
-            )}
+            {loading
+              ? <ActivityIndicator color={colors.primaryForeground} />
+              : <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>CREATE ACCOUNT</Text>}
           </TouchableOpacity>
         </View>
 
@@ -263,9 +240,7 @@ export default function SignUpScreen() {
         <View nativeID="clerk-captcha" />
 
         <View style={styles.footerRow}>
-          <Text style={[styles.footerText, { color: colors.mutedForeground }]}>
-            Already a member?{' '}
-          </Text>
+          <Text style={[styles.footerText, { color: colors.mutedForeground }]}>Already a member? </Text>
           <Link href="/(auth)/sign-in" asChild>
             <TouchableOpacity>
               <Text style={[styles.footerLink, { color: colors.primary }]}>Sign in</Text>
@@ -278,23 +253,15 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoContainer: {
-    marginBottom: 24,
-    alignItems: 'center',
-  },
-  logo: {
-    width: 160,
-    height: 80,
-  },
+  logoContainer: { marginBottom: 24, alignItems: 'center' },
+  logo: { width: 160, height: 80 },
   title: {
     fontFamily: 'BarlowCondensed_800ExtraBold',
     fontSize: 34,
@@ -308,17 +275,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 28,
   },
-  form: {
-    width: '100%',
-    gap: 10,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  halfInput: {
-    flex: 1,
-  },
+  form: { width: '100%', gap: 10 },
+  nameRow: { flexDirection: 'row', gap: 10 },
+  halfInput: { flex: 1 },
   input: {
     borderWidth: 1,
     borderRadius: 8,
@@ -327,10 +286,23 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 15,
   },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  inputInner: {
+    flex: 1,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+  },
   errorText: {
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
-    marginTop: -6,
+    marginTop: -4,
   },
   button: {
     borderRadius: 8,
@@ -338,29 +310,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonDisabled: {
-    opacity: 0.45,
-  },
+  buttonDisabled: { opacity: 0.45 },
   buttonText: {
     fontFamily: 'BarlowCondensed_800ExtraBold',
     fontSize: 18,
     letterSpacing: 2.5,
   },
-  linkText: {
-    fontFamily: 'Inter_500Medium',
-    fontSize: 14,
-  },
-  footerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 28,
-  },
-  footerText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 14,
-  },
-  footerLink: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
-  },
+  linkText: { fontFamily: 'Inter_500Medium', fontSize: 14 },
+  footerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 28 },
+  footerText: { fontFamily: 'Inter_400Regular', fontSize: 14 },
+  footerLink: { fontFamily: 'Inter_600SemiBold', fontSize: 14 },
 });
