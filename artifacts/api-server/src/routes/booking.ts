@@ -259,16 +259,33 @@ router.get("/booking/certificates/check", requireAuth, async (req: any, res): Pr
       res.status(400).json({ error: "Missing required param: certificate" });
       return;
     }
-    const url = `${ACUITY_BASE_URL}/certificates?certificate=${encodeURIComponent(certificate.trim())}`;
-    const response = await fetch(url, { headers: { Authorization: acuityAuth() } });
-    if (!response.ok) {
-      req.log.error({ status: response.status }, "Acuity certificates check error");
-      res.status(422).json({ error: "Invalid or expired certificate" });
-      return;
+    const trimmedCode = certificate.trim();
+
+    // Try Acuity code-based lookup first (works for gift certificates)
+    let cert: any = null;
+    const codeUrl = `${ACUITY_BASE_URL}/certificates?certificate=${encodeURIComponent(trimmedCode)}`;
+    const codeRes = await fetch(codeUrl, { headers: { Authorization: acuityAuth() } });
+    if (codeRes.ok) {
+      const codeData = await codeRes.json();
+      const codeCerts = Array.isArray(codeData) ? codeData : [codeData];
+      cert = codeCerts.find((c: any) => c?.name || c?.productName) ?? null;
     }
-    const data = await response.json();
-    const certs = Array.isArray(data) ? data : [data];
-    const cert = certs[0];
+
+    // Fallback: look up member's certificates by email (handles subscription packages)
+    if (!cert && req.userId) {
+      const email = await getClerkUserEmail(req.userId);
+      if (email) {
+        const emailUrl = `${ACUITY_BASE_URL}/certificates?email=${encodeURIComponent(email)}`;
+        const emailRes = await fetch(emailUrl, { headers: { Authorization: acuityAuth() } });
+        if (emailRes.ok) {
+          const emailData = await emailRes.json();
+          cert = (Array.isArray(emailData) ? emailData : []).find(
+            (c: any) => c?.certificate === trimmedCode
+          ) ?? null;
+        }
+      }
+    }
+
     const productName = cert?.name ?? cert?.productName;
     if (!cert || !productName) {
       res.status(422).json({ error: "Invalid or expired certificate" });
