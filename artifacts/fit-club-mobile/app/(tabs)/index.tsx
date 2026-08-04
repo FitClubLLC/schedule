@@ -263,6 +263,13 @@ export default function DashboardScreen() {
           <Text style={[styles.name, { color: colors.foreground }]}>
             {(user?.firstName || user?.fullName?.split(' ')[0])?.toUpperCase() ?? 'MEMBER'}
           </Text>
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/book')}
+            activeOpacity={0.8}
+            style={[styles.bookBtn, { backgroundColor: colors.primary }]}
+          >
+            <Text style={styles.bookBtnText}>Book a Session</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Stats row */}
@@ -405,6 +412,19 @@ const styles = StyleSheet.create({
   greetingSection: {
     marginTop: 20,
     marginBottom: 20,
+  },
+  bookBtn: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  bookBtnText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 14,
+    color: '#000',
+    letterSpacing: 0.3,
   },
   greeting: {
     fontFamily: 'Inter_500Medium',
