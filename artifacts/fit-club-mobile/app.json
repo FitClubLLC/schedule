@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "FIT CLUB 15",
-    "slug": "fitclub15",
+    "slug": "fit-club-15",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -27,7 +27,10 @@
               "scheme": "fitclub15"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -48,6 +51,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e8d0e9fe-9740-420a-ae44-f8f44907f63d"
+      }
+    },
+    "owner": "fit-club-llc"
   }
 }
