@@ -261,7 +261,12 @@ export default function DashboardScreen() {
             {getGreeting()}
           </Text>
           <Text style={[styles.name, { color: colors.foreground }]}>
-            {user?.firstName?.toUpperCase() ?? 'MEMBER'}
+            {(
+              user?.firstName ||
+              user?.fullName?.split(' ')[0] ||
+              user?.username ||
+              user?.primaryEmailAddress?.emailAddress?.split('@')[0]
+            )?.toUpperCase() ?? 'MEMBER'}
           </Text>
         </View>
 
