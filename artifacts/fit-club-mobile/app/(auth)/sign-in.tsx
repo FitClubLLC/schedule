@@ -69,7 +69,15 @@ export default function SignInScreen() {
 
   // ── Forgot password — step 1: send reset code ─────────────────────────────
   const handleSendResetCode = async () => {
-    if (!isLoaded || !signIn || !email || loading) return;
+    if (!isLoaded || !signIn) {
+      Alert.alert('Not ready', 'Sign-in service is still loading. Please wait a moment and try again.');
+      return;
+    }
+    if (!email.trim()) {
+      Alert.alert('Email required', 'Please enter your email address.');
+      return;
+    }
+    if (loading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     clearError();
@@ -86,7 +94,6 @@ export default function SignInScreen() {
         err?.message ??
         'Could not send reset code. Check the email and try again.';
       setError(msg);
-      // Guarantee visibility — some error shapes don't render in the inline text
       Alert.alert('Reset failed', msg);
     } finally {
       setLoading(false);
