@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
+import { Linking, Platform, StyleSheet, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
 import { BlurView } from 'expo-blur';
@@ -8,6 +8,9 @@ import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const MEMBERSHIPS_URL = 'https://app.acuityscheduling.com/catalog.php?owner=36930698';
+function openMemberships() { Linking.openURL(MEMBERSHIPS_URL); }
 
 function NativeTabLayout() {
   return (
@@ -23,6 +26,10 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="book">
         <Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} />
         <Label>Book</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="memberships" onPress={openMemberships}>
+        <Icon sf={{ default: 'creditcard', selected: 'creditcard.fill' }} />
+        <Label>Memberships</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -104,6 +111,26 @@ function ClassicTabLayout() {
             ) : (
               <SvgIcon name="plus-circle" size={22} color={color} />
             ),
+        }}
+      />
+      <Tabs.Screen
+        name="memberships"
+        options={{
+          title: 'Memberships',
+          tabBarLabel: 'Memberships',
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="creditcard" tintColor={color} size={24} />
+            ) : (
+              <SvgIcon name="credit-card" size={22} color={color} />
+            ),
+          tabBarButton: (props) => (
+            <TouchableOpacity
+              {...props}
+              onPress={openMemberships}
+              activeOpacity={0.7}
+            />
+          ),
         }}
       />
     </Tabs>

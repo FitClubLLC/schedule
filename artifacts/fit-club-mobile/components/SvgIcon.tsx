@@ -26,6 +26,7 @@ export type SvgIconName =
   | 'map-pin'
   | 'plus'
   | 'plus-circle'
+  | 'credit-card'
   | 'rotate-ccw'
   | 'trash-2'
   | 'wifi-off'
@@ -157,6 +158,13 @@ export default function SvgIcon({ name, size = 24, color = 'currentColor' }: Pro
         );
       case 'check':
         return <Polyline points="20 6 9 11 4 16" {...s} />;
+      case 'credit-card':
+        return (
+          <>
+            <Rect x="1" y="4" width="22" height="16" rx="2" ry="2" {...s} />
+            <Line x1="1" y1="10" x2="23" y2="10" {...s} />
+          </>
+        );
       case 'chevron-left':
         return <Polyline points="15 18 9 12 15 6" {...s} />;
       case 'chevron-right':
