@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useGetAppointmentSummary, useGetUpcomingAppointments } from "@workspace/api-client-react";
 import { Shell } from "@/components/layout/Shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dumbbell, CalendarRange, History, ArrowRight, KeyRound, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
+import { Dumbbell, CalendarRange, History, ArrowRight, KeyRound, Eye, EyeOff, CheckCircle, AlertCircle, ShoppingBag } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -160,18 +160,30 @@ export default function Dashboard() {
 
   return (
     <Shell>
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Here's what's happening with your fitness schedule.</p>
+          <div className="flex items-center gap-3 mt-4">
+            <Link href="/book">
+              <Button size="lg" className="shadow-md">
+                Book a Session
+              </Button>
+            </Link>
+            <a
+              href="https://app.acuityscheduling.com/catalog.php?owner=36930698"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button size="lg" variant="outline" className="gap-2">
+                <ShoppingBag className="w-4 h-4" />
+                Purchase a Membership
+              </Button>
+            </a>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <ChangePasswordDialog />
-          <Link href="/book">
-            <Button size="lg" className="w-full sm:w-auto shadow-md">
-              Book a Session
-            </Button>
-          </Link>
         </div>
       </div>
 
