@@ -1,0 +1,19 @@
+Small file this time (580KB) — should extract quickly.This is a genuinely different rebuild — you moved from custom JWT/bcrypt auth and Square to Clerk for auth and Acuity Scheduling for booking, with a separate admin portal (Vite/React + shadcn) and Expo mobile app. That switch to Clerk eliminated the entire class of bugs from last time — no hardcoded fallback secrets anywhere in this codebase, and ownership checks on appointment cancel/reschedule are done correctly (fetching the real Acuity appointment and verifying its email matches the authenticated Clerk user before allowing the mutation). Good improvement.
+
+One critical issue, though:
+
+CORS + credentials misconfiguration. In `artifacts/api-server/src/app.ts`: `app.use(cors({ credentials: true, origin: true }))`. Setting `origin: true` reflects whatever Origin header the request sends back as "allowed," and combined with `credentials: true`, that means any website on the internet can make an authenticated request to your API using a logged-in user's browser and have their Clerk session cookie sent along automatically — and then read the response, since your API just told the browser that origin was allowed. Your portal app confirmed this itself, with a comment in `useBookingApi.ts`: "Cookies are automatically sent for same-origin requests — no auth header needed." That's cookie-based auth, which is exactly the pattern this CORS config exposes. Concretely, a malicious page could silently call your `/api/admin/members` list, invite endpoint, member-deletion endpoint, or a user's personal appointment data, using their real session, just by getting them to visit it while logged into the portal. Fix: replace `origin: true` with an explicit allowlist of your actual portal domain(s), same pattern I gave you last time.
+
+One moderate issue:
+
+`POST /api/booking/appointments` trusts client-submitted `email`, `firstName`, and `lastName` instead of deriving them from the authenticated Clerk user the way every other endpoint in that file does. Since it's not verified against the logged-in user's identity, any authenticated user can book (and presumably later see confirmation details for) an appointment under someone else's name and email. Worth deriving those fields from the Clerk profile server-side like `cancelAppointment` and the reschedule routes already do, rather than trusting the request body.
+
+Two minor/architectural notes, not urgent:
+
+`requireAdmin` in `admin.ts` calls Clerk's `getUser` API on every single admin request rather than caching the role in the session claims — fine functionally, just adds a network round-trip and a Clerk-availability dependency to every admin action.
+
+Admin access is still a single hardcoded `ADMIN_EMAIL` rather than real per-admin accounts/roles — better than the old shared static token (this one is at least tied to a real verified Clerk identity), but you still won't get individual audit trails if more than one person ever needs admin access.
+
+Good things worth calling out since they're easy to miss when only reading a findings list: calendar IDs are correctly kept server-side and never exposed to the client, mobile auth tokens are stored via `expo-secure-store` (the right mechanism, not plain AsyncStorage), and API responses are validated against `zod` schemas rather than passed through untyped.
+
+Fix the CORS config first — that's the one with real exposure — then the booking-endpoint identity issue when convenient. Want me to draft the CORS fix the same way I did last time?

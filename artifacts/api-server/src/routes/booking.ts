@@ -317,13 +317,15 @@ router.get("/booking/certificates/check", requireAuth, async (req: any, res): Pr
 });
 
 // ── POST /api/booking/appointments ───────────────────────────────────────────
-// Body: { locationId, appointmentTypeID, datetime, firstName, lastName, email, phone?, notes?, certificate? }
+// Body: { locationId, appointmentTypeID, datetime, phone?, notes?, certificate? }
+// firstName, lastName, and email are derived from the authenticated Clerk user —
+// never trusted from the request body — to prevent booking under another user's identity.
 router.post("/booking/appointments", requireAuth, async (req: any, res): Promise<void> => {
   if (!requireAcuity(req, res)) return;
   try {
-    const { locationId, appointmentTypeID, datetime, firstName, lastName, email, phone, notes, certificate } = req.body ?? {};
-    if (!locationId || !appointmentTypeID || !datetime || !firstName || !lastName || !email) {
-      res.status(400).json({ error: "Missing required fields: locationId, appointmentTypeID, datetime, firstName, lastName, email" });
+    const { locationId, appointmentTypeID, datetime, phone, notes, certificate } = req.body ?? {};
+    if (!locationId || !appointmentTypeID || !datetime) {
+      res.status(400).json({ error: "Missing required fields: locationId, appointmentTypeID, datetime" });
       return;
     }
     const calendarId = resolveCalendarId(String(locationId));
@@ -331,6 +333,19 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       res.status(400).json({ error: `Location ${locationId} is not configured` });
       return;
     }
+
+    // Derive identity from Clerk — do not trust client-submitted values
+    const clerkUser = await clerkClient.users.getUser(req.userId);
+    const email =
+      clerkUser.emailAddresses.find((e: any) => e.id === clerkUser.primaryEmailAddressId)?.emailAddress ??
+      clerkUser.emailAddresses[0]?.emailAddress;
+    if (!email) {
+      res.status(400).json({ error: "Authenticated user has no email address on file" });
+      return;
+    }
+    const firstName = clerkUser.firstName ?? "";
+    const lastName = clerkUser.lastName ?? "";
+
     const payload: Record<string, unknown> = {
       appointmentTypeID: Number(appointmentTypeID),
       calendarID: Number(calendarId),
