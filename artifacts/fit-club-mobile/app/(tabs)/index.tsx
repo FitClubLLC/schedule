@@ -361,53 +361,6 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* Upcoming sessions list */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.sectionHeader}
-            onPress={() => router.push('/(tabs)/appointments')}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
-              UPCOMING SESSIONS
-            </Text>
-            <Text style={[styles.seeAll, { color: colors.primary }]}>See all →</Text>
-          </TouchableOpacity>
-
-          {upcomingQuery.isLoading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
-          ) : upcomingError ? (
-            <View style={[styles.apiErrorCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <SvgIcon name="wifi-off" size={18} color={colors.mutedForeground} />
-              <Text style={[styles.apiErrorText, { color: colors.mutedForeground }]}>
-                Session data unavailable — pull down to retry
-              </Text>
-            </View>
-          ) : upcoming.length === 0 ? (
-            <View
-              style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            >
-              <SvgIcon name="calendar" size={28} color={colors.mutedForeground} />
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                No upcoming sessions
-              </Text>
-              <TouchableOpacity
-                onPress={() => router.push('/(tabs)/book')}
-                style={[styles.bookCta, { backgroundColor: colors.primary }]}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.bookCtaText, { color: colors.primaryForeground }]}>
-                  BOOK A SESSION
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            upcoming.slice(0, 3).map((appt) => (
-              <AppointmentCard key={appt.id} appointment={appt} />
-            ))
-          )}
-        </View>
-
         {/* Book CTA */}
         {upcoming.length > 0 && (
           <TouchableOpacity
