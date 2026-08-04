@@ -29,6 +29,8 @@ export interface Appointment {
      */
   calendar?: string | null;
   /** @nullable */
+  calendarID?: number | null;
+  /** @nullable */
   location?: string | null;
   /** @nullable */
   notes?: string | null;

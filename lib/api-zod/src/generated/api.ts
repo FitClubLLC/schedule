@@ -32,6 +32,7 @@ export const GetUpcomingAppointmentsResponseItem = zod.object({
   "duration": zod.number().describe('Duration in minutes'),
   "type": zod.string().describe('Appointment type name'),
   "calendar": zod.string().nullish().describe('Calendar name'),
+  "calendarID": zod.number().nullish(),
   "location": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "confirmationPage": zod.string().nullish().describe('URL to Acuity confirmation page')
@@ -53,7 +54,8 @@ export const GetPastAppointmentsResponseItem = zod.object({
   "endTime": zod.string().describe('End time (ISO 8601)'),
   "duration": zod.number().describe('Duration in minutes'),
   "type": zod.string().describe('Appointment type name'),
-  "calendar": zod.string().nullish().describe('Calendar name'),
+  "calendar": zod.string().nullish(),
+  "calendarID": zod.number().nullish(),
   "location": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "confirmationPage": zod.string().nullish().describe('URL to Acuity confirmation page')
@@ -79,6 +81,7 @@ export const GetAppointmentSummaryResponse = zod.object({
   "duration": zod.number().describe('Duration in minutes'),
   "type": zod.string().describe('Appointment type name'),
   "calendar": zod.string().nullish().describe('Calendar name'),
+  "calendarID": zod.number().nullish(),
   "location": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "confirmationPage": zod.string().nullish().describe('URL to Acuity confirmation page')
