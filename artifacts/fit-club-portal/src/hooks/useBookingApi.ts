@@ -41,6 +41,12 @@ export interface BookingPayload {
   notes?: string;
 }
 
+export interface MemberCertificate {
+  code: string;
+  productName: string;
+  remainingValue: string;
+}
+
 // ── Fetch helper ─────────────────────────────────────────────────────────────
 // Cookies are automatically sent for same-origin requests — no auth header needed.
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
@@ -121,5 +127,26 @@ export function useCreateBooking() {
         method: "POST",
         body: JSON.stringify(payload),
       }),
+  });
+}
+
+export function useMemberCertificates() {
+  return useQuery({
+    queryKey: ["booking", "certificates"],
+    queryFn: () => apiFetch<MemberCertificate[]>("/api/booking/certificates"),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useCertificateCheck(code: string) {
+  return useQuery({
+    queryKey: ["booking", "certificate-check", code],
+    queryFn: () =>
+      apiFetch<{ valid: boolean; productName: string; remainingValue: string }>(
+        `/api/booking/certificates/check?certificate=${encodeURIComponent(code)}`,
+      ),
+    enabled: code.trim().length > 0,
+    staleTime: 2 * 60_000,
+    retry: false,
   });
 }
