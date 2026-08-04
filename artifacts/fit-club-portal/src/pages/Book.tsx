@@ -124,13 +124,13 @@ export default function Book() {
   const email     = user?.primaryEmailAddress?.emailAddress ?? "";
 
   const url = new URL(baseCalendarUrl ?? "https://app.acuityscheduling.com/schedule.php");
-  url.searchParams.set("calendarID", selectedLocation.calendarId);
+  if (selectedLocation.calendarId) url.searchParams.set("calendarID", selectedLocation.calendarId);
   if (firstName) url.searchParams.set("firstName", firstName);
   if (lastName)  url.searchParams.set("lastName",  lastName);
   if (email)     url.searchParams.set("email",      email);
 
-  const locIdx = locations.indexOf(selectedLocation);
-  const colors = LOCATION_COLORS[locIdx % LOCATION_COLORS.length];
+  const locIdx = locations.findIndex((l) => l.id === selectedLocation.id);
+  const colors = LOCATION_COLORS[Math.max(locIdx, 0) % LOCATION_COLORS.length];
 
   return (
     <Shell>
