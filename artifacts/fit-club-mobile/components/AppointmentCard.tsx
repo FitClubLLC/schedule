@@ -3,37 +3,41 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 
+// Two accent colours — index 0 = location 1 (POTOMAC), index 1 = location 2 (KENTLANDS)
+const LOC_ACCENT = ['#D3AF37', '#4A9EFF'];
+
 interface MobileLocation {
-  id: string;
   name: string;
   calendarId: string;
 }
 
 function getMobileLocations(): MobileLocation[] {
-  const locs: MobileLocation[] = [];
-  const n1 = process.env.EXPO_PUBLIC_LOCATION_1_NAME;
-  const c1 = process.env.EXPO_PUBLIC_LOCATION_1_CALENDAR_ID;
-  const n2 = process.env.EXPO_PUBLIC_LOCATION_2_NAME;
-  const c2 = process.env.EXPO_PUBLIC_LOCATION_2_CALENDAR_ID;
-  if (n1 && c1) locs.push({ id: '1', name: n1, calendarId: c1 });
-  if (n2 && c2) locs.push({ id: '2', name: n2, calendarId: c2 });
-  return locs;
+  return [
+    {
+      name:       process.env.EXPO_PUBLIC_LOCATION_1_NAME       ?? 'POTOMAC',
+      calendarId: process.env.EXPO_PUBLIC_LOCATION_1_CALENDAR_ID ?? '',
+    },
+    {
+      name:       process.env.EXPO_PUBLIC_LOCATION_2_NAME       ?? 'KENTLANDS',
+      calendarId: process.env.EXPO_PUBLIC_LOCATION_2_CALENDAR_ID ?? '',
+    },
+  ];
 }
 
-const LOC_ACCENT = ['#D3AF37', '#4A9EFF'];
-
-function LocationBadge({ calendarID }: { calendarID?: number | null }) {
+function LocationBadge({ calendarName }: { calendarName?: string | null }) {
   const colors = useColors();
-  if (!calendarID) return null;
+  if (!calendarName) return null;
+
   const locations = getMobileLocations();
-  const loc = locations.find((l) => l.calendarId === String(calendarID));
-  if (!loc) return null;
-  const idx = locations.indexOf(loc);
-  const accent = LOC_ACCENT[idx % LOC_ACCENT.length];
+  const idx = locations.findIndex(
+    (l) => l.name.toLowerCase() === calendarName.toLowerCase(),
+  );
+  const accent = idx >= 0 ? LOC_ACCENT[idx % LOC_ACCENT.length] : colors.mutedForeground;
+
   return (
     <View style={[styles.badge, { backgroundColor: accent + '22', borderColor: accent + '66' }]}>
       <Feather name="map-pin" size={10} color={accent} />
-      <Text style={[styles.badgeText, { color: accent }]}>{loc.name}</Text>
+      <Text style={[styles.badgeText, { color: accent }]}>{calendarName}</Text>
     </View>
   );
 }
@@ -50,17 +54,21 @@ interface Appointment {
   calendarID?: number | null;
 }
 
-interface Props {
+function formatTime(isoStr: string): string {
+  return new Date(isoStr).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+export default function AppointmentCard({
+  appointment,
+  highlighted = false,
+}: {
   appointment: Appointment;
   highlighted?: boolean;
-}
-
-function formatTime(isoStr: string): string {
-  const d = new Date(isoStr);
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-}
-
-export default function AppointmentCard({ appointment, highlighted = false }: Props) {
+}) {
   const colors = useColors();
 
   return (
@@ -108,17 +116,10 @@ export default function AppointmentCard({ appointment, highlighted = false }: Pr
                 {appointment.location}
               </Text>
             </View>
-          ) : appointment.calendar ? (
-            <View style={styles.metaRow}>
-              <Feather name="user" size={12} color={colors.mutedForeground} />
-              <Text style={[styles.meta, { color: colors.mutedForeground }]} numberOfLines={1}>
-                {appointment.calendar}
-              </Text>
-            </View>
           ) : null}
 
-          {/* Location badge */}
-          <LocationBadge calendarID={appointment.calendarID} />
+          {/* Location badge — resolved from calendar name */}
+          <LocationBadge calendarName={appointment.calendar} />
         </View>
       </View>
     </View>
@@ -163,8 +164,8 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     alignSelf: 'flex-start',
+    gap: 4,
     borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 8,

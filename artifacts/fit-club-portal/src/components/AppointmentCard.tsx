@@ -3,25 +3,27 @@ import { Appointment } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, MapPin } from "lucide-react";
-import { getLocationByCalendarId, getLocations } from "@/lib/locations";
+import { getLocationByCalendarName, LOCATION_COLORS } from "@/lib/locations";
 
-// Colour palette indexed to match the booking page
-const LOCATION_COLORS = [
-  "border-primary/40 bg-primary/10 text-primary",
-  "border-blue-500/40 bg-blue-500/10 text-blue-400",
-];
-
-function LocationBadge({ calendarId }: { calendarId?: number | null }) {
-  const location = getLocationByCalendarId(calendarId);
-  if (!location) return null;
-  const idx = getLocations().indexOf(location);
-  const colorClass = LOCATION_COLORS[idx % LOCATION_COLORS.length];
+function LocationBadge({ calendarName }: { calendarName?: string | null }) {
+  if (!calendarName) return null;
+  const match = getLocationByCalendarName(calendarName);
+  // Known location — colour-coded badge
+  if (match) {
+    const { idx } = match;
+    const colors = LOCATION_COLORS[idx % LOCATION_COLORS.length];
+    return (
+      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${colors.badge}`}>
+        <MapPin className="w-3 h-3" />
+        {calendarName}
+      </span>
+    );
+  }
+  // Unknown / unconfigured calendar — neutral badge
   return (
-    <span
-      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${colorClass}`}
-    >
+    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border border-border bg-muted/40 text-muted-foreground">
       <MapPin className="w-3 h-3" />
-      {location.name}
+      {calendarName}
     </span>
   );
 }
@@ -60,7 +62,7 @@ export function AppointmentCard({
                 {appointment.type}
               </h3>
               <div className="flex items-center gap-2 flex-wrap">
-                <LocationBadge calendarId={appointment.calendarID} />
+                <LocationBadge calendarName={appointment.calendar} />
                 {isPast ? (
                   <Badge variant="secondary">Completed</Badge>
                 ) : (
@@ -74,18 +76,10 @@ export function AppointmentCard({
                 <Clock className="w-4 h-4 text-primary/70" />
                 <span>{appointment.duration} minutes</span>
               </div>
-
               {appointment.location && (
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-primary/70" />
                   <span>{appointment.location}</span>
-                </div>
-              )}
-
-              {appointment.calendar && (
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary/70" />
-                  <span>{appointment.calendar}</span>
                 </div>
               )}
             </div>
