@@ -11,7 +11,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
 } from 'react-native';
-import { useSignIn, useClerk } from '@clerk/expo';
+import { useSignIn, useClerk, useAuth } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,11 +21,14 @@ import { Feather } from '@expo/vector-icons';
 type Screen = 'login' | 'forgot-email' | 'forgot-code';
 
 export default function SignInScreen() {
-  const { isLoaded, signIn: hookSignIn, setActive } = useSignIn();
+  // useSignIn().isLoaded never becomes true after sign-out in @clerk/expo ^4.
+  // useAuth().isLoaded IS reliable — it tracks when Clerk finishes initialising
+  // the session layer, which is the correct gate for both sign-in and reset flows.
+  const { isLoaded } = useAuth();
+  const { signIn: hookSignIn, setActive } = useSignIn();
   const clerk = useClerk();
-  // useSignIn().signIn is undefined while Clerk restores a cached session.
-  // Fall back to clerk.client.signIn which is always populated once the
-  // client is ready, regardless of session-restoration state.
+  // hookSignIn is undefined while a cached session is being restored.
+  // Fall back to clerk.client.signIn which is populated as soon as the client loads.
   const signIn = hookSignIn ?? (clerk as any).client?.signIn;
   const colors = useColors();
   const insets = useSafeAreaInsets();
