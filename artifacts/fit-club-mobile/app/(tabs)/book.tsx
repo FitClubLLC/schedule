@@ -26,9 +26,9 @@ const LOCATIONS = [
     id: '2',
     name: 'KENTLANDS',
     calendarId: '14311114',
-    color: '#4A9EFF',
-    colorMuted: 'rgba(74,158,255,0.13)',
-    colorBorder: 'rgba(74,158,255,0.4)',
+    color: '#D3AF37',
+    colorMuted: 'rgba(211,175,55,0.13)',
+    colorBorder: 'rgba(211,175,55,0.4)',
   },
 ];
 

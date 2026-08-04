@@ -25,11 +25,11 @@ const LOCATIONS = [
     name: "KENTLANDS",
     calendarId: "14311114",
     accent: {
-      text:      "text-blue-400",
-      bgLight:   "bg-blue-400/10",
-      border:    "border-blue-400",
-      cardHover: "border-blue-400/40 hover:border-blue-400 bg-blue-400/5 hover:bg-blue-400/10",
-      btn:       "bg-blue-400 text-black hover:bg-blue-400/90",
+      text:      "text-primary",
+      bgLight:   "bg-primary/10",
+      border:    "border-primary",
+      cardHover: "border-primary/40 hover:border-primary bg-primary/5 hover:bg-primary/10",
+      btn:       "bg-primary text-black hover:bg-primary/90",
     },
   },
 ];
