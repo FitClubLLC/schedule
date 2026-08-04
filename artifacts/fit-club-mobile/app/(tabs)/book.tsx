@@ -4,6 +4,8 @@ import {
   TextInput, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@clerk/expo';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SvgIcon from '@/components/SvgIcon';
@@ -30,6 +32,12 @@ const LOCATIONS = [
   },
 ];
 
+interface MemberCert {
+  code: string;
+  productName: string;
+  remainingValue: string;
+}
+
 function acuityUrl(calendarId: string, certificate?: string) {
   let url = `https://app.acuityscheduling.com/schedule.php?owner=${OWNER_ID}&calendarID=${calendarId}`;
   if (certificate?.trim()) {
@@ -41,8 +49,28 @@ function acuityUrl(calendarId: string, certificate?: string) {
 export default function BookScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { getToken, isSignedIn } = useAuth();
   const { certificate: certParam } = useLocalSearchParams<{ certificate?: string }>();
   const { code, applyCode, clearCode, status, info } = useCertificate();
+
+  const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+
+  // Fetch member's active certificates from Acuity
+  const certsQuery = useQuery<MemberCert[]>({
+    queryKey: ['member-certificates'],
+    enabled: !!isSignedIn,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await fetch(`${baseUrl}/api/booking/certificates`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to fetch certificates');
+      return res.json();
+    },
+  });
+
+  const memberCerts: MemberCert[] = certsQuery.data ?? [];
 
   // Auto-apply certificate from deep link / navigation param
   useEffect(() => {
@@ -91,10 +119,74 @@ export default function BookScreen() {
         </Text>
       </View>
 
-      {/* Certificate code section */}
+      {/* ── Your packages section ─────────────────────────────────── */}
+      {(certsQuery.isLoading || memberCerts.length > 0) && (
+        <View style={styles.packagesSection}>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+            YOUR PACKAGES
+          </Text>
+
+          {certsQuery.isLoading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 4 }} />
+          ) : (
+            <View style={styles.packagesList}>
+              {memberCerts.map((cert) => {
+                const isActive = code === cert.code && status === 'valid';
+                return (
+                  <TouchableOpacity
+                    key={cert.code}
+                    onPress={() => isActive ? clearCode() : applyCode(cert.code)}
+                    activeOpacity={0.75}
+                    style={[
+                      styles.packageCard,
+                      {
+                        backgroundColor: isActive
+                          ? 'rgba(34,197,94,0.10)'
+                          : colors.card,
+                        borderColor: isActive
+                          ? 'rgba(34,197,94,0.45)'
+                          : colors.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.packageCardLeft}>
+                      <View style={[
+                        styles.packageIconWrap,
+                        { backgroundColor: isActive ? 'rgba(34,197,94,0.15)' : colors.background },
+                      ]}>
+                        <SvgIcon
+                          name={isActive ? 'check' : 'credit-card'}
+                          size={16}
+                          color={isActive ? '#22c55e' : colors.primary}
+                        />
+                      </View>
+                      <View style={styles.packageInfo}>
+                        <Text style={[styles.packageName, { color: colors.foreground }]} numberOfLines={1}>
+                          {cert.productName}
+                        </Text>
+                        <Text style={[styles.packageValue, { color: colors.mutedForeground }]}>
+                          ${cert.remainingValue} remaining
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[
+                      styles.packageAction,
+                      { color: isActive ? '#22c55e' : colors.primary },
+                    ]}>
+                      {isActive ? 'Applied ✓' : 'Use'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* ── Certificate code section ──────────────────────────────── */}
       <View style={styles.certSection}>
-        <Text style={[styles.certLabel, { color: colors.mutedForeground }]}>
-          MEMBERSHIP / PACKAGE CODE
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+          {memberCerts.length > 0 ? 'OR ENTER A CODE MANUALLY' : 'MEMBERSHIP / PACKAGE CODE'}
         </Text>
 
         {/* Input row */}
@@ -146,7 +238,7 @@ export default function BookScreen() {
         )}
       </View>
 
-      {/* Location cards */}
+      {/* ── Location cards ────────────────────────────────────────── */}
       <View style={styles.cards}>
         {LOCATIONS.map((loc) => (
           <TouchableOpacity
@@ -161,12 +253,10 @@ export default function BookScreen() {
               },
             ]}
           >
-            {/* Icon */}
             <View style={[styles.iconWrap, { backgroundColor: loc.colorMuted }]}>
               <SvgIcon name="map-pin" size={22} color={loc.color} />
             </View>
 
-            {/* Text */}
             <View style={styles.cardBody}>
               <Text style={[styles.locName, { color: loc.color }]}>{loc.name}</Text>
               <Text style={[styles.locSub, { color: colors.textMuted }]}>
@@ -174,7 +264,6 @@ export default function BookScreen() {
               </Text>
             </View>
 
-            {/* Button — shows "Code Applied" badge when a valid cert is present */}
             <View style={styles.btnRow}>
               <View style={[styles.btn, { backgroundColor: loc.color }]}>
                 <Text style={styles.btnText}>Book Now</Text>
@@ -212,16 +301,63 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // Certificate section
-  certSection: {
+  // Packages section
+  packagesSection: {
     marginBottom: 24,
-    gap: 8,
+    gap: 10,
   },
-  certLabel: {
+  sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.8,
     marginBottom: 2,
+  },
+  packagesList: {
+    gap: 8,
+  },
+  packageCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  packageCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  packageIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  packageInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  packageName: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  packageValue: {
+    fontSize: 12,
+  },
+  packageAction: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+
+  // Certificate code section
+  certSection: {
+    marginBottom: 24,
+    gap: 8,
   },
   certInputRow: {
     flexDirection: 'row',

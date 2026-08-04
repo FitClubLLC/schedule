@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { getAuth } from "@clerk/express";
+import { getAuth, clerkClient } from "@clerk/express";
 
 const router: IRouter = Router();
 
@@ -36,12 +36,20 @@ function acuityAuth(): string {
   return `Basic ${token}`;
 }
 
+async function getClerkUserEmail(userId: string): Promise<string | null> {
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    return user.emailAddresses[0]?.emailAddress ?? null;
+  } catch { return null; }
+}
+
 function requireAuth(req: any, res: any, next: any) {
   const auth = getAuth(req);
   if (!auth?.userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+  req.userId = auth.userId;
   next();
 }
 
@@ -181,6 +189,38 @@ router.get("/booking/availability/times", requireAuth, async (req: any, res): Pr
     res.json(Array.isArray(data) ? data : []);
   } catch (err) {
     req.log.error({ err }, "booking/availability/times error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── GET /api/booking/certificates ────────────────────────────────────────────
+// Returns all active certificates (remainingValue > 0) for the signed-in member.
+router.get("/booking/certificates", requireAuth, async (req: any, res): Promise<void> => {
+  if (!requireAcuity(req, res)) return;
+  try {
+    const email = await getClerkUserEmail(req.userId);
+    if (!email) { res.status(400).json({ error: "Could not resolve user email" }); return; }
+
+    const url = `${ACUITY_BASE_URL}/certificates?email=${encodeURIComponent(email)}`;
+    const response = await fetch(url, { headers: { Authorization: acuityAuth() } });
+    if (!response.ok) {
+      req.log.error({ status: response.status }, "Acuity certificates error");
+      res.status(502).json({ error: "Failed to fetch certificates" });
+      return;
+    }
+    const data = await response.json();
+    const certs = (Array.isArray(data) ? data : [])
+      .filter((c: any) => parseFloat(c.remainingValue ?? c.value ?? "0") > 0)
+      .map((c: any) => ({
+        code: c.certificate,
+        productName: c.productName,
+        remainingValue: c.remainingValue ?? c.value ?? "0.00",
+        appliesToAllProducts: c.appliesToAllProducts ?? false,
+        productIDs: c.productIDs ?? [],
+      }));
+    res.json(certs);
+  } catch (err) {
+    req.log.error({ err }, "booking/certificates error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
