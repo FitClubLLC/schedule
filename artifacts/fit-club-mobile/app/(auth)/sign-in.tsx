@@ -68,7 +68,7 @@ export default function SignInScreen() {
 
   // ── Forgot password — step 1: send reset code ─────────────────────────────
   const handleSendResetCode = async () => {
-    if (!isLoaded || !email || loading) return;
+    if (!isLoaded || !signIn || !email || loading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     clearError();
@@ -79,11 +79,12 @@ export default function SignInScreen() {
       });
       setScreen('forgot-code');
     } catch (err: any) {
-      setError(
+      const msg =
         err?.errors?.[0]?.longMessage ??
         err?.errors?.[0]?.message ??
-        'Could not send reset code. Check the email and try again.',
-      );
+        err?.message ??
+        'Could not send reset code. Check the email and try again.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -158,9 +159,9 @@ export default function SignInScreen() {
             />
             {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || loading) && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || loading || !isLoaded) && styles.buttonDisabled]}
               onPress={handleSendResetCode}
-              disabled={!email || loading}
+              disabled={!email || loading || !isLoaded}
               activeOpacity={0.8}
             >
               {loading
