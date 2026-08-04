@@ -38,13 +38,19 @@ interface MemberCert {
   remainingValue: string;
 }
 
-const MEMBER_SESSION_TYPE = '83398355';
+// When a certificate is active, Potomac restricts to Workout for 1 only;
+// Kentlands shows all types (Workout for 1 + Red Light Therapy).
+const POTOMAC_MEMBER_TYPE = '83398355';
 
 function acuityUrl(calendarId: string, certificate?: string) {
-  if (certificate?.trim()) {
-    return `https://app.acuityscheduling.com/schedule.php?owner=${OWNER_ID}&appointmentType=${MEMBER_SESSION_TYPE}&certificate=${encodeURIComponent(certificate.trim())}`;
-  }
-  return `https://app.acuityscheduling.com/schedule.php?owner=${OWNER_ID}&calendarID=${calendarId}`;
+  const cert = certificate?.trim();
+  const base = `https://app.acuityscheduling.com/schedule.php?owner=${OWNER_ID}&calendarID=${calendarId}`;
+  if (!cert) return base;
+  const withCert = `${base}&certificate=${encodeURIComponent(cert)}`;
+  // Potomac: restrict to Workout for 1 appointment type
+  if (calendarId === '12741713') return `${withCert}&appointmentType=${POTOMAC_MEMBER_TYPE}`;
+  // Kentlands: show all types for that calendar
+  return withCert;
 }
 
 export default function BookScreen() {
