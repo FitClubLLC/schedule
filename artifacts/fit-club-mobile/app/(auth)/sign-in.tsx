@@ -113,7 +113,7 @@ export default function SignInScreen() {
       signInRef.current = attempt;
       setScreen('forgot-code');
     } catch (err: any) {
-      console.error('[ForgotPassword] create error:', JSON.stringify(err));
+      console.log('[ForgotPassword] create error:', JSON.stringify(err));
       setError(
         err?.errors?.[0]?.longMessage ??
         err?.errors?.[0]?.message ??
@@ -154,7 +154,7 @@ export default function SignInScreen() {
         setError(`Unexpected status: ${result.status}. Please try again.`);
       }
     } catch (err: any) {
-      console.error('[ForgotPassword] attemptFirstFactor error:', JSON.stringify(err));
+      console.log('[ForgotPassword] attemptFirstFactor error:', JSON.stringify(err));
       const msg =
         err?.errors?.[0]?.longMessage ??
         err?.errors?.[0]?.message ??

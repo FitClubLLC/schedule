@@ -181,7 +181,7 @@ function mapAcuityAppointments(raw: any[]): any[] {
     date: appt.date ?? "",
     time: appt.datetime ?? appt.time ?? "",
     endTime: appt.endTime ?? "",
-    duration: appt.duration ?? 0,
+    duration: Number(appt.duration ?? 0),
     type: appt.type ?? "",
     calendar: appt.calendar ?? null,
     calendarID: appt.calendarID ?? null,
