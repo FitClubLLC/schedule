@@ -21,6 +21,7 @@ import {
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl, setAuthTokenGetter } from '@workspace/api-client-react';
+import { useDeepLink } from '@/hooks/useDeepLink';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -73,6 +74,9 @@ function RootLayoutNav() {
   useEffect(() => {
     setAuthTokenGetter(async () => getToken());
   }, [getToken]);
+
+  // Handle deep links (e.g. fitclub15://book?certificate=8B86C782).
+  useDeepLink();
 
   // Handle auth state transitions.
   useEffect(() => {

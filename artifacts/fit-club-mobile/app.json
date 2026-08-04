@@ -18,7 +18,18 @@
       "bundleIdentifier": "com.fitclub15.app"
     },
     "android": {
-      "package": "com.fitclub15.app"
+      "package": "com.fitclub15.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "fitclub15"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
