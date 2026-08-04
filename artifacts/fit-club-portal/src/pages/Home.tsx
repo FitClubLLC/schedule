@@ -11,7 +11,7 @@ export default function Home() {
 
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col">
-      <header className="px-6 py-6 flex justify-between items-center max-w-7xl mx-auto w-full">
+      <header className="px-6 py-6 flex justify-between items-center max-w-7xl mx-auto w-full relative z-20">
         <div className="flex items-center gap-2">
           <img src={`${basePath}/fitclub-logo.png`} alt="Fit Club" className="h-10 w-auto" />
         </div>
