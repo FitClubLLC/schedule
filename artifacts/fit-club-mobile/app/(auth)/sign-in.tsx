@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -51,6 +51,11 @@ export default function SignInScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Captures the exact signIn instance used in handleSendCode so that
+  // handleResetPassword calls attemptFirstFactor on the same object —
+  // preventing a stale-reference mismatch if hookSignIn changes between renders.
+  const signInRef = useRef<any>(null);
+
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 20);
   const bottomPad = insets.bottom + (Platform.OS === 'web' ? 34 : 24);
 
@@ -102,6 +107,8 @@ export default function SignInScreen() {
         strategy: 'reset_password_email_code',
         identifier: resetEmail.trim(),
       });
+      // Pin the exact instance so attemptFirstFactor uses the same object.
+      signInRef.current = signIn;
       setScreen('forgot-code');
     } catch (err: any) {
       setError(
@@ -117,7 +124,8 @@ export default function SignInScreen() {
   // ── Confirm reset ──────────────────────────────────────────────────────────
   const handleResetPassword = async () => {
     if (!isLoaded || !resetCode || !newPassword || loading) return;
-    if (!signIn) { setError('Still loading — please try again in a moment.'); return; }
+    const activeSignIn = signInRef.current ?? signIn;
+    if (!activeSignIn) { setError('Still loading — please try again in a moment.'); return; }
     if (newPassword !== confirmPassword) {
       setError('Passwords don\'t match.');
       return;
@@ -130,7 +138,7 @@ export default function SignInScreen() {
     setLoading(true);
     clearError();
     try {
-      const result = await signIn.attemptFirstFactor({
+      const result = await activeSignIn.attemptFirstFactor({
         strategy: 'reset_password_email_code',
         code: resetCode.trim(),
         password: newPassword,
