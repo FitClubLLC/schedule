@@ -44,6 +44,8 @@ export default function DashboardScreen() {
   const upcoming = upcomingQuery.data ?? [];
   const isLoading = summaryQuery.isLoading;
   const isRefreshing = summaryQuery.isFetching && !summaryQuery.isLoading;
+  const summaryError = summaryQuery.isError;
+  const upcomingError = upcomingQuery.isError;
 
   // Change password modal state
   const [pwModalVisible, setPwModalVisible] = useState(false);
@@ -265,6 +267,13 @@ export default function DashboardScreen() {
           <View style={styles.statsLoading}>
             <ActivityIndicator color={colors.primary} />
           </View>
+        ) : summaryError ? (
+          <View style={[styles.apiErrorCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Feather name="wifi-off" size={18} color={colors.mutedForeground} />
+            <Text style={[styles.apiErrorText, { color: colors.mutedForeground }]}>
+              Session data unavailable — pull down to retry
+            </Text>
+          </View>
         ) : (
           <View style={styles.statsRow}>
             <View
@@ -318,6 +327,13 @@ export default function DashboardScreen() {
 
           {upcomingQuery.isLoading ? (
             <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
+          ) : upcomingError ? (
+            <View style={[styles.apiErrorCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Feather name="wifi-off" size={18} color={colors.mutedForeground} />
+              <Text style={[styles.apiErrorText, { color: colors.mutedForeground }]}>
+                Session data unavailable — pull down to retry
+              </Text>
+            </View>
           ) : upcoming.length === 0 ? (
             <View
               style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -403,6 +419,22 @@ const styles = StyleSheet.create({
     height: 90,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  apiErrorCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 24,
+  },
+  apiErrorText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
   },
   statsRow: {
     flexDirection: 'row',
