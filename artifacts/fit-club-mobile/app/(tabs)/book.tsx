@@ -224,7 +224,7 @@ export default function BookScreen() {
             <Text style={[styles.certBannerText, { color: '#22c55e' }]}>
               {info.productName}
               {info.remainingValue && info.remainingValue !== '0.00'
-                ? ` · $${info.remainingValue} remaining`
+                ? ` · ${/^\d/.test(info.remainingValue) ? '' : '$'}${info.remainingValue} remaining`
                 : ''}
               {' '}— applied to booking
             </Text>

@@ -59,7 +59,8 @@ export function useCertificate() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [code, baseUrl, getToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]); // only code changes should retrigger; baseUrl and getToken are stable refs
 
   /** Set a new code and persist it. Pass empty string to clear. */
   const applyCode = useCallback(async (newCode: string) => {
