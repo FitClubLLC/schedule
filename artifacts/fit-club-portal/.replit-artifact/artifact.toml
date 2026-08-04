@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Fit Club Portal"
+description = "A client portal for Fit Club members. Clients log in with their email via Clerk Auth to view upcoming and past appointments fetched from Acuity Scheduling, and book new sessions with their info pre-filled."
+version = "1.0.0"
+id = "artifacts/fit-club-portal"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18678
+
+[services.development]
+run = "pnpm --filter @workspace/fit-club-portal run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/fit-club-portal", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/fit-club-portal/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18678"
+BASE_PATH = "/"

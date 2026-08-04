@@ -3,13 +3,15 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Fit Club client portal API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: appointments
+    description: Acuity appointment operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,68 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /appointments/upcoming:
+    get:
+      operationId: getUpcomingAppointments
+      tags: [appointments]
+      summary: Get upcoming appointments for the authenticated user
+      responses:
+        "200":
+          description: List of upcoming appointments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Appointment"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /appointments/past:
+    get:
+      operationId: getPastAppointments
+      tags: [appointments]
+      summary: Get past appointments for the authenticated user
+      responses:
+        "200":
+          description: List of past appointments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Appointment"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /appointments/summary:
+    get:
+      operationId: getAppointmentSummary
+      tags: [appointments]
+      summary: Get appointment summary stats for the authenticated user
+      responses:
+        "200":
+          description: Appointment summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentSummary"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +98,74 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Appointment:
+      type: object
+      required:
+        - id
+        - firstName
+        - lastName
+        - email
+        - date
+        - time
+        - endTime
+        - duration
+        - type
+      properties:
+        id:
+          type: number
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: ["string", "null"]
+        date:
+          type: string
+          description: Date in YYYY-MM-DD format
+        time:
+          type: string
+          description: Start time (ISO 8601)
+        endTime:
+          type: string
+          description: End time (ISO 8601)
+        duration:
+          type: number
+          description: Duration in minutes
+        type:
+          type: string
+          description: Appointment type name
+        calendar:
+          type: ["string", "null"]
+          description: Calendar name
+        location:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        confirmationPage:
+          type: ["string", "null"]
+          description: URL to Acuity confirmation page
+
+    AppointmentSummary:
+      type: object
+      required:
+        - upcomingCount
+        - pastCount
+      properties:
+        upcomingCount:
+          type: number
+        pastCount:
+          type: number
+        nextAppointment:
+          oneOf:
+            - $ref: "#/components/schemas/Appointment"
+            - type: "null"

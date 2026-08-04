@@ -1,45 +1,59 @@
-# [Project name]
+# Fit Club Portal
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A client-facing membership portal for Fit Club. Members sign in with their email via Clerk Auth, view their upcoming and past appointments pulled live from Acuity Scheduling, and book new sessions with their name and email pre-filled in the Acuity embed.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
+- `pnpm --filter @workspace/fit-club-portal run dev` — run the frontend (port 18678)
 - `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Frontend: React + Vite, Tailwind v4, shadcn/ui, Wouter routing, TanStack Query
+- Auth: Clerk (Replit-managed, cookie-based for web)
+- API: Express 5, Zod validation
+- Appointments: Acuity Scheduling REST API v1 (server-side, Basic auth)
+- API codegen: Orval (from OpenAPI spec in lib/api-spec/openapi.yaml)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — source of truth for all API contracts
+- `lib/api-client-react/src/generated/` — generated React Query hooks (do not edit)
+- `lib/api-zod/src/generated/` — generated Zod schemas (do not edit)
+- `artifacts/api-server/src/routes/appointments.ts` — Acuity proxy routes
+- `artifacts/api-server/src/middlewares/clerkProxyMiddleware.ts` — Clerk proxy middleware
+- `artifacts/fit-club-portal/src/` — React frontend
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **Acuity calls are server-side only.** The API key never reaches the browser. Routes in `appointments.ts` authenticate via Clerk, look up the user's email from the Clerk Backend SDK (`clerkClient.users.getUser`), then call the Acuity API filtered by that email.
+- **Booking uses an iframe embed.** The `/book` page renders the Acuity scheduling page in an iframe with `firstName`, `lastName`, and `email` query params pre-filled from `useUser()`.
+- **Clerk proxy path is `/api/__clerk`.** The `clerkProxyMiddleware` is mounted before body parsers in `app.ts` since it streams raw bytes.
+- **No database needed.** All appointment data lives in Acuity. The DB package is present but unused by this app.
 
-## Product
+## Environment Variables & Secrets
 
-_Describe the high-level user-facing capabilities of this app once they exist._
-
-## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- `ACUITY_USER_ID` — Acuity account user ID (env var, shared)
+- `ACUITY_API_KEY` — Acuity API key (secret)
+- `ACUITY_CALENDAR_URL` — Public Acuity booking URL for iframe embed (env var, shared)
+- `VITE_ACUITY_CALENDAR_URL` — Same URL exposed to frontend (env var, shared)
+- `VITE_BUSINESS_NAME` — "Fit Club" (env var, shared)
+- `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`, `VITE_CLERK_PUBLISHABLE_KEY` — auto-provisioned by Replit Clerk integration
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Re-run codegen after any change to `lib/api-spec/openapi.yaml`: `pnpm --filter @workspace/api-spec run codegen`
+- Use `type: number` (not `type: integer`) in the OpenAPI spec — the workspace uses Zod v3 which doesn't have `zod.int()` as a standalone.
+- `tailwindcss({ optimize: false })` in `vite.config.ts` is required — without it, Clerk's nested `@layer` CSS gets reordered in prod builds and the auth UI breaks.
+
+## User preferences
+
+_Populate as you build._
 
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- See the `clerk-auth` skill for Clerk setup and troubleshooting
