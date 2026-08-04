@@ -34,11 +34,11 @@ export default function DashboardScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useUser();
-  const { signOut } = useAuth();
+  const { signOut, isSignedIn } = useAuth();
   const router = useRouter();
 
-  const summaryQuery = useGetAppointmentSummary();
-  const upcomingQuery = useGetUpcomingAppointments();
+  const summaryQuery = useGetAppointmentSummary({ query: { enabled: !!isSignedIn } });
+  const upcomingQuery = useGetUpcomingAppointments({ query: { enabled: !!isSignedIn } });
 
   const summary = summaryQuery.data;
   const upcoming = upcomingQuery.data ?? [];

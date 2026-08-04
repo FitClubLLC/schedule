@@ -185,11 +185,11 @@ export default function RescheduleModal({
             ) : (
               <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 200 }}>
                 <View style={styles.slotGrid}>
-                  {slots.map((slot) => {
+                  {slots.map((slot, i) => {
                     const isSelected = slot.datetime === selectedSlot?.datetime;
                     return (
                       <TouchableOpacity
-                        key={slot.datetime}
+                        key={`${slot.datetime}-${i}`}
                         onPress={() => setSelectedSlot(slot)}
                         style={[
                           styles.slotPill,
