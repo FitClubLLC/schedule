@@ -165,7 +165,9 @@ export default function BookScreen() {
                           {cert.productName}
                         </Text>
                         <Text style={[styles.packageValue, { color: colors.mutedForeground }]}>
-                          ${cert.remainingValue} remaining
+                          {/^\d/.test(cert.remainingValue)
+                            ? `${cert.remainingValue} remaining`
+                            : `$${cert.remainingValue} remaining`}
                         </Text>
                       </View>
                     </View>

@@ -209,16 +209,39 @@ router.get("/booking/certificates", requireAuth, async (req: any, res): Promise<
       return;
     }
     const data = await response.json();
-    req.log.info({ rawCerts: JSON.stringify(data).slice(0, 2000) }, "Acuity certificates raw response");
     const certs = (Array.isArray(data) ? data : [])
-      .filter((c: any) => parseFloat(c.remainingValue ?? c.value ?? "0") > 0)
-      .map((c: any) => ({
-        code: c.certificate,
-        productName: c.productName,
-        remainingValue: c.remainingValue ?? c.value ?? "0.00",
-        appliesToAllProducts: c.appliesToAllProducts ?? false,
-        productIDs: c.productIDs ?? [],
-      }));
+      .filter((c: any) => {
+        // Dollar-value certificates/packages
+        if (c.remainingValue !== null && c.remainingValue !== undefined) {
+          return parseFloat(c.remainingValue) > 0;
+        }
+        // Session-count subscriptions (remainingCounts map of typeID → count)
+        if (c.remainingCounts && typeof c.remainingCounts === "object") {
+          return Object.values(c.remainingCounts).some((v: any) => Number(v) > 0);
+        }
+        return false;
+      })
+      .map((c: any) => {
+        // Build a human-readable remaining label
+        let remaining: string;
+        if (c.remainingValue !== null && c.remainingValue !== undefined) {
+          remaining = c.remainingValue;
+        } else if (c.remainingCounts && typeof c.remainingCounts === "object") {
+          const total = Object.values(c.remainingCounts).reduce(
+            (sum: number, v: any) => sum + Number(v), 0
+          );
+          remaining = `${total} session${total !== 1 ? "s" : ""}`;
+        } else {
+          remaining = "0";
+        }
+        return {
+          code: c.certificate,
+          productName: c.name ?? c.productName ?? "Package",
+          remainingValue: remaining,
+          appointmentTypeIDs: c.appointmentTypeIDs ?? [],
+          appliesToAllProducts: c.appliesToAllProducts ?? false,
+        };
+      });
     res.json(certs);
   } catch (err) {
     req.log.error({ err }, "booking/certificates error");
@@ -246,16 +269,29 @@ router.get("/booking/certificates/check", requireAuth, async (req: any, res): Pr
     const data = await response.json();
     const certs = Array.isArray(data) ? data : [data];
     const cert = certs[0];
-    if (!cert?.productName) {
+    const productName = cert?.name ?? cert?.productName;
+    if (!cert || !productName) {
       res.status(422).json({ error: "Invalid or expired certificate" });
       return;
     }
+    // Remaining — dollar value or session count
+    let remainingValue: string;
+    if (cert.remainingValue !== null && cert.remainingValue !== undefined) {
+      remainingValue = cert.remainingValue;
+    } else if (cert.remainingCounts && typeof cert.remainingCounts === "object") {
+      const total = Object.values(cert.remainingCounts).reduce(
+        (sum: number, v: any) => sum + Number(v), 0
+      );
+      remainingValue = `${total} session${total !== 1 ? "s" : ""}`;
+    } else {
+      remainingValue = "0";
+    }
     res.json({
       valid: true,
-      productName: cert.productName,
-      remainingValue: cert.remainingValue ?? cert.value ?? "0.00",
+      productName,
+      remainingValue,
       appliesToAllProducts: cert.appliesToAllProducts ?? false,
-      productIDs: cert.productIDs ?? [],
+      productIDs: cert.appointmentTypeIDs ?? cert.productIDs ?? [],
     });
   } catch (err) {
     req.log.error({ err }, "booking/certificates/check error");
