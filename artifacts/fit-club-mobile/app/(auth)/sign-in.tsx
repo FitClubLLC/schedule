@@ -69,15 +69,7 @@ export default function SignInScreen() {
 
   // ── Forgot password — step 1: send reset code ─────────────────────────────
   const handleSendResetCode = async () => {
-    if (!isLoaded || !signIn) {
-      Alert.alert('Not ready', 'Sign-in service is still loading. Please wait a moment and try again.');
-      return;
-    }
-    if (!email.trim()) {
-      Alert.alert('Email required', 'Please enter your email address.');
-      return;
-    }
-    if (loading) return;
+    if (!isLoaded || !signIn || !email.trim() || loading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     clearError();
@@ -169,15 +161,20 @@ export default function SignInScreen() {
             />
             {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || loading) && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || loading || !isLoaded) && styles.buttonDisabled]}
               onPress={handleSendResetCode}
-              disabled={!email || loading}
+              disabled={!email || loading || !isLoaded}
               activeOpacity={0.8}
             >
-              {loading
+              {(loading || !isLoaded)
                 ? <ActivityIndicator color={colors.primaryForeground} />
                 : <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>SEND RESET CODE</Text>}
             </TouchableOpacity>
+            {!isLoaded && (
+              <Text style={[styles.errorText, { color: colors.mutedForeground, textAlign: 'center' }]}>
+                Connecting… please wait
+              </Text>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
