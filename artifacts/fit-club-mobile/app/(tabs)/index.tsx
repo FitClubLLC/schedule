@@ -279,17 +279,19 @@ export default function DashboardScreen() {
           </View>
         ) : (
           <View style={styles.statsRow}>
-            <View
+            <TouchableOpacity
               style={[
                 styles.statCard,
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
+              onPress={() => router.push('/(tabs)/appointments')}
+              activeOpacity={0.7}
             >
               <Text style={[styles.statNumber, { color: colors.primary }]}>
                 {summary?.upcomingCount ?? 0}
               </Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>UPCOMING</Text>
-            </View>
+            </TouchableOpacity>
             <View
               style={[
                 styles.statCard,
