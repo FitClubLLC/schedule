@@ -18,6 +18,8 @@ import {
   BarlowCondensed_800ExtraBold,
   useFonts as useBarlowFonts,
 } from '@expo-google-fonts/barlow-condensed';
+import { useFonts } from 'expo-font';
+import { Feather } from '@expo/vector-icons';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl, setAuthTokenGetter } from '@workspace/api-client-react';
@@ -106,8 +108,15 @@ export default function RootLayout() {
     BarlowCondensed_800ExtraBold,
   });
 
-  const fontsLoaded = interLoaded && barlowLoaded;
-  const fontError = interError || barlowError;
+  // Explicitly preload the Feather icon font — required on Android to prevent
+  // blank/missing icons. Reference the .ttf directly; Feather.font is undefined
+  // in @expo/vector-icons v15 so we can't rely on it.
+  const [iconsLoaded, iconsError] = useFonts({
+    Feather: require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Feather.ttf'),
+  });
+
+  const fontsLoaded = interLoaded && barlowLoaded && iconsLoaded;
+  const fontError = interError || barlowError || iconsError;
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
