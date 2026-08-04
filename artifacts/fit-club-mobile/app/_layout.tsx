@@ -111,8 +111,11 @@ export default function RootLayout() {
   // Explicitly preload the Feather icon font — required on Android to prevent
   // blank/missing icons. Reference the .ttf directly; Feather.font is undefined
   // in @expo/vector-icons v15 so we can't rely on it.
+  // Font family name must be lowercase 'feather' — that's the exact string used in
+  // createIconSet() inside @expo/vector-icons. Android matches font families strictly;
+  // registering as 'Feather' (capital F) silently falls back to a system font on Android.
   const [iconsLoaded, iconsError] = useFonts({
-    Feather: require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Feather.ttf'),
+    feather: require('@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Feather.ttf'),
   });
 
   const fontsLoaded = interLoaded && barlowLoaded && iconsLoaded;
