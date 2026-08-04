@@ -185,12 +185,49 @@ router.get("/booking/availability/times", requireAuth, async (req: any, res): Pr
   }
 });
 
+// ── GET /api/booking/certificates/check ──────────────────────────────────────
+// Query params: certificate (the code string)
+router.get("/booking/certificates/check", requireAuth, async (req: any, res): Promise<void> => {
+  if (!requireAcuity(req, res)) return;
+  try {
+    const { certificate } = req.query as Record<string, string>;
+    if (!certificate?.trim()) {
+      res.status(400).json({ error: "Missing required param: certificate" });
+      return;
+    }
+    const url = `${ACUITY_BASE_URL}/certificates?certificate=${encodeURIComponent(certificate.trim())}`;
+    const response = await fetch(url, { headers: { Authorization: acuityAuth() } });
+    if (!response.ok) {
+      req.log.error({ status: response.status }, "Acuity certificates check error");
+      res.status(422).json({ error: "Invalid or expired certificate" });
+      return;
+    }
+    const data = await response.json();
+    const certs = Array.isArray(data) ? data : [data];
+    const cert = certs[0];
+    if (!cert?.productName) {
+      res.status(422).json({ error: "Invalid or expired certificate" });
+      return;
+    }
+    res.json({
+      valid: true,
+      productName: cert.productName,
+      remainingValue: cert.remainingValue ?? cert.value ?? "0.00",
+      appliesToAllProducts: cert.appliesToAllProducts ?? false,
+      productIDs: cert.productIDs ?? [],
+    });
+  } catch (err) {
+    req.log.error({ err }, "booking/certificates/check error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ── POST /api/booking/appointments ───────────────────────────────────────────
-// Body: { locationId, appointmentTypeID, datetime, firstName, lastName, email, phone?, notes? }
+// Body: { locationId, appointmentTypeID, datetime, firstName, lastName, email, phone?, notes?, certificate? }
 router.post("/booking/appointments", requireAuth, async (req: any, res): Promise<void> => {
   if (!requireAcuity(req, res)) return;
   try {
-    const { locationId, appointmentTypeID, datetime, firstName, lastName, email, phone, notes } = req.body ?? {};
+    const { locationId, appointmentTypeID, datetime, firstName, lastName, email, phone, notes, certificate } = req.body ?? {};
     if (!locationId || !appointmentTypeID || !datetime || !firstName || !lastName || !email) {
       res.status(400).json({ error: "Missing required fields: locationId, appointmentTypeID, datetime, firstName, lastName, email" });
       return;
@@ -210,6 +247,7 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
     };
     if (phone) payload.phone = phone;
     if (notes) payload.notes = notes;
+    if (certificate) payload.certificate = String(certificate);
 
     const response = await fetch(`${ACUITY_BASE_URL}/appointments`, {
       method: "POST",
