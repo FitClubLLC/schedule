@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "szQIHMNsoh7kabG55PN2n"
+uri = "file://fitclub-source.zip"
+type = "unspecified"
+title = "Fit Club Source Code"
+description = "Mobile app, web portal, and API server source — excludes node_modules, dist, and build artifacts."
