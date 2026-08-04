@@ -43,10 +43,10 @@ function acuityUrl(calendarId: string, certificate?: string) {
   const base = `https://app.acuityscheduling.com/schedule.php?owner=${OWNER_ID}&calendarID=${calendarId}`;
   if (!cert) return base;
   const withCert = `${base}&certificate=${encodeURIComponent(cert)}`;
-  // Potomac: restrict to Workout for 1 appointment type
+  // Potomac: restrict to Workout for 1 only
   if (calendarId === "12741713") return `${withCert}&appointmentType=${POTOMAC_MEMBER_TYPE}`;
-  // Kentlands: show all types for that calendar
-  return withCert;
+  // Kentlands: Workout for 1 + Red Light Therapy
+  return `${withCert}&appointmentType[]=${POTOMAC_MEMBER_TYPE}&appointmentType[]=96690076`;
 }
 
 function formatRemaining(value: string) {
