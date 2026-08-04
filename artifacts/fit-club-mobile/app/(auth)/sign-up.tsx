@@ -16,7 +16,7 @@ import { Link, useRouter } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Feather } from '@expo/vector-icons';
+import SvgIcon from '@/components/SvgIcon';
 
 type Step = 'form' | 'verify';
 
@@ -218,7 +218,7 @@ export default function SignUpScreen() {
               autoCorrect={false}
             />
             <TouchableOpacity onPress={() => setShowPassword(v => !v)} hitSlop={8}>
-              <Feather name={showPassword ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
+              <SvgIcon name={showPassword ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
             </TouchableOpacity>
           </View>
 

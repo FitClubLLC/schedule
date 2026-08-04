@@ -16,7 +16,7 @@ import { Link, useRouter } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Feather } from '@expo/vector-icons';
+import SvgIcon from '@/components/SvgIcon';
 
 type Screen = 'login' | 'forgot-email' | 'forgot-code';
 
@@ -173,7 +173,7 @@ export default function SignInScreen() {
       return (
         <>
           <TouchableOpacity onPress={goBack} style={styles.backRow} hitSlop={12}>
-            <Feather name="arrow-left" size={18} color={colors.mutedForeground} />
+            <SvgIcon name="arrow-left" size={18} color={colors.mutedForeground} />
             <Text style={[styles.backText, { color: colors.mutedForeground }]}>Back</Text>
           </TouchableOpacity>
 
@@ -216,7 +216,7 @@ export default function SignInScreen() {
       return (
         <>
           <TouchableOpacity onPress={() => { clearError(); setScreen('forgot-email'); }} style={styles.backRow} hitSlop={12}>
-            <Feather name="arrow-left" size={18} color={colors.mutedForeground} />
+            <SvgIcon name="arrow-left" size={18} color={colors.mutedForeground} />
             <Text style={[styles.backText, { color: colors.mutedForeground }]}>Back</Text>
           </TouchableOpacity>
 
@@ -248,7 +248,7 @@ export default function SignInScreen() {
                 autoCorrect={false}
               />
               <TouchableOpacity onPress={() => setShowNew(v => !v)} hitSlop={8}>
-                <Feather name={showNew ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
+                <SvgIcon name={showNew ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 
@@ -314,7 +314,7 @@ export default function SignInScreen() {
               autoCorrect={false}
             />
             <TouchableOpacity onPress={() => setShowPassword(v => !v)} hitSlop={8}>
-              <Feather name={showPassword ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
+              <SvgIcon name={showPassword ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
             </TouchableOpacity>
           </View>
 

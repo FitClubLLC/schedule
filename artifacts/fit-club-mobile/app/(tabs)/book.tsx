@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import SvgIcon from '@/components/SvgIcon';
 
 const OWNER_ID = '36930698';
 
@@ -72,7 +72,7 @@ export default function BookScreen() {
           >
             {/* Icon */}
             <View style={[styles.iconWrap, { backgroundColor: loc.colorMuted }]}>
-              <Feather name="map-pin" size={22} color={loc.color} />
+              <SvgIcon name="map-pin" size={22} color={loc.color} />
             </View>
 
             {/* Text */}
@@ -86,7 +86,7 @@ export default function BookScreen() {
             {/* Button */}
             <View style={[styles.btn, { backgroundColor: loc.color }]}>
               <Text style={styles.btnText}>Book Now</Text>
-              <Feather name="external-link" size={14} color="#000" style={{ marginLeft: 6 }} />
+              <SvgIcon name="external-link" size={14} color="#000" />
             </View>
           </TouchableOpacity>
         ))}

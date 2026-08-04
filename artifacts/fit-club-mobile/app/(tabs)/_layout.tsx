@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
-import { Feather } from '@expo/vector-icons';
+import SvgIcon from '@/components/SvgIcon';
 import { BlurView } from 'expo-blur';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
@@ -76,7 +76,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="house" tintColor={color} size={24} />
             ) : (
-              <Feather name="home" size={22} color={color} />
+              <SvgIcon name="home" size={22} color={color} />
             ),
         }}
       />
@@ -89,7 +89,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="calendar" tintColor={color} size={24} />
             ) : (
-              <Feather name="calendar" size={22} color={color} />
+              <SvgIcon name="calendar" size={22} color={color} />
             ),
         }}
       />
@@ -102,7 +102,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="plus.circle" tintColor={color} size={24} />
             ) : (
-              <Feather name="plus-circle" size={22} color={color} />
+              <SvgIcon name="plus-circle" size={22} color={color} />
             ),
         }}
       />

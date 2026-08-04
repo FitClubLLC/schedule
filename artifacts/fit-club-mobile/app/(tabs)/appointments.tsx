@@ -12,7 +12,7 @@ import {
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGetPastAppointments, useGetUpcomingAppointments } from '@workspace/api-client-react';
-import { Feather } from '@expo/vector-icons';
+import SvgIcon from '@/components/SvgIcon';
 import AppointmentCard from '@/components/AppointmentCard';
 
 type Tab = 'upcoming' | 'past';
@@ -108,7 +108,7 @@ export default function AppointmentsScreen() {
         </View>
       ) : isError ? (
         <View style={styles.center}>
-          <Feather name="alert-circle" size={32} color={colors.destructive} />
+          <SvgIcon name="alert-circle" size={32} color={colors.destructive} />
           <Text style={[styles.emptyTitle, { color: colors.foreground, marginTop: 12 }]}>
             Failed to load sessions
           </Text>
@@ -142,7 +142,7 @@ export default function AppointmentsScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyInner}>
-              <Feather
+              <SvgIcon
                 name={activeTab === 'upcoming' ? 'calendar' : 'clock'}
                 size={40}
                 color={colors.mutedForeground}

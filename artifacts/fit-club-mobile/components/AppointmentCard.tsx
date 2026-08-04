@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useColors } from '@/hooks/useColors';
-import { Feather } from '@expo/vector-icons';
+import SvgIcon from '@/components/SvgIcon';
 
 // Two accent colours — index 0 = location 1 (POTOMAC), index 1 = location 2 (KENTLANDS)
 const LOC_ACCENT = ['#D3AF37', '#4A9EFF'];
@@ -36,7 +36,7 @@ function LocationBadge({ calendarName }: { calendarName?: string | null }) {
 
   return (
     <View style={[styles.badge, { backgroundColor: accent + '22', borderColor: accent + '66' }]}>
-      <Feather name="map-pin" size={10} color={accent} />
+      <SvgIcon name="map-pin" size={10} color={accent} />
       <Text style={[styles.badgeText, { color: accent }]}>{calendarName}</Text>
     </View>
   );
@@ -103,7 +103,7 @@ export default function AppointmentCard({
           </Text>
 
           <View style={styles.metaRow}>
-            <Feather name="clock" size={12} color={colors.mutedForeground} />
+            <SvgIcon name="clock" size={12} color={colors.mutedForeground} />
             <Text style={[styles.meta, { color: colors.mutedForeground }]}>
               {formatTime(appointment.time)} · {appointment.duration} min
             </Text>
@@ -111,7 +111,7 @@ export default function AppointmentCard({
 
           {appointment.location ? (
             <View style={styles.metaRow}>
-              <Feather name="map-pin" size={12} color={colors.mutedForeground} />
+              <SvgIcon name="map-pin" size={12} color={colors.mutedForeground} />
               <Text style={[styles.meta, { color: colors.mutedForeground }]} numberOfLines={1}>
                 {appointment.location}
               </Text>

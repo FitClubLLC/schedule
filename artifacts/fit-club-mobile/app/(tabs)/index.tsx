@@ -18,7 +18,7 @@ import { useUser, useAuth } from '@clerk/expo';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGetAppointmentSummary, useGetUpcomingAppointments } from '@workspace/api-client-react';
-import { Feather } from '@expo/vector-icons';
+import SvgIcon from '@/components/SvgIcon';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import AppointmentCard from '@/components/AppointmentCard';
@@ -126,7 +126,7 @@ export default function DashboardScreen() {
               hitSlop={12}
               activeOpacity={0.7}
             >
-              <Feather name="x" size={22} color={colors.mutedForeground} />
+              <SvgIcon name="x" size={22} color={colors.mutedForeground} />
             </TouchableOpacity>
           </View>
 
@@ -149,7 +149,7 @@ export default function DashboardScreen() {
                 autoCorrect={false}
               />
               <TouchableOpacity onPress={() => setShowCurrent(v => !v)} hitSlop={8}>
-                <Feather name={showCurrent ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
+                <SvgIcon name={showCurrent ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 
@@ -167,7 +167,7 @@ export default function DashboardScreen() {
                 autoCorrect={false}
               />
               <TouchableOpacity onPress={() => setShowNew(v => !v)} hitSlop={8}>
-                <Feather name={showNew ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
+                <SvgIcon name={showNew ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 
@@ -232,10 +232,10 @@ export default function DashboardScreen() {
             activeOpacity={0.7}
             style={styles.headerBtn}
           >
-            <Feather name="key" size={20} color={colors.mutedForeground} />
+            <SvgIcon name="key" size={20} color={colors.mutedForeground} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleSignOut} hitSlop={8} activeOpacity={0.7}>
-            <Feather name="log-out" size={20} color={colors.mutedForeground} />
+            <SvgIcon name="log-out" size={20} color={colors.mutedForeground} />
           </TouchableOpacity>
         </View>
       </View>
@@ -269,7 +269,7 @@ export default function DashboardScreen() {
           </View>
         ) : summaryError ? (
           <View style={[styles.apiErrorCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Feather name="wifi-off" size={18} color={colors.mutedForeground} />
+            <SvgIcon name="wifi-off" size={18} color={colors.mutedForeground} />
             <Text style={[styles.apiErrorText, { color: colors.mutedForeground }]}>
               Session data unavailable — pull down to retry
             </Text>
@@ -329,7 +329,7 @@ export default function DashboardScreen() {
             <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
           ) : upcomingError ? (
             <View style={[styles.apiErrorCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Feather name="wifi-off" size={18} color={colors.mutedForeground} />
+              <SvgIcon name="wifi-off" size={18} color={colors.mutedForeground} />
               <Text style={[styles.apiErrorText, { color: colors.mutedForeground }]}>
                 Session data unavailable — pull down to retry
               </Text>
@@ -338,7 +338,7 @@ export default function DashboardScreen() {
             <View
               style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
-              <Feather name="calendar" size={28} color={colors.mutedForeground} />
+              <SvgIcon name="calendar" size={28} color={colors.mutedForeground} />
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
                 No upcoming sessions
               </Text>
@@ -369,7 +369,7 @@ export default function DashboardScreen() {
             }}
             activeOpacity={0.85}
           >
-            <Feather name="plus" size={20} color={colors.primaryForeground} />
+            <SvgIcon name="plus" size={20} color={colors.primaryForeground} />
             <Text style={[styles.bookBtnText, { color: colors.primaryForeground }]}>
               BOOK A SESSION
             </Text>
