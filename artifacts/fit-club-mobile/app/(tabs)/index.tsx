@@ -361,17 +361,16 @@ export default function DashboardScreen() {
 
         {/* Upcoming sessions list */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
+          <TouchableOpacity
+            style={styles.sectionHeader}
+            onPress={() => router.push('/(tabs)/appointments')}
+            activeOpacity={0.7}
+          >
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
               UPCOMING SESSIONS
             </Text>
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/appointments')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.seeAll, { color: colors.primary }]}>See all</Text>
-            </TouchableOpacity>
-          </View>
+            <Text style={[styles.seeAll, { color: colors.primary }]}>See all →</Text>
+          </TouchableOpacity>
 
           {upcomingQuery.isLoading ? (
             <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} />
