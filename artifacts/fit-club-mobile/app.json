@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Fit Club",
-    "slug": "fit-club-mobile",
+    "name": "FIT CLUB 15",
+    "slug": "fitclub15",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "fit-club-mobile",
+    "scheme": "fitclub15",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
@@ -15,13 +15,13 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.fitclub.mobile"
+      "bundleIdentifier": "com.fitclub15.app"
     },
     "android": {
-      "package": "com.fitclub.mobile"
+      "package": "com.fitclub15.app"
     },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       [
