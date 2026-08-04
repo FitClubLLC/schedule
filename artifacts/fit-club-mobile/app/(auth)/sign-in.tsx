@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
-  Linking,
 } from 'react-native';
 import { useSignIn } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
@@ -19,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Feather } from '@expo/vector-icons';
 
-const PORTAL_URL = `https://${process.env.EXPO_PUBLIC_DOMAIN}/sign-in`;
+type Screen = 'login' | 'forgot-email' | 'forgot-code';
 
 export default function SignInScreen() {
   const { isLoaded, signIn, setActive } = useSignIn();
@@ -27,9 +26,20 @@ export default function SignInScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
+  const [screen, setScreen] = useState<Screen>('login');
+
+  // Login fields
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Reset fields
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNew, setShowNew] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -37,6 +47,15 @@ export default function SignInScreen() {
   const bottomPad = insets.bottom + (Platform.OS === 'web' ? 34 : 24);
 
   const clearError = () => setError('');
+
+  const goBack = () => {
+    clearError();
+    setResetEmail('');
+    setResetCode('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setScreen('login');
+  };
 
   // ── Sign in ────────────────────────────────────────────────────────────────
   const handleSignIn = async () => {
@@ -63,22 +82,182 @@ export default function SignInScreen() {
     }
   };
 
-  // ── Forgot password — open web portal ────────────────────────────────────
-  const handleForgotPassword = async () => {
+  // ── Send reset code ────────────────────────────────────────────────────────
+  const handleSendCode = async () => {
+    if (!isLoaded || !resetEmail.trim() || loading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await Linking.openURL(PORTAL_URL);
+    setLoading(true);
+    clearError();
+    try {
+      await signIn.create({
+        strategy: 'reset_password_email_code',
+        identifier: resetEmail.trim(),
+      });
+      setScreen('forgot-code');
+    } catch (err: any) {
+      setError(
+        err?.errors?.[0]?.longMessage ??
+        err?.errors?.[0]?.message ??
+        'Could not send reset code. Check the email address and try again.',
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: topPad, paddingBottom: bottomPad }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+  // ── Confirm reset ──────────────────────────────────────────────────────────
+  const handleResetPassword = async () => {
+    if (!isLoaded || !resetCode || !newPassword || loading) return;
+    if (newPassword !== confirmPassword) {
+      setError('Passwords don\'t match.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setLoading(true);
+    clearError();
+    try {
+      const result = await signIn.attemptFirstFactor({
+        strategy: 'reset_password_email_code',
+        code: resetCode.trim(),
+        password: newPassword,
+      });
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+        router.replace('/(tabs)');
+      } else {
+        setError('Reset could not be completed. Please try again.');
+      }
+    } catch (err: any) {
+      setError(
+        err?.errors?.[0]?.longMessage ??
+        err?.errors?.[0]?.message ??
+        'Invalid or expired code. Please try again.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Shared layout wrapper ──────────────────────────────────────────────────
+  const renderContent = () => {
+    if (screen === 'forgot-email') {
+      return (
+        <>
+          <TouchableOpacity onPress={goBack} style={styles.backRow} hitSlop={12}>
+            <Feather name="arrow-left" size={18} color={colors.mutedForeground} />
+            <Text style={[styles.backText, { color: colors.mutedForeground }]}>Back</Text>
+          </TouchableOpacity>
+
+          <Text style={[styles.title, { color: colors.primary }]}>RESET PASSWORD</Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+            Enter your email and we'll send a reset code.
+          </Text>
+
+          <View style={styles.form}>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.input, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="Email address"
+              placeholderTextColor={colors.mutedForeground}
+              value={resetEmail}
+              onChangeText={(v) => { setResetEmail(v); clearError(); }}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoCorrect={false}
+              autoFocus
+            />
+
+            {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
+
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: colors.primary }, (!resetEmail.trim() || loading) && styles.buttonDisabled]}
+              onPress={handleSendCode}
+              disabled={!resetEmail.trim() || loading}
+              activeOpacity={0.8}
+            >
+              {loading
+                ? <ActivityIndicator color={colors.primaryForeground} />
+                : <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>SEND CODE</Text>}
+            </TouchableOpacity>
+          </View>
+        </>
+      );
+    }
+
+    if (screen === 'forgot-code') {
+      return (
+        <>
+          <TouchableOpacity onPress={() => { clearError(); setScreen('forgot-email'); }} style={styles.backRow} hitSlop={12}>
+            <Feather name="arrow-left" size={18} color={colors.mutedForeground} />
+            <Text style={[styles.backText, { color: colors.mutedForeground }]}>Back</Text>
+          </TouchableOpacity>
+
+          <Text style={[styles.title, { color: colors.primary }]}>NEW PASSWORD</Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+            Check your email for the code, then set a new password.
+          </Text>
+
+          <View style={styles.form}>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.input, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="Reset code"
+              placeholderTextColor={colors.mutedForeground}
+              value={resetCode}
+              onChangeText={(v) => { setResetCode(v); clearError(); }}
+              keyboardType="number-pad"
+              autoFocus
+            />
+
+            <View style={[styles.inputRow, { backgroundColor: colors.input, borderColor: colors.border }]}>
+              <TextInput
+                style={[styles.inputInner, { color: colors.foreground }]}
+                placeholder="New password (min 8 chars)"
+                placeholderTextColor={colors.mutedForeground}
+                value={newPassword}
+                onChangeText={(v) => { setNewPassword(v); clearError(); }}
+                secureTextEntry={!showNew}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity onPress={() => setShowNew(v => !v)} hitSlop={8}>
+                <Feather name={showNew ? 'eye-off' : 'eye'} size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.input, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="Confirm new password"
+              placeholderTextColor={colors.mutedForeground}
+              value={confirmPassword}
+              onChangeText={(v) => { setConfirmPassword(v); clearError(); }}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
+
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: colors.primary }, (!resetCode || !newPassword || !confirmPassword || loading) && styles.buttonDisabled]}
+              onPress={handleResetPassword}
+              disabled={!resetCode || !newPassword || !confirmPassword || loading}
+              activeOpacity={0.8}
+            >
+              {loading
+                ? <ActivityIndicator color={colors.primaryForeground} />
+                : <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>RESET PASSWORD</Text>}
+            </TouchableOpacity>
+          </View>
+        </>
+      );
+    }
+
+    // Default: login
+    return (
+      <>
         <View style={styles.logoContainer}>
           <Image source={require('@/assets/images/fitclub-logo.png')} style={styles.logo} resizeMode="contain" />
         </View>
@@ -117,7 +296,7 @@ export default function SignInScreen() {
           {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
 
           <TouchableOpacity
-            onPress={handleForgotPassword}
+            onPress={() => { clearError(); setResetEmail(email); setScreen('forgot-email'); }}
             style={styles.forgotRow}
             hitSlop={8}
           >
@@ -144,6 +323,21 @@ export default function SignInScreen() {
             </TouchableOpacity>
           </Link>
         </View>
+      </>
+    );
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: topPad, paddingBottom: bottomPad }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {renderContent()}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -156,6 +350,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 24,
+  },
+  backText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 14,
   },
   logoContainer: { marginBottom: 28, alignItems: 'center' },
   logo: { width: 180, height: 90 },
@@ -172,6 +377,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     textAlign: 'center',
     marginBottom: 36,
+    lineHeight: 18,
   },
   form: { width: '100%', gap: 10 },
   input: {
