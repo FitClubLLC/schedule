@@ -119,6 +119,17 @@ export default function BookScreen() {
         </Text>
       </View>
 
+      {/* ── Free trial CTA ───────────────────────────────────────── */}
+      <TouchableOpacity
+        style={[styles.trialBtn, { borderColor: colors.primary }]}
+        activeOpacity={0.75}
+        onPress={() => Linking.openURL('https://app.acuityscheduling.com/schedule.php?owner=36930698&appointmentType=83397899')}
+      >
+        <SvgIcon name="plus-circle" size={18} color={colors.primary} />
+        <Text style={[styles.trialBtnText, { color: colors.primary }]}>Book a Free Trial</Text>
+        <SvgIcon name="external-link" size={14} color={colors.primary} />
+      </TouchableOpacity>
+
       {/* ── Your packages section ─────────────────────────────────── */}
       {(certsQuery.isLoading || memberCerts.length > 0) && (
         <View style={styles.packagesSection}>
@@ -301,6 +312,24 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 15,
     lineHeight: 22,
+  },
+
+  // Free trial button
+  trialBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderRadius: 14,
+    borderStyle: 'dashed',
+    paddingVertical: 14,
+    marginBottom: 20,
+  },
+  trialBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 
   // Packages section
