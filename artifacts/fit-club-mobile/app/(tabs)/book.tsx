@@ -70,7 +70,10 @@ export default function BookScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await queryClient.refetchQueries({ queryKey: ['member-certificates'] });
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ['member-certificates'] }),
+      queryClient.refetchQueries({ queryKey: ['cert-check'] }),
+    ]);
     setRefreshing(false);
   }, [queryClient]);
 
