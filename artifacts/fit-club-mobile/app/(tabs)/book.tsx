@@ -1,10 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Linking, Alert,
-  TextInput, ActivityIndicator, ScrollView,
+  TextInput, ActivityIndicator, ScrollView, RefreshControl,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/expo';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,6 +58,14 @@ export default function BookScreen() {
   const { getToken, isSignedIn } = useAuth();
   const { certificate: certParam } = useLocalSearchParams<{ certificate?: string }>();
   const { code, applyCode, clearCode, status, info } = useCertificate();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ['member-certificates'] });
+    setRefreshing(false);
+  }, [queryClient]);
 
   const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
 
@@ -136,6 +144,14 @@ export default function BookScreen() {
       contentContainerStyle={[styles.container, { paddingTop: insets.top + 16, paddingBottom: 32 }]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+          colors={[colors.primary]}
+        />
+      }
     >
       {/* Header */}
       <View style={styles.header}>
