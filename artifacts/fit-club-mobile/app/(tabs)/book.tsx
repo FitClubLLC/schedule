@@ -222,7 +222,7 @@ export default function BookScreen() {
                       styles.packageAction,
                       { color: isActive ? '#22c55e' : colors.primary },
                     ]}>
-                      {isActive ? 'Applied ✓' : 'Use'}
+                      {isActive ? 'Applied ✓' : 'Tap to Use'}
                     </Text>
                   </TouchableOpacity>
                 );
