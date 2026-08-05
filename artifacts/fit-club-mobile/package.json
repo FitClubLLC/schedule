@@ -58,6 +58,7 @@
   "dependencies": {
     "@clerk/expo": "^4.2.0",
     "@expo-google-fonts/barlow-condensed": "^0.4.1",
+    "expo-build-properties": "^57.0.8",
     "expo-secure-store": "~15.0.8"
   }
 }
