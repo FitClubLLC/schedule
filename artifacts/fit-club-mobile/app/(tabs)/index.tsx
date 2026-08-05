@@ -53,7 +53,10 @@ export default function DashboardScreen() {
   const summaryError = summaryQuery.isError;
   const upcomingError = upcomingQuery.isError;
 
-  const todayYMD = new Date().toISOString().split('T')[0];
+  // Build today's date string in local time — toISOString() always converts to
+  // UTC, which rolls over to tomorrow after ~7 pm Eastern (UTC-4/-5).
+  const _now = new Date();
+  const todayYMD = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
   const todaysSessions = upcoming.filter((a) => a.date === todayYMD);
 
   // Change password modal state

@@ -26,8 +26,10 @@ function buildDateRange(count = 14): Date[] {
   return dates;
 }
 
+// Use local calendar fields — toISOString() converts to UTC and will return
+// tomorrow's date for Eastern-time users after ~7 pm (UTC-4/-5).
 function toYMD(date: Date): string {
-  return date.toISOString().split('T')[0];
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 function formatDayLabel(date: Date): string {

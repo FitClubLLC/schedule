@@ -209,7 +209,10 @@ export default function BookScreen() {
                           {cert.productName}
                         </Text>
                         <Text style={[styles.packageValue, { color: colors.mutedForeground }]}>
-                          {/^\d/.test(cert.remainingValue)
+                          {/* Session counts come back as "3 sessions" (contains "session");
+                              dollar amounts come back as "45.00" — both start with a digit
+                              so we can't use a digit-prefix check. */}
+                          {cert.remainingValue.includes('session')
                             ? `${cert.remainingValue} remaining`
                             : `$${cert.remainingValue} remaining`}
                         </Text>
@@ -268,7 +271,7 @@ export default function BookScreen() {
             <Text style={[styles.certBannerText, { color: '#22c55e' }]}>
               {info.productName}
               {info.remainingValue && info.remainingValue !== '0.00'
-                ? ` · ${/^\d/.test(info.remainingValue) ? '' : '$'}${info.remainingValue} remaining`
+                ? ` · ${info.remainingValue.includes('session') ? '' : '$'}${info.remainingValue} remaining`
                 : ''}
               {' '}— applied to booking
             </Text>
