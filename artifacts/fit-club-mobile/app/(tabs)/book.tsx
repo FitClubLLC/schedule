@@ -236,16 +236,13 @@ export default function BookScreen() {
                           {cert.productName}
                         </Text>
                         <Text style={[styles.packageValue, { color: colors.mutedForeground }]}>
-                          {/* When this cert is active, use the fresh value from /check
-                              (info.remainingValue) so it matches the banner below.
-                              Otherwise use the cached list value. Session counts contain
-                              "session"; dollar amounts are e.g. "45.00". */}
-                          {(() => {
-                            const val = isActive && info ? info.remainingValue : cert.remainingValue;
-                            return val.includes('session')
-                              ? `${val} remaining`
-                              : `$${val} remaining`;
-                          })()}
+                          {/* Always use cert.remainingValue from the list endpoint —
+                              it's refreshed on every pull-to-refresh, cancel, and
+                              foreground resume. Session counts contain "session";
+                              dollar amounts are e.g. "45.00". */}
+                          {cert.remainingValue.includes('session')
+                            ? `${cert.remainingValue} remaining`
+                            : `$${cert.remainingValue} remaining`}
                         </Text>
                       </View>
                     </View>
