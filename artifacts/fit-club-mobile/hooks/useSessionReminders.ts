@@ -8,6 +8,10 @@
 
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+
+/** True when running as a real device build (EAS / production). False in Expo Go. */
+const IS_REAL_BUILD = Constants.appOwnership !== 'expo';
 
 const REMINDER_KIND = 'session-reminder';
 const ADVANCE_MINUTES = 60;
@@ -38,6 +42,7 @@ export function useSessionReminders(appointments: ReminderAppointment[] | undefi
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
+    if (!IS_REAL_BUILD) return; // expo-notifications throws in Expo Go (SDK 53+)
     if (appointments === undefined) return;
 
     const appts = appointments;

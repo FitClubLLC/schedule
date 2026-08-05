@@ -7,6 +7,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ClerkProvider, useAuth } from '@clerk/expo';
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
+
+/** True when running as a real device build (EAS / production). False in Expo Go. */
+const IS_REAL_BUILD = Constants.appOwnership !== 'expo';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -25,8 +29,8 @@ import { setBaseUrl, setAuthTokenGetter } from '@workspace/api-client-react';
 import { useDeepLink } from '@/hooks/useDeepLink';
 
 // Show notifications as banners even when the app is in the foreground.
-// Dynamic import so that Expo Go (SDK 53+) doesn't crash on this call.
-if (Platform.OS !== 'web') {
+// Only load expo-notifications in real builds — it throws in Expo Go (SDK 53+).
+if (IS_REAL_BUILD && Platform.OS !== 'web') {
   import('expo-notifications').then((Notifications) => {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
@@ -102,6 +106,7 @@ function RootLayoutNav() {
 
     let sub: { remove: () => void } | null = null;
 
+    if (!IS_REAL_BUILD) return;
     import('expo-notifications').then((Notifications) => {
       // App already open — notification tapped while foregrounded or from background.
       sub = Notifications.addNotificationResponseReceivedListener((response) => {
