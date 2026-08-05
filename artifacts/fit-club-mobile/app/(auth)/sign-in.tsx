@@ -40,9 +40,12 @@ export default function SignInScreen() {
   // returns status: undefined. We use it only as a last resort for non-sign-in flows
   // (e.g. password reset). For actual sign-in we wait for hookSignIn to be ready.
   const signIn = hookSignIn ?? (clerk as any).client?.signIn;
-  // True once Clerk has a fresh, usable SignIn resource AND the mount-time
-  // cleanup has confirmed the client is in a pristine state.
-  const signInReady = isLoaded && !!hookSignIn && isClerkReady;
+  // True once Clerk is loaded AND the mount-time cleanup has confirmed the
+  // client is in a pristine state. We intentionally do NOT gate on !!hookSignIn
+  // here — in @clerk/expo ^4 hookSignIn stays undefined after sign-out, so that
+  // check would permanently disable the button. The isClerkReady cleanup is the
+  // real guarantee that the client state is fresh before any create() call.
+  const signInReady = isLoaded && isClerkReady;
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();

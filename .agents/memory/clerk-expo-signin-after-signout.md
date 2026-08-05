@@ -26,3 +26,4 @@ Additionally, `signIn.create()` called without `strategy: 'password'` silently n
 - `useSignIn().isLoaded` never becomes `true` after sign-out in `@clerk/expo` ^4 — use `useAuth().isLoaded` as the gate instead.
 - `queryClient.clear()` should be called immediately after `signOut()` to prevent stale React Query data bleeding into the next session. Requires `queryClient` to be a shared singleton (moved to `lib/queryClient.ts`).
 - `hookSignIn` (from `useSignIn()`) should always be used for `.create()` calls — never the `clerk.client?.signIn` fallback, which is a stale reference during the re-init window.
+- Do NOT gate the sign-in button on `!!hookSignIn`. In `@clerk/expo` ^4, `hookSignIn` stays `undefined` indefinitely after sign-out, so that check permanently disables the button. Gate on `isLoaded && isClerkReady` only.
