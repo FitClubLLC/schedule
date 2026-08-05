@@ -213,9 +213,9 @@ router.get("/booking/certificates", requireAuth, async (req: any, res): Promise<
         if (c.remainingValue !== null && c.remainingValue !== undefined) {
           remaining = c.remainingValue;
         } else if (c.remainingCounts && typeof c.remainingCounts === "object") {
-          const total = Object.values(c.remainingCounts).reduce(
-            (sum: number, v: any) => sum + Number(v), 0
-          );
+          // remainingCounts maps each eligible appointment type to the same shared pool count.
+          // Summing would multiply by the number of types — take the max instead.
+          const total = Math.max(0, ...Object.values(c.remainingCounts).map((v: any) => Number(v)));
           remaining = `${total} session${total !== 1 ? "s" : ""}`;
         } else {
           remaining = "0";
@@ -282,9 +282,8 @@ router.get("/booking/certificates/check", requireAuth, async (req: any, res): Pr
     if (cert.remainingValue !== null && cert.remainingValue !== undefined) {
       remainingValue = cert.remainingValue;
     } else if (cert.remainingCounts && typeof cert.remainingCounts === "object") {
-      const total = Object.values(cert.remainingCounts).reduce(
-        (sum: number, v: any) => sum + Number(v), 0
-      );
+      // Same shared-pool logic as /certificates — take max, not sum.
+      const total = Math.max(0, ...Object.values(cert.remainingCounts).map((v: any) => Number(v)));
       remainingValue = `${total} session${total !== 1 ? "s" : ""}`;
     } else {
       remainingValue = "0";
