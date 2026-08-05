@@ -17,7 +17,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { ClerkProvider, useAuth } from '@clerk/expo';
+import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/expo';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
@@ -183,13 +183,15 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-          <QueryClientProvider client={queryClient}>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
-          </QueryClientProvider>
+          <ClerkLoaded>
+            <QueryClientProvider client={queryClient}>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <KeyboardProvider>
+                  <RootLayoutNav />
+                </KeyboardProvider>
+              </GestureHandlerRootView>
+            </QueryClientProvider>
+          </ClerkLoaded>
         </ClerkProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
