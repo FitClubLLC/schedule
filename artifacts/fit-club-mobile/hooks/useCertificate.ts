@@ -80,5 +80,25 @@ export function useCertificate() {
     await AsyncStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  return { code, applyCode, clearCode, status, info };
+  /** Re-validate the current code immediately (no debounce). Call after a
+   *  booking or cancellation to sync info.remainingValue with Acuity. */
+  const recheck = useCallback(async () => {
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    try {
+      const token = await getToken();
+      const res = await fetch(
+        `${baseUrl}/api/booking/certificates/check?certificate=${encodeURIComponent(trimmed)}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setInfo({ productName: data.productName, remainingValue: data.remainingValue });
+      }
+    } catch {
+      // silently ignore — stale info is better than crashing
+    }
+  }, [code, baseUrl, getToken]);
+
+  return { code, applyCode, clearCode, status, info, recheck };
 }
