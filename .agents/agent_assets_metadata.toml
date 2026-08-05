@@ -7,3 +7,10 @@ uri = "file://fitclub-source.zip"
 type = "unspecified"
 title = "Fit Club Source Code"
 description = "Mobile app, web portal, and API server source — excludes node_modules, dist, and build artifacts."
+
+[[outputs]]
+id = "Zz5YqvvUX82XFNKXyYFwT"
+uri = "file://attached_assets/0_AuthKey_4S4U9TU2Q9_1785890490129.p8"
+type = "unspecified"
+title = "AuthKey_4S4U9TU2Q9.p8"
+description = "Apple App Store Connect API private key — upload this to Codemagic"
