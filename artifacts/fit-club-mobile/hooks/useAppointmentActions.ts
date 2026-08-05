@@ -38,6 +38,9 @@ export function useAppointmentActions() {
     queryClient.invalidateQueries({ queryKey: getGetUpcomingAppointmentsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetPastAppointmentsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetAppointmentSummaryQueryKey() });
+    // Also refresh the session count on the Book page — cancellations return
+    // a session to the member's package and the count must update immediately.
+    queryClient.invalidateQueries({ queryKey: ['member-certificates'] });
   }
 
   async function cancelAppointment(id: number): Promise<void> {
