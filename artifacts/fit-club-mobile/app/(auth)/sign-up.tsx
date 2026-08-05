@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
+  Alert,
 } from 'react-native';
 import { useSignUp } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
@@ -57,11 +58,14 @@ export default function SignUpScreen() {
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
       setStep('verify');
     } catch (err: any) {
-      setError(
+      const msg =
         err?.errors?.[0]?.longMessage ??
         err?.errors?.[0]?.message ??
-        'Could not create account. Please try again.',
-      );
+        err?.message ??
+        'Could not create account. Please try again.';
+      setError(msg);
+      // Also show an Alert so the error is never invisible regardless of styling.
+      Alert.alert('Sign Up Failed', msg);
     } finally {
       setLoading(false);
     }
@@ -225,9 +229,9 @@ export default function SignUpScreen() {
           {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
 
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || !password || loading) && styles.buttonDisabled]}
+            style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!isLoaded || !email || !password || loading) && styles.buttonDisabled]}
             onPress={handleSignUp}
-            disabled={!email || !password || loading}
+            disabled={!isLoaded || !email || !password || loading}
             activeOpacity={0.8}
           >
             {loading
