@@ -360,12 +360,19 @@ export default function DashboardScreen() {
 
         {/* Next session */}
         {summary?.nextAppointment && (
-          <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.section}
+            activeOpacity={0.7}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/(tabs)/appointments');
+            }}
+          >
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
               NEXT SESSION
             </Text>
             <AppointmentCard appointment={summary.nextAppointment} highlighted />
-          </View>
+          </TouchableOpacity>
         )}
 
         {/* Book CTA */}
