@@ -298,9 +298,15 @@ export default function BookScreen() {
             <SvgIcon name="check" size={15} color="#22c55e" />
             <Text style={[styles.certBannerText, { color: '#22c55e' }]}>
               {info.productName}
-              {info.remainingValue && info.remainingValue !== '0.00'
-                ? ` · ${info.remainingValue.includes('session') ? '' : '$'}${info.remainingValue} remaining`
-                : ''}
+              {(() => {
+                // Prefer the fresh list value (updated on every refetch) over the
+                // stale /check value so the banner stays in sync after bookings/cancels.
+                const matchedCert = memberCerts.find(c => c.code === code);
+                const rv = matchedCert?.remainingValue ?? info.remainingValue;
+                return rv && rv !== '0.00'
+                  ? ` · ${rv.includes('session') ? '' : '$'}${rv} remaining`
+                  : '';
+              })()}
               {' '}— applied to booking
             </Text>
           </View>
