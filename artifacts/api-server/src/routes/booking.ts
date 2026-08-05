@@ -247,18 +247,13 @@ router.get("/booking/certificates/check", requireAuth, async (req: any, res): Pr
     }
     const trimmedCode = certificate.trim();
 
-    // Try Acuity code-based lookup first (works for gift certificates)
+    // Look up by email first — this returns the member's actual remaining count,
+    // which Acuity decrements on booking and restores on cancellation.
+    // The code-based lookup can return package-level totals rather than per-member
+    // remaining, so it's only used as a fallback for gift certificates where the
+    // purchaser's email differs from the redeeming member's email.
     let cert: any = null;
-    const codeUrl = `${ACUITY_BASE_URL}/certificates?certificate=${encodeURIComponent(trimmedCode)}`;
-    const codeRes = await fetch(codeUrl, { headers: { Authorization: acuityAuth() } });
-    if (codeRes.ok) {
-      const codeData = await codeRes.json();
-      const codeCerts = Array.isArray(codeData) ? codeData : [codeData];
-      cert = codeCerts.find((c: any) => c?.name || c?.productName) ?? null;
-    }
-
-    // Fallback: look up member's certificates by email (handles subscription packages)
-    if (!cert && req.userId) {
+    if (req.userId) {
       const email = await getClerkUserEmail(req.userId);
       if (email) {
         const emailUrl = `${ACUITY_BASE_URL}/certificates?email=${encodeURIComponent(email)}`;
@@ -269,6 +264,17 @@ router.get("/booking/certificates/check", requireAuth, async (req: any, res): Pr
             (c: any) => c?.certificate === trimmedCode
           ) ?? null;
         }
+      }
+    }
+
+    // Fallback: code-based lookup (gift certificates purchased under a different email)
+    if (!cert) {
+      const codeUrl = `${ACUITY_BASE_URL}/certificates?certificate=${encodeURIComponent(trimmedCode)}`;
+      const codeRes = await fetch(codeUrl, { headers: { Authorization: acuityAuth() } });
+      if (codeRes.ok) {
+        const codeData = await codeRes.json();
+        const codeCerts = Array.isArray(codeData) ? codeData : [codeData];
+        cert = codeCerts.find((c: any) => c?.name || c?.productName) ?? null;
       }
     }
 
