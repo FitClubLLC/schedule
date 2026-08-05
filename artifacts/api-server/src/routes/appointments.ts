@@ -54,7 +54,10 @@ router.get(
       return;
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    // Use local (Eastern) date — toISOString() returns UTC which rolls to
+    // tomorrow after ~8 pm ET, causing today's appointments to disappear.
+    const _now = new Date();
+    const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
     const url = `${ACUITY_BASE_URL}/appointments?email=${encodeURIComponent(email)}&minDate=${today}&direction=ASC&max=50`;
 
     const response = await fetch(url, {

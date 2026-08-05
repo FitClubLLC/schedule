@@ -75,6 +75,14 @@ app.use(
   })),
 );
 
+// Prevent any HTTP-layer caching (proxy or client) on API responses.
+// Without this, repeated identical GET requests return 304 and the app
+// never sees new data even when Acuity has updated appointments/certs.
+app.use("/api", (_req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
+
 app.use("/api", router);
 
 export default app;
