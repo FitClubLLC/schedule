@@ -10,6 +10,7 @@ import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SvgIcon from '@/components/SvgIcon';
 import { useCertificate } from '@/hooks/useCertificate';
+import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
 
 interface MemberCert {
   code: string;
@@ -66,6 +67,9 @@ export default function BookScreen() {
     await queryClient.invalidateQueries({ queryKey: ['member-certificates'] });
     setRefreshing(false);
   }, [queryClient]);
+
+  // Auto-refresh session counts when returning from Acuity's browser booking page
+  useAppForegroundRefresh([['member-certificates']]);
 
   const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
 

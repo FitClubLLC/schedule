@@ -283,12 +283,6 @@ router.get("/booking/certificates/check", requireAuth, async (req: any, res): Pr
       res.status(422).json({ error: "Invalid or expired certificate" });
       return;
     }
-    req.log.info({
-      certCode: trimmedCode,
-      remainingValue: cert.remainingValue,
-      remainingCounts: cert.remainingCounts,
-      productName,
-    }, "DEBUG /check: raw cert data from Acuity");
     // Remaining — dollar value or session count
     let remainingValue: string;
     if (cert.remainingValue !== null && cert.remainingValue !== undefined) {

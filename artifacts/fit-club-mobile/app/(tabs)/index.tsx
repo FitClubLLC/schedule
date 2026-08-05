@@ -23,6 +23,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import AppointmentCard from '@/components/AppointmentCard';
 import { useSessionReminders } from '@/hooks/useSessionReminders';
+import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -40,6 +41,9 @@ export default function DashboardScreen() {
 
   const summaryQuery = useGetAppointmentSummary({ query: { enabled: !!isSignedIn } });
   const upcomingQuery = useGetUpcomingAppointments({ query: { enabled: !!isSignedIn } });
+
+  // Refetch when the user returns from an external browser (e.g. after booking in Acuity)
+  useAppForegroundRefresh([['/api/appointments/upcoming'], ['/api/appointments/summary']]);
 
   const summary = summaryQuery.data;
   const upcoming = upcomingQuery.data ?? [];

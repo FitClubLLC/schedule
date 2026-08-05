@@ -17,6 +17,7 @@ import SvgIcon from '@/components/SvgIcon';
 import AppointmentCard from '@/components/AppointmentCard';
 import RescheduleModal from '@/components/RescheduleModal';
 import { useAppointmentActions } from '@/hooks/useAppointmentActions';
+import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
 
 type Tab = 'upcoming' | 'past';
 
@@ -33,6 +34,9 @@ export default function AppointmentsScreen() {
   const pastQuery = useGetPastAppointments({
     query: { enabled: activeTab === 'past' },
   });
+
+  // Refetch when the user returns from an external browser (e.g. after booking in Acuity)
+  useAppForegroundRefresh([['/api/appointments/upcoming'], ['/api/appointments/past']]);
 
   const query = activeTab === 'upcoming' ? upcomingQuery : pastQuery;
   const appointments = query.data ?? [];
