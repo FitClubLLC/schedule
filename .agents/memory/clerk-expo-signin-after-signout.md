@@ -21,6 +21,10 @@ Additionally, `signIn.create()` called without `strategy: 'password'` silently n
 
 **Why:** `client.fetch()` calls `/v1/client` on Clerk's API which returns the server-authoritative client state. After `signOut()`, the server knows there are no active sessions and no pending sign-in, so the refreshed client gets a blank `signIn` resource.
 
+## The real error code
+
+The actual Clerk error thrown when a ghost session is present is `session_exists` (not `single_session_mode`). Its message is "You're already signed in." The correct handler: grab `clerk.client.activeSessions[0]`, call `setActive({ session: id })`, then navigate to `/(tabs)`. Do NOT call `client.fetch()` to resolve this — fetching re-establishes the session using cached SecureStore tokens and causes a loop.
+
 ## Other findings
 
 - `useSignIn().isLoaded` never becomes `true` after sign-out in `@clerk/expo` ^4 — use `useAuth().isLoaded` as the gate instead.

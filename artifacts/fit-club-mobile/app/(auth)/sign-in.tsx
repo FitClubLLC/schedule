@@ -78,25 +78,18 @@ export default function SignInScreen() {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   /**
-   * Flush any stale SignIn resource state left over from a previous completed
-   * session. After sign-out, clerk.client.signIn retains its previous status,
-   * causing create() to return an empty object (status: undefined, no session
-   * ID). client.fetch() reloads the resource from the server and resets it.
-   * We race against a 2 s timeout so a slow network never blocks the user.
+   * Evict any ghost sessions that survived a previous signOut().
+   * After signOut(), the Clerk client object can still hold a reference to the
+   * previous session.  Calling signIn.create() while that reference exists
+   * causes Clerk to throw session_exists.  We sign out explicitly here so that
+   * create() always starts from a clean slate.
    */
-  const refreshClerkClient = async () => {
+  const evictGhostSessions = async () => {
     try {
       const client = (clerk as any).client;
-      // Evict ghost sessions that survived a previous signOut().
-      if ((client?.activeSessions?.length ?? 0) > 0) {
+      const ghosts: any[] = client?.activeSessions ?? [];
+      if (ghosts.length > 0) {
         await clerk.signOut();
-      }
-      // Reload client from Clerk's API — resets SignIn resource to blank state.
-      if (client?.fetch) {
-        await Promise.race([
-          client.fetch(),
-          new Promise<void>(resolve => setTimeout(resolve, 2000)),
-        ]);
       }
     } catch {
       // Non-fatal — proceed with sign-in attempt regardless.
@@ -132,9 +125,7 @@ export default function SignInScreen() {
     setLoading(true);
     clearError();
     try {
-      // Flush stale SignIn resource state before attempting a new sign-in.
-      // After sign-out, create() silently returns {} without this reset.
-      await refreshClerkClient();
+      await evictGhostSessions();
 
       const freshSignIn = (clerk as any).client?.signIn ?? hookSignIn;
       if (!freshSignIn) {
@@ -181,6 +172,20 @@ export default function SignInScreen() {
         setError('Sign in could not be completed. Please try again.');
       }
     } catch (err: any) {
+      const code = err?.errors?.[0]?.code ?? '';
+      // session_exists / single_session_mode: the Clerk client still holds a
+      // reference to the previous session even though React state shows signed
+      // out. Activate that session and go straight to the app.
+      if (code === 'session_exists' || code === 'single_session_mode') {
+        try {
+          const ghosts: any[] = (clerk as any).client?.activeSessions ?? [];
+          if (ghosts.length > 0 && setActive) {
+            await setActive({ session: ghosts[0].id });
+          }
+        } catch { /* ignore — router.replace below will handle it */ }
+        router.replace('/(tabs)');
+        return;
+      }
       setError(
         err?.errors?.[0]?.longMessage ??
         err?.errors?.[0]?.message ??
@@ -201,7 +206,7 @@ export default function SignInScreen() {
       const creds = await authenticateWithBiometrics();
       if (!creds) return; // cancelled or failed — do nothing, let user try password
 
-      await refreshClerkClient();
+      await evictGhostSessions();
       const freshSignIn = (clerk as any).client?.signIn ?? hookSignIn;
       if (!freshSignIn) {
         setError('Authentication not ready — please try again.');
