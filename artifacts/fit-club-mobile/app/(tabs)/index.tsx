@@ -22,6 +22,7 @@ import SvgIcon from '@/components/SvgIcon';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import AppointmentCard from '@/components/AppointmentCard';
+import { useSessionReminders } from '@/hooks/useSessionReminders';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -43,6 +44,11 @@ export default function DashboardScreen() {
   const summary = summaryQuery.data;
   const upcoming = upcomingQuery.data ?? [];
   const isLoading = summaryQuery.isLoading;
+
+  // Schedule a local push notification ~60 min before each upcoming session.
+  // Pass raw query data (undefined while loading/error) so we only clear reminders
+  // when we have a confirmed response — not when the query is still in flight.
+  useSessionReminders(upcomingQuery.data);
   const isRefreshing = summaryQuery.isFetching && !summaryQuery.isLoading;
   const summaryError = summaryQuery.isError;
   const upcomingError = upcomingQuery.isError;

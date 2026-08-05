@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Platform, Linking } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -6,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ClerkProvider, useAuth } from '@clerk/expo';
 import * as SecureStore from 'expo-secure-store';
+import * as Notifications from 'expo-notifications';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -22,6 +24,19 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { setBaseUrl, setAuthTokenGetter } from '@workspace/api-client-react';
 import { useDeepLink } from '@/hooks/useDeepLink';
+
+// Show notifications as banners even when the app is in the foreground.
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -64,6 +79,7 @@ const tokenCache = {
 /**
  * Watches auth state and redirects between (auth) and (tabs) groups.
  * Also registers the Clerk token getter so the API client can attach Bearer tokens.
+ * Handles notification taps so members land on the Appointments tab.
  */
 function RootLayoutNav() {
   const { isSignedIn, isLoaded, getToken } = useAuth();
@@ -77,6 +93,39 @@ function RootLayoutNav() {
 
   // Handle deep links (e.g. fitclub15://book?certificate=8B86C782).
   useDeepLink();
+
+  // When the user taps a session-reminder notification, open the Appointments tab.
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    // App already open — notification tapped while foregrounded or from background.
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, unknown>;
+      const url = data?.url as string | undefined;
+      if (url) {
+        Linking.openURL(url).catch(() => {
+          // If the URL doesn't open via Linking, navigate directly.
+          router.push('/(tabs)/appointments');
+        });
+      }
+    });
+
+    // Cold-start: app killed, user taps notification.
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (!response) return;
+      const data = response.notification.request.content.data as Record<string, unknown>;
+      const url = data?.url as string | undefined;
+      if (url) {
+        Linking.openURL(url).catch(() => {
+          router.push('/(tabs)/appointments');
+        });
+      }
+    });
+
+    return () => sub.remove();
+    // router is stable; intentionally omitted from deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Handle auth state transitions.
   useEffect(() => {
