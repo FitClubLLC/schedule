@@ -186,17 +186,17 @@ export default function BookScreen() {
                       {
                         backgroundColor: isActive
                           ? 'rgba(34,197,94,0.10)'
-                          : colors.card,
+                          : LOCATION_COLOR_MUTED,
                         borderColor: isActive
                           ? 'rgba(34,197,94,0.45)'
-                          : colors.border,
+                          : LOCATION_COLOR_BORDER,
                       },
                     ]}
                   >
                     <View style={styles.packageCardLeft}>
                       <View style={[
                         styles.packageIconWrap,
-                        { backgroundColor: isActive ? 'rgba(34,197,94,0.15)' : colors.background },
+                        { backgroundColor: isActive ? 'rgba(34,197,94,0.15)' : 'rgba(211,175,55,0.12)' },
                       ]}>
                         <SvgIcon
                           name={isActive ? 'check' : 'credit-card'}
@@ -205,7 +205,7 @@ export default function BookScreen() {
                         />
                       </View>
                       <View style={styles.packageInfo}>
-                        <Text style={[styles.packageName, { color: colors.foreground }]} numberOfLines={1}>
+                        <Text style={[styles.packageName, { color: isActive ? colors.foreground : LOCATION_COLOR }]} numberOfLines={1}>
                           {cert.productName}
                         </Text>
                         <Text style={[styles.packageValue, { color: colors.mutedForeground }]}>

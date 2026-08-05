@@ -118,15 +118,11 @@ function ClassicTabLayout() {
         options={{
           title: 'Memberships',
           tabBarLabel: 'Memberships',
-          // Always gold — this tab never becomes "active" in the nav sense
-          // (it opens a browser), so we pin the color instead of using the
-          // dynamic active/inactive value passed by the tab bar.
-          tabBarLabelStyle: { color: colors.primary },
-          tabBarIcon: () =>
+          tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="creditcard" tintColor={colors.primary} size={24} />
+              <SymbolView name="creditcard" tintColor={color} size={24} />
             ) : (
-              <SvgIcon name="credit-card" size={22} color={colors.primary} />
+              <SvgIcon name="credit-card" size={22} color={color} />
             ),
           tabBarButton: (props) => (
             <TouchableOpacity
