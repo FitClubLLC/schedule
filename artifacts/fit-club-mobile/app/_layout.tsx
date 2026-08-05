@@ -7,7 +7,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ClerkProvider, useAuth } from '@clerk/expo';
 import * as SecureStore from 'expo-secure-store';
-import * as Notifications from 'expo-notifications';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -26,16 +25,19 @@ import { setBaseUrl, setAuthTokenGetter } from '@workspace/api-client-react';
 import { useDeepLink } from '@/hooks/useDeepLink';
 
 // Show notifications as banners even when the app is in the foreground.
+// Dynamic import so that Expo Go (SDK 53+) doesn't crash on this call.
 if (Platform.OS !== 'web') {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
+  import('expo-notifications').then((Notifications) => {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  }).catch(() => { /* expo-notifications unavailable in Expo Go — skip */ });
 }
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -98,31 +100,34 @@ function RootLayoutNav() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
-    // App already open — notification tapped while foregrounded or from background.
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as Record<string, unknown>;
-      const url = data?.url as string | undefined;
-      if (url) {
-        Linking.openURL(url).catch(() => {
-          // If the URL doesn't open via Linking, navigate directly.
-          router.push('/(tabs)/appointments');
-        });
-      }
-    });
+    let sub: { remove: () => void } | null = null;
 
-    // Cold-start: app killed, user taps notification.
-    Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (!response) return;
-      const data = response.notification.request.content.data as Record<string, unknown>;
-      const url = data?.url as string | undefined;
-      if (url) {
-        Linking.openURL(url).catch(() => {
-          router.push('/(tabs)/appointments');
-        });
-      }
-    });
+    import('expo-notifications').then((Notifications) => {
+      // App already open — notification tapped while foregrounded or from background.
+      sub = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data as Record<string, unknown>;
+        const url = data?.url as string | undefined;
+        if (url) {
+          Linking.openURL(url).catch(() => {
+            router.push('/(tabs)/appointments');
+          });
+        }
+      });
 
-    return () => sub.remove();
+      // Cold-start: app killed, user taps notification.
+      Notifications.getLastNotificationResponseAsync().then((response) => {
+        if (!response) return;
+        const data = response.notification.request.content.data as Record<string, unknown>;
+        const url = data?.url as string | undefined;
+        if (url) {
+          Linking.openURL(url).catch(() => {
+            router.push('/(tabs)/appointments');
+          });
+        }
+      });
+    }).catch(() => { /* expo-notifications unavailable in Expo Go — skip */ });
+
+    return () => sub?.remove();
     // router is stable; intentionally omitted from deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
