@@ -123,15 +123,15 @@ function RescheduleDialog({ appointment, onClose }: { appointment: Appointment; 
             <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
               {slots.map((slot) => (
                 <button
-                  key={slot.datetime}
-                  onClick={() => setSelectedDatetime(slot.datetime)}
+                  key={slot.time}
+                  onClick={() => setSelectedDatetime(slot.time)}
                   className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-colors ${
-                    selectedDatetime === slot.datetime
+                    selectedDatetime === slot.time
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-card border-border hover:border-primary/50 hover:bg-primary/5 text-foreground"
                   }`}
                 >
-                  {format(parseISO(slot.datetime), "h:mm a")}
+                  {format(parseISO(slot.time), "h:mm a")}
                 </button>
               ))}
             </div>

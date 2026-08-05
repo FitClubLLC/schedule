@@ -6,8 +6,7 @@ import {
 } from "@workspace/api-client-react";
 
 export interface TimeSlot {
-  time: string;
-  datetime: string;
+  time: string; // ISO datetime string from Acuity (e.g. "2026-08-10T09:00:00-0400")
 }
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
