@@ -96,7 +96,10 @@ export default function SignInScreen() {
     clearError();
     try {
       const result = await signIn.create({ identifier: email.trim(), password });
-      if (result.status === 'complete') {
+      // Treat createdSessionId as the canonical success signal — status can be
+      // undefined in some @clerk/expo versions even when sign-in succeeded.
+      const succeeded = result.status === 'complete' || !!result.createdSessionId;
+      if (succeeded) {
         await setActive({ session: result.createdSessionId });
         // Offer biometric setup if available and not yet saved.
         const [available, saved] = await Promise.all([isBiometricAvailable(), hasSavedCreds()]);
@@ -122,7 +125,7 @@ export default function SignInScreen() {
       } else if (result.status === 'needs_second_factor') {
         setError('Two-factor authentication is enabled on this account. Please disable it in your account settings and try again.');
       } else {
-        setError(`Sign in could not be completed (status: ${result.status}). Please try again.`);
+        setError('Sign in could not be completed. Please try again.');
       }
     } catch (err: any) {
       setError(
@@ -145,11 +148,12 @@ export default function SignInScreen() {
       const creds = await authenticateWithBiometrics();
       if (!creds) return; // cancelled or failed — do nothing, let user try password
       const result = await signIn.create({ identifier: creds.email, password: creds.password });
-      if (result.status === 'complete') {
+      const succeeded = result.status === 'complete' || !!result.createdSessionId;
+      if (succeeded) {
         await setActive({ session: result.createdSessionId });
         router.replace('/(tabs)');
       } else {
-        setError('Sign in could not be completed. Please try again.');
+        setError('Biometric sign in failed. Please use your password.');
       }
     } catch (err: any) {
       // Clerk error codes that indicate the stored password is no longer valid.
