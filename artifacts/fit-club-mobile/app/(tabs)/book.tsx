@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@clerk/expo';
+import { useAuth, useUser } from '@clerk/expo';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SvgIcon from '@/components/SvgIcon';
@@ -41,9 +41,13 @@ function acuityUrl(
   locationId: string,
   calendarId: string,
   certificate?: string,
+  email?: string,
 ) {
   const cert = certificate?.trim();
-  const base = `https://app.acuityscheduling.com/schedule.php?owner=${config.ownerId}&calendarID=${calendarId}`;
+  // Pre-fill the member's email so Acuity records the appointment under the
+  // same address used in Clerk — prevents mismatches that hide bookings in the app.
+  const emailParam = email ? `&email=${encodeURIComponent(email)}` : '';
+  const base = `https://app.acuityscheduling.com/schedule.php?owner=${config.ownerId}&calendarID=${calendarId}${emailParam}`;
   if (!cert) return base;
   const withCert = `${base}&certificate=${encodeURIComponent(cert)}`;
   const { workoutFor1, redLightTherapy } = config.appointmentTypes;
@@ -57,6 +61,8 @@ export default function BookScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { getToken, isSignedIn } = useAuth();
+  const { user } = useUser();
+  const memberEmail = user?.primaryEmailAddress?.emailAddress;
   const { certificate: certParam } = useLocalSearchParams<{ certificate?: string }>();
   const { code, applyCode, clearCode, status, info } = useCertificate();
   const queryClient = useQueryClient();
@@ -118,7 +124,7 @@ export default function BookScreen() {
       Alert.alert('Loading', 'Booking config is still loading. Please try again in a moment.');
       return;
     }
-    const url = acuityUrl(acuityConfig, locationId, calendarId, status === 'valid' ? code : undefined);
+    const url = acuityUrl(acuityConfig, locationId, calendarId, status === 'valid' ? code : undefined, memberEmail);
     const supported = await Linking.canOpenURL(url);
     if (supported) {
       await Linking.openURL(url);

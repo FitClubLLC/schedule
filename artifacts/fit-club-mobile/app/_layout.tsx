@@ -1,5 +1,16 @@
 import React, { useEffect } from 'react';
-import { Platform, Linking } from 'react-native';
+import { Platform, Linking, AppState } from 'react-native';
+import { focusManager } from '@tanstack/react-query';
+
+// Wire React Query's focusManager to AppState so refetchOnWindowFocus
+// (and staleTime:0) actually triggers when the user returns to the app
+// from an external browser (e.g. after booking in Acuity).
+focusManager.setEventListener((handleFocus) => {
+  const sub = AppState.addEventListener('change', (state) => {
+    handleFocus(state === 'active');
+  });
+  return () => sub.remove();
+});
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
