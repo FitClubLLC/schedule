@@ -1,0 +1,1 @@
+- [Clerk expo sign-in after sign-out](clerk-expo-signin-after-signout.md) — signIn.create() silently no-ops after signOut(); fix requires client.fetch() on mount + strategy:'password'.

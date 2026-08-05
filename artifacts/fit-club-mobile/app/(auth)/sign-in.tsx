@@ -40,8 +40,9 @@ export default function SignInScreen() {
   // returns status: undefined. We use it only as a last resort for non-sign-in flows
   // (e.g. password reset). For actual sign-in we wait for hookSignIn to be ready.
   const signIn = hookSignIn ?? (clerk as any).client?.signIn;
-  // True once Clerk has a fresh, usable SignIn resource for this session.
-  const signInReady = isLoaded && !!hookSignIn;
+  // True once Clerk has a fresh, usable SignIn resource AND the mount-time
+  // cleanup has confirmed the client is in a pristine state.
+  const signInReady = isLoaded && !!hookSignIn && isClerkReady;
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -64,11 +65,55 @@ export default function SignInScreen() {
   const [error, setError] = useState('');
   const [biometricReady, setBiometricReady] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
+  // Starts false; becomes true once Clerk state has been confirmed pristine.
+  // The sign-in button stays disabled until this is true.
+  const [isClerkReady, setIsClerkReady] = useState(false);
 
   // Captures the exact signIn instance used in handleSendCode so that
   // handleResetPassword calls attemptFirstFactor on the same object —
   // preventing a stale-reference mismatch if hookSignIn changes between renders.
   const signInRef = useRef<any>(null);
+
+  // On mount (and whenever isLoaded changes), guarantee the Clerk client is in a
+  // pristine state before the user can submit credentials.
+  //
+  // Problem: after signOut(), clerk.client retains the previous completed SignIn
+  // resource. Calling signIn.create() on it silently returns an empty object
+  // (status: undefined, no session ID) instead of starting a fresh attempt.
+  //
+  // Fix:
+  //   1. If any ghost sessions remain, force a full signOut() to clear them.
+  //   2. Reload the Clerk client from the server so the SignIn resource is reset
+  //      to a blank state (status: null) — this is the call that actually fixes it.
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const client = (clerk as any).client;
+
+        // Step 1 — evict any ghost sessions that survived the previous signOut().
+        const ghostSessions: unknown[] = client?.activeSessions ?? [];
+        if (ghostSessions.length > 0) {
+          await clerk.signOut();
+        }
+
+        // Step 2 — reload the client from Clerk's API.  This resets the SignIn
+        // resource's internal status back to null so that .create() works cleanly.
+        if (client?.fetch) {
+          await client.fetch();
+        }
+      } catch {
+        // Non-fatal — allow sign-in to proceed regardless.
+      } finally {
+        if (!cancelled) setIsClerkReady(true);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [isLoaded]);
 
   // Check on mount whether biometric sign-in is available and credentials are saved.
   useEffect(() => {
