@@ -44,7 +44,11 @@ export default function SignUpScreen() {
 
   // ── Sign up: create account + send verification code ──────────────────────
   const handleSignUp = async () => {
-    if (!isLoaded || !email || !password || loading) return;
+    if (!email || !password || loading) return;
+    if (!isLoaded || !signUp) {
+      Alert.alert('Not Ready', 'The app is still loading. Please wait a moment and try again.');
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     clearError();
@@ -64,7 +68,6 @@ export default function SignUpScreen() {
         err?.message ??
         'Could not create account. Please try again.';
       setError(msg);
-      // Also show an Alert so the error is never invisible regardless of styling.
       Alert.alert('Sign Up Failed', msg);
     } finally {
       setLoading(false);
@@ -229,9 +232,9 @@ export default function SignUpScreen() {
           {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
 
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!isLoaded || !email || !password || loading) && styles.buttonDisabled]}
+            style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || !password || loading) && styles.buttonDisabled]}
             onPress={handleSignUp}
-            disabled={!isLoaded || !email || !password || loading}
+            disabled={!email || !password || loading}
             activeOpacity={0.8}
           >
             {loading
