@@ -22,6 +22,7 @@ import {
   isBiometricAvailable,
   hasSavedCreds,
   saveCreds,
+  clearCreds,
   authenticateWithBiometrics,
 } from '@/hooks/useBiometrics';
 
@@ -149,11 +150,32 @@ export default function SignInScreen() {
         setError('Sign in could not be completed. Please try again.');
       }
     } catch (err: any) {
-      setError(
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
-        'Biometric sign in failed. Please use your password.',
-      );
+      // Clerk error codes that indicate the stored password is no longer valid.
+      const invalidCredCodes = [
+        'form_password_incorrect',
+        'form_identifier_not_found',
+        'form_password_pwned',
+        'single_session_mode',
+      ];
+      const errCode: string = err?.errors?.[0]?.code ?? '';
+      const isInvalidCreds = invalidCredCodes.includes(errCode);
+
+      if (isInvalidCreds) {
+        // Stored password is stale — clear it and let the user sign in manually.
+        await clearCreds();
+        setBiometricReady(false);
+        Alert.alert(
+          'Password Changed',
+          'Your saved login is out of date. Please sign in with your password — you can re-enable fingerprint login afterwards.',
+          [{ text: 'OK' }],
+        );
+      } else {
+        setError(
+          err?.errors?.[0]?.longMessage ??
+          err?.errors?.[0]?.message ??
+          'Biometric sign in failed. Please use your password.',
+        );
+      }
     } finally {
       setBiometricLoading(false);
     }
