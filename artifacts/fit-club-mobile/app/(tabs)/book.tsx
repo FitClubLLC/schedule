@@ -209,12 +209,16 @@ export default function BookScreen() {
                           {cert.productName}
                         </Text>
                         <Text style={[styles.packageValue, { color: colors.mutedForeground }]}>
-                          {/* Session counts come back as "3 sessions" (contains "session");
-                              dollar amounts come back as "45.00" — both start with a digit
-                              so we can't use a digit-prefix check. */}
-                          {cert.remainingValue.includes('session')
-                            ? `${cert.remainingValue} remaining`
-                            : `$${cert.remainingValue} remaining`}
+                          {/* When this cert is active, use the fresh value from /check
+                              (info.remainingValue) so it matches the banner below.
+                              Otherwise use the cached list value. Session counts contain
+                              "session"; dollar amounts are e.g. "45.00". */}
+                          {(() => {
+                            const val = isActive && info ? info.remainingValue : cert.remainingValue;
+                            return val.includes('session')
+                              ? `${val} remaining`
+                              : `$${val} remaining`;
+                          })()}
                         </Text>
                       </View>
                     </View>
