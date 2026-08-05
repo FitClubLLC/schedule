@@ -26,4 +26,6 @@ Additionally, `signIn.create()` called without `strategy: 'password'` silently n
 - `useSignIn().isLoaded` never becomes `true` after sign-out in `@clerk/expo` ^4 — use `useAuth().isLoaded` as the gate instead.
 - `queryClient.clear()` should be called immediately after `signOut()` to prevent stale React Query data bleeding into the next session. Requires `queryClient` to be a shared singleton (moved to `lib/queryClient.ts`).
 - `hookSignIn` (from `useSignIn()`) should always be used for `.create()` calls — never the `clerk.client?.signIn` fallback, which is a stale reference during the re-init window.
-- Do NOT gate the sign-in button on `!!hookSignIn`. In `@clerk/expo` ^4, `hookSignIn` stays `undefined` indefinitely after sign-out, so that check permanently disables the button. Gate on `isLoaded && isClerkReady` only.
+- Do NOT gate the sign-in button on `!!hookSignIn`. In `@clerk/expo` ^4, `hookSignIn` stays `undefined` indefinitely after sign-out.
+- Do NOT add extra state (like `isClerkReady`) that is referenced before its `useState` declaration in the component body. Babel transpiles `const` to `var`, so the variable is hoisted as `undefined`, making any derived value that uses it permanently falsy. All state declarations must come before any derived values.
+- The correct pattern: `signInReady = isLoaded` (simple). Do the stale-client flush inside the submit handler via `refreshClerkClient()` (which races client.fetch() against a 2s timeout), not in a useEffect that can be cancelled.

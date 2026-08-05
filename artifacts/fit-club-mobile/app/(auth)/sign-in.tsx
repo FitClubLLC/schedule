@@ -29,27 +29,19 @@ import {
 type Screen = 'login' | 'forgot-email' | 'forgot-code';
 
 export default function SignInScreen() {
-  // useSignIn().isLoaded never becomes true after sign-out in @clerk/expo ^4.
-  // useAuth().isLoaded IS reliable — it tracks when Clerk finishes initialising
-  // the session layer, which is the correct gate for both sign-in and reset flows.
+  // ── Clerk hooks ────────────────────────────────────────────────────────────
+  // useSignIn().isLoaded never reliably becomes true after sign-out in
+  // @clerk/expo ^4.  useAuth().isLoaded is the correct gate.
   const { isLoaded } = useAuth();
   const { signIn: hookSignIn, setActive } = useSignIn();
   const clerk = useClerk();
-  // After sign-out, hookSignIn is briefly undefined while @clerk/expo reinitialises.
-  // clerk.client?.signIn is a stale object during that window — calling .create() on it
-  // returns status: undefined. We use it only as a last resort for non-sign-in flows
-  // (e.g. password reset). For actual sign-in we wait for hookSignIn to be ready.
-  const signIn = hookSignIn ?? (clerk as any).client?.signIn;
-  // True once Clerk is loaded AND the mount-time cleanup has confirmed the
-  // client is in a pristine state. We intentionally do NOT gate on !!hookSignIn
-  // here — in @clerk/expo ^4 hookSignIn stays undefined after sign-out, so that
-  // check would permanently disable the button. The isClerkReady cleanup is the
-  // real guarantee that the client state is fresh before any create() call.
-  const signInReady = isLoaded && isClerkReady;
+
+  // ── UI hooks ───────────────────────────────────────────────────────────────
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
+  // ── State — ALL declarations before any derived values ────────────────────
   const [screen, setScreen] = useState<Screen>('login');
 
   // Login fields
@@ -68,55 +60,48 @@ export default function SignInScreen() {
   const [error, setError] = useState('');
   const [biometricReady, setBiometricReady] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
-  // Starts false; becomes true once Clerk state has been confirmed pristine.
-  // The sign-in button stays disabled until this is true.
-  const [isClerkReady, setIsClerkReady] = useState(false);
 
+  // ── Derived values — after all state is declared ───────────────────────────
+  // clerk.client?.signIn is used as a fallback because hookSignIn can be
+  // undefined while @clerk/expo reinitialises after sign-out.
+  const signIn = hookSignIn ?? (clerk as any).client?.signIn;
+  // Button is active as soon as Clerk's auth layer is ready.
+  // We do NOT gate on !!hookSignIn — it stays undefined in @clerk/expo ^4
+  // after sign-out, which would permanently disable the button.
+  const signInReady = isLoaded;
+
+  // ── Refs ───────────────────────────────────────────────────────────────────
   // Captures the exact signIn instance used in handleSendCode so that
   // handleResetPassword calls attemptFirstFactor on the same object —
   // preventing a stale-reference mismatch if hookSignIn changes between renders.
   const signInRef = useRef<any>(null);
 
-  // On mount (and whenever isLoaded changes), guarantee the Clerk client is in a
-  // pristine state before the user can submit credentials.
-  //
-  // Problem: after signOut(), clerk.client retains the previous completed SignIn
-  // resource. Calling signIn.create() on it silently returns an empty object
-  // (status: undefined, no session ID) instead of starting a fresh attempt.
-  //
-  // Fix:
-  //   1. If any ghost sessions remain, force a full signOut() to clear them.
-  //   2. Reload the Clerk client from the server so the SignIn resource is reset
-  //      to a blank state (status: null) — this is the call that actually fixes it.
-  useEffect(() => {
-    if (!isLoaded) return;
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const client = (clerk as any).client;
-
-        // Step 1 — evict any ghost sessions that survived the previous signOut().
-        const ghostSessions: unknown[] = client?.activeSessions ?? [];
-        if (ghostSessions.length > 0) {
-          await clerk.signOut();
-        }
-
-        // Step 2 — reload the client from Clerk's API.  This resets the SignIn
-        // resource's internal status back to null so that .create() works cleanly.
-        if (client?.fetch) {
-          await client.fetch();
-        }
-      } catch {
-        // Non-fatal — allow sign-in to proceed regardless.
-      } finally {
-        if (!cancelled) setIsClerkReady(true);
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  /**
+   * Flush any stale SignIn resource state left over from a previous completed
+   * session. After sign-out, clerk.client.signIn retains its previous status,
+   * causing create() to return an empty object (status: undefined, no session
+   * ID). client.fetch() reloads the resource from the server and resets it.
+   * We race against a 2 s timeout so a slow network never blocks the user.
+   */
+  const refreshClerkClient = async () => {
+    try {
+      const client = (clerk as any).client;
+      // Evict ghost sessions that survived a previous signOut().
+      if ((client?.activeSessions?.length ?? 0) > 0) {
+        await clerk.signOut();
       }
-    })();
-
-    return () => { cancelled = true; };
-  }, [isLoaded]);
+      // Reload client from Clerk's API — resets SignIn resource to blank state.
+      if (client?.fetch) {
+        await Promise.race([
+          client.fetch(),
+          new Promise<void>(resolve => setTimeout(resolve, 2000)),
+        ]);
+      }
+    } catch {
+      // Non-fatal — proceed with sign-in attempt regardless.
+    }
+  };
 
   // Check on mount whether biometric sign-in is available and credentials are saved.
   useEffect(() => {
@@ -142,16 +127,24 @@ export default function SignInScreen() {
 
   // ── Sign in ────────────────────────────────────────────────────────────────
   const handleSignIn = async () => {
-    // Require hookSignIn (not the stale fallback) — after sign-out it is briefly
-    // undefined while @clerk/expo reinitialises the SignIn resource.
     if (!signInReady || !email || !password || loading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     clearError();
     try {
-      // Explicitly specify strategy:'password' so Clerk doesn't silently no-op
-      // on accounts that also have OAuth (e.g. Google) attached.
-      const result = await hookSignIn!.create({
+      // Flush stale SignIn resource state before attempting a new sign-in.
+      // After sign-out, create() silently returns {} without this reset.
+      await refreshClerkClient();
+
+      const freshSignIn = (clerk as any).client?.signIn ?? hookSignIn;
+      if (!freshSignIn) {
+        setError('Authentication not ready — please try again.');
+        return;
+      }
+
+      // strategy:'password' is required; without it Clerk silently no-ops on
+      // accounts that have multiple auth methods (e.g. OAuth + password).
+      const result = await freshSignIn.create({
         strategy: 'password',
         identifier: email.trim(),
         password,
@@ -207,7 +200,14 @@ export default function SignInScreen() {
     try {
       const creds = await authenticateWithBiometrics();
       if (!creds) return; // cancelled or failed — do nothing, let user try password
-      const result = await hookSignIn!.create({
+
+      await refreshClerkClient();
+      const freshSignIn = (clerk as any).client?.signIn ?? hookSignIn;
+      if (!freshSignIn) {
+        setError('Authentication not ready — please try again.');
+        return;
+      }
+      const result = await freshSignIn.create({
         strategy: 'password',
         identifier: creds.email,
         password: creds.password,
