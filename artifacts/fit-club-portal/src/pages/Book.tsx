@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
+import { useLocation } from "wouter";
 import { Shell } from "@/components/layout/Shell";
 import { cn } from "@/lib/utils";
-import { MapPin, ExternalLink, CreditCard, Check, AlertCircle, X, Loader2, PlusCircle } from "lucide-react";
+import { MapPin, ExternalLink, CreditCard, Check, AlertCircle, X, Loader2, PlusCircle, ArrowLeft } from "lucide-react";
 import { useMemberCertificates, useCertificateCheck } from "@/hooks/useBookingApi";
 
 const OWNER_ID = "36930698";
@@ -55,6 +56,7 @@ function formatRemaining(value: string) {
 }
 
 export default function Book() {
+  const [, setLocation] = useLocation();
   const { data: memberCerts = [], isLoading: certsLoading } = useMemberCertificates();
 
   // Code state — persisted to localStorage
@@ -112,6 +114,14 @@ export default function Book() {
 
   return (
     <Shell>
+      <button
+        onClick={() => setLocation("/dashboard")}
+        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to Dashboard
+      </button>
+
       <h1 className="text-3xl font-display font-bold text-foreground tracking-tight mb-1">
         Book a Session
       </h1>
