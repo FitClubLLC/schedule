@@ -13,6 +13,12 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// Disable Express's automatic ETag generation. ETags cause the server to return
+// 304 Not Modified even when Acuity has new data (new bookings, updated session
+// counts), because the client re-sends the old ETag and Express matches it before
+// our route handler can return fresh content.
+app.set('etag', false);
+
 app.use(
   pinoHttp({
     logger,
