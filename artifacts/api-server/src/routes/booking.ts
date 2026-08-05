@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
+import { getAcuityConfig } from "../config/acuity.js";
 
 const router: IRouter = Router();
 
@@ -9,26 +10,9 @@ const ACUITY_BASE_URL = "https://acuityscheduling.com/api/v1";
 // Default to Eastern Time — the studio's timezone
 const TIMEZONE = process.env.BOOKING_TIMEZONE ?? "America/New_York";
 
-interface ConfiguredLocation {
-  id: string;
-  name: string;
-  calendarId: string;
-}
-
-function getConfiguredLocations(): ConfiguredLocation[] {
-  const locs: ConfiguredLocation[] = [];
-  const n1 = process.env.LOCATION_1_NAME ?? "POTOMAC";
-  const c1 = process.env.LOCATION_1_CALENDAR_ID;
-  const n2 = process.env.LOCATION_2_NAME ?? "KENTLANDS";
-  const c2 = process.env.LOCATION_2_CALENDAR_ID;
-  if (c1) locs.push({ id: "1", name: n1, calendarId: c1 });
-  if (c2) locs.push({ id: "2", name: n2, calendarId: c2 });
-  return locs;
-}
-
 /** Resolves a locationId ("1" or "2") to the actual Acuity calendarID. */
 function resolveCalendarId(locationId: string): string | null {
-  return getConfiguredLocations().find((l) => l.id === locationId)?.calendarId ?? null;
+  return getAcuityConfig().locations.find((l) => l.id === locationId)?.calendarId ?? null;
 }
 
 function acuityAuth(): string {
@@ -61,23 +45,25 @@ function requireAcuity(req: any, res: any): boolean {
   return true;
 }
 
+// ── GET /api/booking/config ───────────────────────────────────────────────────
+// Returns all Acuity IDs needed to build booking URLs.
+// Values come from env vars (with production defaults) so an ID change only
+// requires updating a secret — no code deploy needed.
+router.get("/booking/config", requireAuth, async (req: any, res): Promise<void> => {
+  try {
+    res.json(getAcuityConfig());
+  } catch (err) {
+    req.log.error({ err }, "booking/config error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ── GET /api/booking/locations ────────────────────────────────────────────────
 // Returns the two studio locations. Names come from env vars (defaults: POTOMAC / KENTLANDS).
-// The calendarIDs stay server-side and are never exposed to the client.
 router.get("/booking/locations", requireAuth, async (req: any, res): Promise<void> => {
   try {
-    const configured = getConfiguredLocations();
-    // Always return both slots so the UI can render the picker, even before
-    // the calendarIDs are configured.
-    const n1 = process.env.LOCATION_1_NAME ?? "POTOMAC";
-    const n2 = process.env.LOCATION_2_NAME ?? "KENTLANDS";
-    const idMap: Record<string, string> = {};
-    configured.forEach((l) => { idMap[l.id] = l.name; });
-
-    res.json([
-      { id: "1", name: idMap["1"] ?? n1 },
-      { id: "2", name: idMap["2"] ?? n2 },
-    ]);
+    const { locations } = getAcuityConfig();
+    res.json(locations.map(({ id, name }) => ({ id, name })));
   } catch (err) {
     req.log.error({ err }, "booking/locations error");
     res.status(500).json({ error: "Internal server error" });

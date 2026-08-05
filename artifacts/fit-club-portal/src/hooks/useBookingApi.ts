@@ -1,6 +1,20 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+export interface AcuityConfig {
+  ownerId: string;
+  appointmentTypes: {
+    workoutFor1: string;
+    redLightTherapy: string;
+    freeTrial: string;
+  };
+  locations: Array<{
+    id: string;
+    name: string;
+    calendarId: string;
+  }>;
+}
+
 export interface BookingLocation {
   id: string;
   name: string;
@@ -65,6 +79,14 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────
+export function useAcuityConfig() {
+  return useQuery({
+    queryKey: ["booking", "config"],
+    queryFn: () => apiFetch<AcuityConfig>("/api/booking/config"),
+    staleTime: 10 * 60_000,
+  });
+}
+
 export function useBookingLocations() {
   return useQuery({
     queryKey: ["booking", "locations"],

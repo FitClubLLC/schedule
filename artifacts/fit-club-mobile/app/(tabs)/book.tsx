@@ -11,46 +11,45 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SvgIcon from '@/components/SvgIcon';
 import { useCertificate } from '@/hooks/useCertificate';
 
-const OWNER_ID = '36930698';
-
-const LOCATIONS = [
-  {
-    id: '1',
-    name: 'POTOMAC',
-    calendarId: '12741713',
-    color: '#D3AF37',
-    colorMuted: 'rgba(211,175,55,0.13)',
-    colorBorder: 'rgba(211,175,55,0.4)',
-  },
-  {
-    id: '2',
-    name: 'KENTLANDS',
-    calendarId: '14311114',
-    color: '#D3AF37',
-    colorMuted: 'rgba(211,175,55,0.13)',
-    colorBorder: 'rgba(211,175,55,0.4)',
-  },
-];
-
 interface MemberCert {
   code: string;
   productName: string;
   remainingValue: string;
 }
 
-// When a certificate is active, Potomac restricts to Workout for 1 only;
-// Kentlands shows all types (Workout for 1 + Red Light Therapy).
-const POTOMAC_MEMBER_TYPE = '83398355';
+interface AcuityConfig {
+  ownerId: string;
+  appointmentTypes: {
+    workoutFor1: string;
+    redLightTherapy: string;
+    freeTrial: string;
+  };
+  locations: Array<{
+    id: string;
+    name: string;
+    calendarId: string;
+  }>;
+}
 
-function acuityUrl(calendarId: string, certificate?: string) {
+const LOCATION_COLOR = '#D3AF37';
+const LOCATION_COLOR_MUTED = 'rgba(211,175,55,0.13)';
+const LOCATION_COLOR_BORDER = 'rgba(211,175,55,0.4)';
+
+function acuityUrl(
+  config: AcuityConfig,
+  locationId: string,
+  calendarId: string,
+  certificate?: string,
+) {
   const cert = certificate?.trim();
-  const base = `https://app.acuityscheduling.com/schedule.php?owner=${OWNER_ID}&calendarID=${calendarId}`;
+  const base = `https://app.acuityscheduling.com/schedule.php?owner=${config.ownerId}&calendarID=${calendarId}`;
   if (!cert) return base;
   const withCert = `${base}&certificate=${encodeURIComponent(cert)}`;
-  // Potomac: restrict to Workout for 1 only
-  if (calendarId === '12741713') return `${withCert}&appointmentType=${POTOMAC_MEMBER_TYPE}`;
-  // Kentlands: Workout for 1 + Red Light Therapy
-  return `${withCert}&appointmentType[]=${POTOMAC_MEMBER_TYPE}&appointmentType[]=96690076`;
+  const { workoutFor1, redLightTherapy } = config.appointmentTypes;
+  // Potomac (location 1): restrict to Workout for 1 only
+  if (locationId === '1') return `${withCert}&appointmentType=${workoutFor1}`;
+  // Kentlands (location 2): Workout for 1 + Red Light Therapy
+  return `${withCert}&appointmentType[]=${workoutFor1}&appointmentType[]=${redLightTherapy}`;
 }
 
 export default function BookScreen() {
@@ -61,6 +60,21 @@ export default function BookScreen() {
   const { code, applyCode, clearCode, status, info } = useCertificate();
 
   const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+
+  // Fetch Acuity config (owner ID, appointment type IDs, location calendar IDs)
+  const configQuery = useQuery<AcuityConfig>({
+    queryKey: ['acuity-config'],
+    enabled: !!isSignedIn,
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      const token = await getToken();
+      const res = await fetch(`${baseUrl}/api/booking/config`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to fetch booking config');
+      return res.json();
+    },
+  });
 
   // Fetch member's active certificates from Acuity
   const certsQuery = useQuery<MemberCert[]>({
@@ -78,6 +92,7 @@ export default function BookScreen() {
   });
 
   const memberCerts: MemberCert[] = certsQuery.data ?? [];
+  const acuityConfig = configQuery.data;
 
   // Auto-apply certificate from deep link / navigation param
   useEffect(() => {
@@ -86,8 +101,12 @@ export default function BookScreen() {
     }
   }, [certParam]);
 
-  const handleBook = async (calendarId: string, name: string) => {
-    const url = acuityUrl(calendarId, status === 'valid' ? code : undefined);
+  const handleBook = async (locationId: string, calendarId: string, name: string) => {
+    if (!acuityConfig) {
+      Alert.alert('Loading', 'Booking config is still loading. Please try again in a moment.');
+      return;
+    }
+    const url = acuityUrl(acuityConfig, locationId, calendarId, status === 'valid' ? code : undefined);
     const supported = await Linking.canOpenURL(url);
     if (supported) {
       await Linking.openURL(url);
@@ -128,11 +147,18 @@ export default function BookScreen() {
 
       {/* ── Free trial CTA ───────────────────────────────────────── */}
       <TouchableOpacity
-        style={[styles.trialBtn, { borderColor: colors.primary }]}
+        style={[styles.trialBtn, { borderColor: colors.primary, opacity: acuityConfig ? 1 : 0.5 }]}
         activeOpacity={0.75}
-        onPress={() => Linking.openURL('https://app.acuityscheduling.com/schedule.php?owner=36930698&appointmentType=83397899')}
+        onPress={() => {
+          if (!acuityConfig) return;
+          Linking.openURL(
+            `https://app.acuityscheduling.com/schedule.php?owner=${acuityConfig.ownerId}&appointmentType=${acuityConfig.appointmentTypes.freeTrial}`
+          );
+        }}
       >
-        <SvgIcon name="plus-circle" size={18} color={colors.primary} />
+        {configQuery.isLoading
+          ? <ActivityIndicator size="small" color={colors.primary} />
+          : <SvgIcon name="plus-circle" size={18} color={colors.primary} />}
         <Text style={[styles.trialBtnText, { color: colors.primary }]}>Book a Free Trial</Text>
         <SvgIcon name="external-link" size={14} color={colors.primary} />
       </TouchableOpacity>
@@ -260,32 +286,41 @@ export default function BookScreen() {
 
       {/* ── Location cards ────────────────────────────────────────── */}
       <View style={styles.cards}>
-        {LOCATIONS.map((loc) => (
+        {configQuery.isLoading
+          ? [1, 2].map((i) => (
+              <View
+                key={i}
+                style={[styles.card, { backgroundColor: LOCATION_COLOR_MUTED, borderColor: LOCATION_COLOR_BORDER, minHeight: 160 }]}
+              >
+                <ActivityIndicator color={LOCATION_COLOR} />
+              </View>
+            ))
+          : (acuityConfig?.locations ?? []).map((loc) => (
           <TouchableOpacity
             key={loc.id}
-            onPress={() => handleBook(loc.calendarId, loc.name)}
+            onPress={() => handleBook(loc.id, loc.calendarId, loc.name)}
             activeOpacity={0.75}
             style={[
               styles.card,
               {
-                backgroundColor: loc.colorMuted,
-                borderColor: loc.colorBorder,
+                backgroundColor: LOCATION_COLOR_MUTED,
+                borderColor: LOCATION_COLOR_BORDER,
               },
             ]}
           >
-            <View style={[styles.iconWrap, { backgroundColor: loc.colorMuted }]}>
-              <SvgIcon name="map-pin" size={22} color={loc.color} />
+            <View style={[styles.iconWrap, { backgroundColor: LOCATION_COLOR_MUTED }]}>
+              <SvgIcon name="map-pin" size={22} color={LOCATION_COLOR} />
             </View>
 
             <View style={styles.cardBody}>
-              <Text style={[styles.locName, { color: loc.color }]}>{loc.name}</Text>
+              <Text style={[styles.locName, { color: LOCATION_COLOR }]}>{loc.name}</Text>
               <Text style={[styles.locSub, { color: colors.textMuted }]}>
                 View availability &amp; book a session
               </Text>
             </View>
 
             <View style={styles.btnRow}>
-              <View style={[styles.btn, { backgroundColor: loc.color }]}>
+              <View style={[styles.btn, { backgroundColor: LOCATION_COLOR }]}>
                 <Text style={styles.btnText}>Book Now</Text>
                 <SvgIcon name="external-link" size={14} color="#000" />
               </View>
