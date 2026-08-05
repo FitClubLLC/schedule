@@ -46,6 +46,11 @@ export function useAppointmentActions() {
   async function cancelAppointment(id: number): Promise<void> {
     await authFetch(`/api/appointments/${id}`, { method: 'DELETE' });
     invalidateAll();
+    // Acuity restores the session to the certificate asynchronously.
+    // Re-fetch the cert count after a short delay to pick up the updated balance.
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['member-certificates'] });
+    }, 4000);
   }
 
   async function fetchAvailableTimes(id: number, date: string): Promise<TimeSlot[]> {
