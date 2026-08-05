@@ -17,7 +17,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.fitclub15.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Use Face ID or Touch ID to sign in to Fit Club."
       }
     },
     "android": {

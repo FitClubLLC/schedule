@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
+  Alert,
 } from 'react-native';
 import { useSignIn, useClerk, useAuth } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
@@ -17,6 +18,12 @@ import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import SvgIcon from '@/components/SvgIcon';
+import {
+  isBiometricAvailable,
+  hasSavedCreds,
+  saveCreds,
+  authenticateWithBiometrics,
+} from '@/hooks/useBiometrics';
 
 type Screen = 'login' | 'forgot-email' | 'forgot-code';
 
@@ -50,11 +57,21 @@ export default function SignInScreen() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [biometricReady, setBiometricReady] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
 
   // Captures the exact signIn instance used in handleSendCode so that
   // handleResetPassword calls attemptFirstFactor on the same object —
   // preventing a stale-reference mismatch if hookSignIn changes between renders.
   const signInRef = useRef<any>(null);
+
+  // Check on mount whether biometric sign-in is available and credentials are saved.
+  useEffect(() => {
+    (async () => {
+      const [available, saved] = await Promise.all([isBiometricAvailable(), hasSavedCreds()]);
+      setBiometricReady(available && saved);
+    })();
+  }, []);
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 20);
   const bottomPad = insets.bottom + (Platform.OS === 'web' ? 34 : 24);
@@ -80,7 +97,27 @@ export default function SignInScreen() {
       const result = await signIn.create({ identifier: email.trim(), password });
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
-        router.replace('/(tabs)');
+        // Offer biometric setup if available and not yet saved.
+        const [available, saved] = await Promise.all([isBiometricAvailable(), hasSavedCreds()]);
+        if (available && !saved) {
+          Alert.alert(
+            'Enable Fingerprint Login',
+            'Sign in faster next time using your fingerprint or Face ID.',
+            [
+              { text: 'Not Now', style: 'cancel', onPress: () => router.replace('/(tabs)') },
+              {
+                text: 'Enable',
+                onPress: async () => {
+                  await saveCreds(email.trim(), password);
+                  setBiometricReady(true);
+                  router.replace('/(tabs)');
+                },
+              },
+            ],
+          );
+        } else {
+          router.replace('/(tabs)');
+        }
       } else {
         setError('Sign in could not be completed. Please try again.');
       }
@@ -92,6 +129,33 @@ export default function SignInScreen() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Biometric sign in ──────────────────────────────────────────────────────
+  const handleBiometricSignIn = async () => {
+    if (!isLoaded || biometricLoading) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setBiometricLoading(true);
+    clearError();
+    try {
+      const creds = await authenticateWithBiometrics();
+      if (!creds) return; // cancelled or failed — do nothing, let user try password
+      const result = await signIn.create({ identifier: creds.email, password: creds.password });
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+        router.replace('/(tabs)');
+      } else {
+        setError('Sign in could not be completed. Please try again.');
+      }
+    } catch (err: any) {
+      setError(
+        err?.errors?.[0]?.longMessage ??
+        err?.errors?.[0]?.message ??
+        'Biometric sign in failed. Please use your password.',
+      );
+    } finally {
+      setBiometricLoading(false);
     }
   };
 
@@ -338,6 +402,22 @@ export default function SignInScreen() {
               ? <ActivityIndicator color={colors.primaryForeground} />
               : <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>SIGN IN</Text>}
           </TouchableOpacity>
+
+          {biometricReady && (
+            <TouchableOpacity
+              style={[styles.biometricBtn, { borderColor: colors.border }]}
+              onPress={handleBiometricSignIn}
+              disabled={biometricLoading}
+              activeOpacity={0.7}
+            >
+              {biometricLoading
+                ? <ActivityIndicator color={colors.primary} />
+                : <>
+                    <SvgIcon name="fingerprint" size={22} color={colors.primary} />
+                    <Text style={[styles.biometricText, { color: colors.primary }]}>Sign in with Fingerprint</Text>
+                  </>}
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.footerRow}>
@@ -445,6 +525,20 @@ const styles = StyleSheet.create({
     fontFamily: 'BarlowCondensed_800ExtraBold',
     fontSize: 18,
     letterSpacing: 2.5,
+  },
+  biometricBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  biometricText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 15,
   },
   footerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 32 },
   footerText: { fontFamily: 'Inter_400Regular', fontSize: 14 },
