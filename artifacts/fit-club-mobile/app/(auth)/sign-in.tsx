@@ -144,7 +144,9 @@ export default function SignInScreen() {
       // undefined in some @clerk/expo versions even when sign-in succeeded.
       const succeeded = result.status === 'complete' || !!result.createdSessionId;
       if (succeeded) {
-        await setActive({ session: result.createdSessionId });
+        // Use clerk.setActive (from useClerk) — setActive from useSignIn() is
+        // undefined after sign-out and cannot be relied on here.
+        await (clerk as any).setActive({ session: result.createdSessionId });
         // Offer biometric setup if available and not yet saved.
         const [available, saved] = await Promise.all([isBiometricAvailable(), hasSavedCreds()]);
         if (available && !saved) {
@@ -179,8 +181,8 @@ export default function SignInScreen() {
       if (code === 'session_exists' || code === 'single_session_mode') {
         try {
           const ghosts: any[] = (clerk as any).client?.activeSessions ?? [];
-          if (ghosts.length > 0 && setActive) {
-            await setActive({ session: ghosts[0].id });
+          if (ghosts.length > 0) {
+            await (clerk as any).setActive({ session: ghosts[0].id });
           }
         } catch { /* ignore — router.replace below will handle it */ }
         router.replace('/(tabs)');
@@ -219,7 +221,7 @@ export default function SignInScreen() {
       });
       const succeeded = result.status === 'complete' || !!result.createdSessionId;
       if (succeeded) {
-        await setActive({ session: result.createdSessionId });
+        await (clerk as any).setActive({ session: result.createdSessionId });
         router.replace('/(tabs)');
       } else {
         setError('Biometric sign in failed. Please use your password.');
@@ -259,12 +261,17 @@ export default function SignInScreen() {
   // ── Send reset code ────────────────────────────────────────────────────────
   const handleSendCode = async () => {
     if (loading || !isLoaded || !resetEmail.trim()) return;
-    const si = (clerk as any).client?.signIn ?? hookSignIn;
-    if (!si) { setError('Still loading — please try again in a moment.'); return; }
     setLoading(true);
     clearError();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
+      // Evict ghost sessions before starting a reset — session_exists is the
+      // most common failure here, for the same reason as regular sign-in.
+      await evictGhostSessions();
+
+      const si = (clerk as any).client?.signIn ?? hookSignIn;
+      if (!si) { setError('Still loading — please try again in a moment.'); return; }
+
       // create() returns the live attempt object — store IT, not the source ref.
       // This is the exact instance we must pass to attemptFirstFactor.
       const attempt = await si.create({
@@ -275,6 +282,30 @@ export default function SignInScreen() {
       setScreen('forgot-code');
     } catch (err: any) {
       console.log('[ForgotPassword] create error:', JSON.stringify(err));
+      const code = err?.errors?.[0]?.code ?? '';
+      if (code === 'session_exists' || code === 'single_session_mode') {
+        // Ghost session survived eviction — sign out completely and retry once.
+        try {
+          await clerk.signOut();
+          const si2 = (clerk as any).client?.signIn ?? hookSignIn;
+          if (si2) {
+            const attempt = await si2.create({
+              strategy: 'reset_password_email_code',
+              identifier: resetEmail.trim(),
+            });
+            signInRef.current = attempt;
+            setScreen('forgot-code');
+            return;
+          }
+        } catch (retryErr: any) {
+          setError(
+            retryErr?.errors?.[0]?.longMessage ??
+            retryErr?.errors?.[0]?.message ??
+            'Could not send reset code. Please try again.',
+          );
+          return;
+        }
+      }
       setError(
         err?.errors?.[0]?.longMessage ??
         err?.errors?.[0]?.message ??
