@@ -98,7 +98,8 @@ export default function BookScreen() {
   const certsQuery = useQuery<MemberCert[]>({
     queryKey: ['member-certificates'],
     enabled: !!isSignedIn,
-    staleTime: 5 * 60 * 1000,
+    // Use the global staleTime: 0 so focusManager refetches this on app foreground,
+    // keeping the session count in sync after a booking or cancellation in Acuity.
     queryFn: async () => {
       const token = await getToken();
       const res = await fetch(`${baseUrl}/api/booking/certificates`, {
