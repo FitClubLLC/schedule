@@ -32,8 +32,8 @@ interface AcuityConfig {
 }
 
 const LOCATION_COLOR = '#D3AF37';
-const LOCATION_COLOR_MUTED = 'rgba(211,175,55,0.13)';
-const LOCATION_COLOR_BORDER = 'rgba(211,175,55,0.4)';
+const LOCATION_COLOR_MUTED = 'rgba(211,175,55,0.18)';
+const LOCATION_COLOR_BORDER = 'rgba(211,175,55,0.5)';
 
 function acuityUrl(
   config: AcuityConfig,
@@ -314,7 +314,7 @@ export default function BookScreen() {
 
             <View style={styles.cardBody}>
               <Text style={[styles.locName, { color: LOCATION_COLOR }]}>{loc.name}</Text>
-              <Text style={[styles.locSub, { color: colors.textMuted }]}>
+              <Text style={[styles.locSub, { color: colors.mutedForeground }]}>
                 View availability &amp; book a session
               </Text>
             </View>
@@ -489,7 +489,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   locSub: {
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '500',
   },
   btnRow: {
     flexDirection: 'row',
