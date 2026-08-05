@@ -101,15 +101,13 @@ export default function SignInScreen() {
     setLoading(true);
     clearError();
     try {
-      const result = await hookSignIn!.create({ identifier: email.trim(), password });
-      // TEMPORARY DEBUG — remove after diagnosing
-      const debugInfo = JSON.stringify({
-        status: result?.status,
-        sessionId: result?.createdSessionId?.slice?.(0, 12) ?? null,
-        ffv: (result as any)?.firstFactorVerification?.status ?? null,
-        errors: (result as any)?.errors?.map?.((e: any) => e?.code) ?? null,
+      // Explicitly specify strategy:'password' so Clerk doesn't silently no-op
+      // on accounts that also have OAuth (e.g. Google) attached.
+      const result = await hookSignIn!.create({
+        strategy: 'password',
+        identifier: email.trim(),
+        password,
       });
-      console.log('[SignIn debug]', debugInfo);
       // Treat createdSessionId as the canonical success signal — status can be
       // undefined in some @clerk/expo versions even when sign-in succeeded.
       const succeeded = result.status === 'complete' || !!result.createdSessionId;
@@ -139,8 +137,7 @@ export default function SignInScreen() {
       } else if (result.status === 'needs_second_factor') {
         setError('Two-factor authentication is enabled on this account. Please disable it in your account settings and try again.');
       } else {
-        // TEMPORARY: show raw Clerk response so we can diagnose the root cause.
-        setError(`Debug info (share with support): ${debugInfo}`);
+        setError('Sign in could not be completed. Please try again.');
       }
     } catch (err: any) {
       setError(
@@ -162,7 +159,11 @@ export default function SignInScreen() {
     try {
       const creds = await authenticateWithBiometrics();
       if (!creds) return; // cancelled or failed — do nothing, let user try password
-      const result = await hookSignIn!.create({ identifier: creds.email, password: creds.password });
+      const result = await hookSignIn!.create({
+        strategy: 'password',
+        identifier: creds.email,
+        password: creds.password,
+      });
       const succeeded = result.status === 'complete' || !!result.createdSessionId;
       if (succeeded) {
         await setActive({ session: result.createdSessionId });
