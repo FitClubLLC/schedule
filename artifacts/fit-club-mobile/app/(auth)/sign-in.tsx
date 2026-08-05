@@ -119,8 +119,10 @@ export default function SignInScreen() {
         } else {
           router.replace('/(tabs)');
         }
+      } else if (result.status === 'needs_second_factor') {
+        setError('Two-factor authentication is enabled on this account. Please disable it in your account settings and try again.');
       } else {
-        setError('Sign in could not be completed. Please try again.');
+        setError(`Sign in could not be completed (status: ${result.status}). Please try again.`);
       }
     } catch (err: any) {
       setError(
