@@ -102,6 +102,14 @@ export default function SignInScreen() {
     clearError();
     try {
       const result = await hookSignIn!.create({ identifier: email.trim(), password });
+      // TEMPORARY DEBUG — remove after diagnosing
+      const debugInfo = JSON.stringify({
+        status: result?.status,
+        sessionId: result?.createdSessionId?.slice?.(0, 12) ?? null,
+        ffv: (result as any)?.firstFactorVerification?.status ?? null,
+        errors: (result as any)?.errors?.map?.((e: any) => e?.code) ?? null,
+      });
+      console.log('[SignIn debug]', debugInfo);
       // Treat createdSessionId as the canonical success signal — status can be
       // undefined in some @clerk/expo versions even when sign-in succeeded.
       const succeeded = result.status === 'complete' || !!result.createdSessionId;
@@ -131,7 +139,8 @@ export default function SignInScreen() {
       } else if (result.status === 'needs_second_factor') {
         setError('Two-factor authentication is enabled on this account. Please disable it in your account settings and try again.');
       } else {
-        setError('Sign in could not be completed. Please try again.');
+        // TEMPORARY: show raw Clerk response so we can diagnose the root cause.
+        setError(`Debug info (share with support): ${debugInfo}`);
       }
     } catch (err: any) {
       setError(
