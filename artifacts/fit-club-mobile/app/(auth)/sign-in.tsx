@@ -35,9 +35,13 @@ export default function SignInScreen() {
   const { isLoaded } = useAuth();
   const { signIn: hookSignIn, setActive } = useSignIn();
   const clerk = useClerk();
-  // hookSignIn is undefined while a cached session is being restored.
-  // Fall back to clerk.client.signIn which is populated as soon as the client loads.
+  // After sign-out, hookSignIn is briefly undefined while @clerk/expo reinitialises.
+  // clerk.client?.signIn is a stale object during that window — calling .create() on it
+  // returns status: undefined. We use it only as a last resort for non-sign-in flows
+  // (e.g. password reset). For actual sign-in we wait for hookSignIn to be ready.
   const signIn = hookSignIn ?? (clerk as any).client?.signIn;
+  // True once Clerk has a fresh, usable SignIn resource for this session.
+  const signInReady = isLoaded && !!hookSignIn;
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -90,12 +94,14 @@ export default function SignInScreen() {
 
   // ── Sign in ────────────────────────────────────────────────────────────────
   const handleSignIn = async () => {
-    if (!isLoaded || !email || !password || loading) return;
+    // Require hookSignIn (not the stale fallback) — after sign-out it is briefly
+    // undefined while @clerk/expo reinitialises the SignIn resource.
+    if (!signInReady || !email || !password || loading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     clearError();
     try {
-      const result = await signIn.create({ identifier: email.trim(), password });
+      const result = await hookSignIn!.create({ identifier: email.trim(), password });
       // Treat createdSessionId as the canonical success signal — status can be
       // undefined in some @clerk/expo versions even when sign-in succeeded.
       const succeeded = result.status === 'complete' || !!result.createdSessionId;
@@ -140,14 +146,14 @@ export default function SignInScreen() {
 
   // ── Biometric sign in ──────────────────────────────────────────────────────
   const handleBiometricSignIn = async () => {
-    if (!isLoaded || biometricLoading) return;
+    if (!signInReady || biometricLoading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setBiometricLoading(true);
     clearError();
     try {
       const creds = await authenticateWithBiometrics();
       if (!creds) return; // cancelled or failed — do nothing, let user try password
-      const result = await signIn.create({ identifier: creds.email, password: creds.password });
+      const result = await hookSignIn!.create({ identifier: creds.email, password: creds.password });
       const succeeded = result.status === 'complete' || !!result.createdSessionId;
       if (succeeded) {
         await setActive({ session: result.createdSessionId });
@@ -423,7 +429,7 @@ export default function SignInScreen() {
           <TouchableOpacity
             style={[styles.button, { backgroundColor: colors.primary }, (!email || !password || loading) && styles.buttonDisabled]}
             onPress={handleSignIn}
-            disabled={!email || !password || loading}
+            disabled={!signInReady || !email || !password || loading}
             activeOpacity={0.8}
           >
             {loading

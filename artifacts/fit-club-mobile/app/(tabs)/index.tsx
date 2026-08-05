@@ -109,6 +109,10 @@ export default function DashboardScreen() {
   const handleSignOut = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await signOut();
+    // Clear all cached query data so that stale auth state doesn't bleed into
+    // the next session when the user signs back in.
+    const { queryClient } = await import('@/lib/queryClient');
+    queryClient.clear();
   };
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
