@@ -64,18 +64,15 @@ export default function BookScreen() {
   const { user } = useUser();
   const memberEmail = user?.primaryEmailAddress?.emailAddress;
   const { certificate: certParam } = useLocalSearchParams<{ certificate?: string }>();
-  const { code, applyCode, clearCode, status, info, recheck } = useCertificate();
+  const { code, applyCode, clearCode, status, info } = useCertificate();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([
-      queryClient.refetchQueries({ queryKey: ['member-certificates'] }),
-      recheck(),
-    ]);
+    await queryClient.refetchQueries({ queryKey: ['member-certificates'] });
     setRefreshing(false);
-  }, [queryClient, recheck]);
+  }, [queryClient]);
 
   // Auto-refresh session counts when returning from Acuity's browser booking page
   useAppForegroundRefresh([['member-certificates']]);
