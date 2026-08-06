@@ -86,18 +86,8 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
 
-  // Gate the whole nav tree until Clerk finishes initialising.
-  // useAuth().isLoaded is the reliable Expo-safe flag — ClerkLoaded/ClerkLoading
-  // are @clerk/react web re-exports that don't resolve correctly in Expo Go.
-  if (!isLoaded) {
-    return (
-      <View style={loadingStyles.container}>
-        <ActivityIndicator size="large" color="#C8A96E" />
-      </View>
-    );
-  }
-
   // Register Clerk JWT getter with the API client.
+  // Must be declared before any conditional return (Rules of Hooks).
   useEffect(() => {
     setAuthTokenGetter(async () => getToken());
   }, [getToken]);
@@ -152,6 +142,17 @@ function RootLayoutNav() {
       router.replace('/(auth)/sign-in');
     }
   }, [isSignedIn, isLoaded, segments]);
+
+  // All hooks declared — safe to gate rendering on Clerk being ready.
+  // useAuth().isLoaded is the Expo-safe flag; ClerkLoaded/ClerkLoading are
+  // @clerk/react web re-exports that don't resolve in Expo Go.
+  if (!isLoaded) {
+    return (
+      <View style={loadingStyles.container}>
+        <ActivityIndicator size="large" color="#C8A96E" />
+      </View>
+    );
+  }
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
