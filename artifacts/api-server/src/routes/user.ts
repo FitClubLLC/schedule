@@ -16,7 +16,7 @@ function requireAuth(req: any, res: any, next: any) {
 // PATCH /api/user/profile — update the authenticated user's display name.
 // Uses the Clerk admin SDK server-side so it works regardless of whether
 // "Name" is configured as user-editable in Clerk's settings.
-router.patch("/api/user/profile", requireAuth, async (req: any, res: any) => {
+router.patch("/user/profile", requireAuth, async (req: any, res: any) => {
   const { firstName, lastName } = req.body ?? {};
 
   if (typeof firstName !== "string" || typeof lastName !== "string") {

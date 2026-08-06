@@ -130,7 +130,7 @@ export default function ProfileScreen() {
       const token = await getToken();
       if (!token) throw new Error('Not signed in.');
       const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
-      const res = await fetch(`${baseUrl}/api/user/profile`, {
+      const res = await fetch(`${baseUrl}/api/user/profile`, {  // mounted at /api in app.ts
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
