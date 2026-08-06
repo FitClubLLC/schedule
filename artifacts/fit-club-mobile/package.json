@@ -58,7 +58,7 @@
   "dependencies": {
     "@clerk/expo": "^4.2.0",
     "@expo-google-fonts/barlow-condensed": "^0.4.1",
-    "@sentry/react-native": "^8.21.0",
+    "@sentry/react-native": "^7.2.0",
     "expo-build-properties": "^57.0.8",
     "expo-device": "^57.0.1",
     "expo-local-authentication": "^17.0.8",
