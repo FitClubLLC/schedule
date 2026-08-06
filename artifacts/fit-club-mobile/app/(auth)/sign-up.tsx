@@ -86,9 +86,9 @@ export default function SignUpScreen() {
     try {
       await (signUp as any).verifications.verifyEmailCode({ code: verifyCode });
       if ((signUp as any).status === 'complete') {
-        await (signUp as any).finalize({
-          navigate: () => { router.replace('/(tabs)'); },
-        });
+        // Don't navigate manually — finalize() updates isSignedIn, which
+        // triggers RootLayoutNav's useEffect to redirect to /(tabs) automatically.
+        await (signUp as any).finalize();
       } else {
         setError('Verification could not be completed. Please try again.');
       }
