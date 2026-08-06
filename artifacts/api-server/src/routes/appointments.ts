@@ -278,7 +278,7 @@ router.put(
     req.log.info({ appointmentId: id, datetime }, "Rescheduling appointment via Acuity");
 
     const reschedRes = await fetch(`${ACUITY_BASE_URL}/appointments/${id}/reschedule`, {
-      method: "POST",
+      method: "PUT",
       headers: { Authorization: acuityAuthHeader(), "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
