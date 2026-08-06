@@ -53,12 +53,11 @@ export default function SignUpScreen() {
     setLoading(true);
     clearError();
     try {
-      // v4 API: signUp.password() initiates the sign-up
+      // v4 API: signUp.password() only accepts emailAddress + password.
+      // firstName/lastName are not supported at this stage.
       const result = await (signUp as any).password({
         emailAddress: email.trim(),
         password,
-        ...(firstName ? { firstName } : {}),
-        ...(lastName ? { lastName } : {}),
       });
       if (result?.error) {
         setError(result.error.longMessage ?? result.error.message ?? 'Could not create account. Please try again.');
