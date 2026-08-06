@@ -6,21 +6,19 @@
  * onPress handler and this screen is never rendered. If that fails, the
  * member lands here and sees a button to open Acuity manually.
  */
-import { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 
 // Same URL that _layout.tsx opens — kept in sync manually.
-const MEMBERSHIPS_URL = 'https://app.acuityscheduling.com/catalog.php';
+// IMPORTANT: must include ?owner= so Acuity knows which account to load.
+const MEMBERSHIPS_URL = 'https://app.acuityscheduling.com/catalog.php?owner=36930698';
 
 export default function MembershipsScreen() {
   const colors = useColors();
 
-  // Try to open automatically in case the tab-button handler fired but the
-  // URL open failed silently.
-  useEffect(() => {
-    Linking.openURL(MEMBERSHIPS_URL).catch(() => {});
-  }, []);
+  // NOTE: do NOT auto-open on mount. With NativeTabs (iOS 26+), all tab
+  // screens are pre-mounted at startup, so a useEffect here would fire
+  // before the user taps anything and launch Safari unexpectedly.
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
