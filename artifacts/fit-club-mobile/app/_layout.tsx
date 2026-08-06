@@ -17,7 +17,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { ClerkProvider, ClerkLoaded, ClerkLoading, useAuth } from '@clerk/expo';
+import { ClerkProvider, useAuth } from '@clerk/expo';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
@@ -85,6 +85,17 @@ function RootLayoutNav() {
   const { isSignedIn, isLoaded, getToken } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Gate the whole nav tree until Clerk finishes initialising.
+  // useAuth().isLoaded is the reliable Expo-safe flag — ClerkLoaded/ClerkLoading
+  // are @clerk/react web re-exports that don't resolve correctly in Expo Go.
+  if (!isLoaded) {
+    return (
+      <View style={loadingStyles.container}>
+        <ActivityIndicator size="large" color="#C8A96E" />
+      </View>
+    );
+  }
 
   // Register Clerk JWT getter with the API client.
   useEffect(() => {
@@ -183,20 +194,13 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-          <ClerkLoading>
-            <View style={loadingStyles.container}>
-              <ActivityIndicator size="large" color="#C8A96E" />
-            </View>
-          </ClerkLoading>
-          <ClerkLoaded>
-            <QueryClientProvider client={queryClient}>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <KeyboardProvider>
-                  <RootLayoutNav />
-                </KeyboardProvider>
-              </GestureHandlerRootView>
-            </QueryClientProvider>
-          </ClerkLoaded>
+          <QueryClientProvider client={queryClient}>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <KeyboardProvider>
+                <RootLayoutNav />
+              </KeyboardProvider>
+            </GestureHandlerRootView>
+          </QueryClientProvider>
         </ClerkProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
