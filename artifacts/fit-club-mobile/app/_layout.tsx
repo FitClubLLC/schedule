@@ -1,5 +1,20 @@
 import React, { useEffect } from 'react';
 import { Platform, AppState, ActivityIndicator, View, StyleSheet } from 'react-native';
+import * as Sentry from '@sentry/react-native';
+
+// Initialise Sentry before anything else so uncaught errors during app startup
+// are captured. DSN is supplied via EXPO_PUBLIC_SENTRY_DSN — if absent (e.g.
+// local dev without an account), Sentry silently no-ops.
+if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+    environment: __DEV__ ? 'development' : 'production',
+    // Only report in production; avoid noise from dev reloads.
+    enabled: !__DEV__,
+    // Capture 20% of sessions for performance tracing.
+    tracesSampleRate: 0.2,
+  });
+}
 import { focusManager } from '@tanstack/react-query';
 
 // Wire React Query's focusManager to AppState so refetchOnWindowFocus

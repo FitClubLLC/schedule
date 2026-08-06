@@ -18,6 +18,7 @@ import AppointmentCard from '@/components/AppointmentCard';
 import RescheduleModal from '@/components/RescheduleModal';
 import { useAppointmentActions } from '@/hooks/useAppointmentActions';
 import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
+import { friendlyError } from '@/lib/friendlyError';
 
 type Tab = 'upcoming' | 'past';
 
@@ -47,7 +48,7 @@ export default function AppointmentsScreen() {
   function handleCancel(id: number) {
     Alert.alert(
       'Cancel Session',
-      'Are you sure you want to cancel this session?',
+      'Are you sure you want to cancel this session?\n\nSessions cancelled with less than 24 hours\u2019 notice may still be deducted from your membership.',
       [
         { text: 'Keep it', style: 'cancel' },
         {
@@ -56,8 +57,12 @@ export default function AppointmentsScreen() {
           onPress: async () => {
             try {
               await cancelAppointment(id);
+              Alert.alert(
+                'Session Cancelled',
+                'Your session has been cancelled. If more than 24 hours remained, your credit has been returned to your membership.',
+              );
             } catch (err: any) {
-              Alert.alert('Error', err?.message ?? 'Could not cancel. Please try again.');
+              Alert.alert('Could not cancel', friendlyError(err));
             }
           },
         },
@@ -140,14 +145,17 @@ export default function AppointmentsScreen() {
         <View style={styles.center}>
           <SvgIcon name="alert-circle" size={32} color={colors.destructive} />
           <Text style={[styles.emptyTitle, { color: colors.foreground, marginTop: 12 }]}>
-            Failed to load sessions
+            Could not load sessions
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.mutedForeground, textAlign: 'center', paddingHorizontal: 32 }]}>
+            {friendlyError(query.error)}
           </Text>
           <TouchableOpacity
             onPress={() => query.refetch()}
             style={[styles.retryBtn, { backgroundColor: colors.primary }]}
             activeOpacity={0.8}
           >
-            <Text style={[styles.retryText, { color: colors.primaryForeground }]}>RETRY</Text>
+            <Text style={[styles.retryText, { color: colors.primaryForeground }]}>TRY AGAIN</Text>
           </TouchableOpacity>
         </View>
       ) : (

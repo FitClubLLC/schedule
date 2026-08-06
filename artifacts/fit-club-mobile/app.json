@@ -50,6 +50,14 @@
       ],
       "expo-font",
       "expo-web-browser",
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "fitclub15",
+          "project": "fit-club-mobile",
+          "url": "https://sentry.io/"
+        }
+      ],
       "expo-secure-store",
       [
         "expo-notifications",

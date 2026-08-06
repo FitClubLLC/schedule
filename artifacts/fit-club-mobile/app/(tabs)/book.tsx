@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Linking, Alert,
+  View, Text, TouchableOpacity, StyleSheet, Alert,
   TextInput, ActivityIndicator, ScrollView, RefreshControl,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth, useUser } from '@clerk/expo';
@@ -11,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SvgIcon from '@/components/SvgIcon';
 import { useCertificate } from '@/hooks/useCertificate';
 import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
+import { friendlyError } from '@/lib/friendlyError';
 
 interface MemberCert {
   code: string;
@@ -57,6 +59,27 @@ function acuityUrl(
   return `${withCert}&appointmentType[]=${workoutFor1}&appointmentType[]=${redLightTherapy}`;
 }
 
+interface Appointment {
+  id: number;
+  type: string;
+  date: string;
+  time: string;
+  duration: number;
+  location?: string | null;
+  calendar?: string | null;
+}
+
+function formatBookingTime(isoStr: string): string {
+  return new Date(isoStr).toLocaleTimeString('en-US', {
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  });
+}
+function formatBookingDate(dateStr: string): string {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  });
+}
+
 export default function BookScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -67,6 +90,8 @@ export default function BookScreen() {
   const { code, applyCode, clearCode, status, info } = useCertificate();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  const [bookingInProgress, setBookingInProgress] = useState(false);
+  const [newBooking, setNewBooking] = useState<Appointment | null>(null);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -129,17 +154,36 @@ export default function BookScreen() {
     }
   }, [certParam]);
 
-  const handleBook = async (locationId: string, calendarId: string, name: string) => {
-    if (!acuityConfig) {
-      Alert.alert('Loading', 'Booking config is still loading. Please try again in a moment.');
-      return;
-    }
+  const handleBook = async (locationId: string, calendarId: string, _name: string) => {
+    if (!acuityConfig || bookingInProgress) return;
     const url = acuityUrl(acuityConfig, locationId, calendarId, status === 'valid' ? code : undefined, memberEmail);
-    const supported = await Linking.canOpenURL(url);
-    if (supported) {
-      await Linking.openURL(url);
-    } else {
-      Alert.alert('Error', `Unable to open booking page for ${name}.`);
+
+    // Snapshot current appointments so we can detect a new booking after return
+    const beforeAppts = queryClient.getQueryData<Appointment[]>(['/api/appointments/upcoming']) ?? [];
+    const beforeIds = new Set(beforeAppts.map((a) => a.id));
+
+    setBookingInProgress(true);
+    try {
+      await WebBrowser.openBrowserAsync(url, {
+        dismissButtonStyle: 'close',
+        toolbarColor: '#000000',
+        controlsColor: '#D3AF37',
+      });
+    } finally {
+      setBookingInProgress(false);
+    }
+
+    // Browser closed — refresh data and check for a newly booked appointment
+    try {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['/api/appointments/upcoming'] }),
+        queryClient.refetchQueries({ queryKey: ['member-certificates'] }),
+      ]);
+      const afterAppts = queryClient.getQueryData<Appointment[]>(['/api/appointments/upcoming']) ?? [];
+      const detected = afterAppts.find((a) => !beforeIds.has(a.id));
+      if (detected) setNewBooking(detected);
+    } catch {
+      // Silently ignore — data will refresh on next foreground return
     }
   };
 
@@ -187,8 +231,9 @@ export default function BookScreen() {
         activeOpacity={0.75}
         onPress={() => {
           if (!acuityConfig) return;
-          Linking.openURL(
-            `https://app.acuityscheduling.com/schedule.php?owner=${acuityConfig.ownerId}&appointmentType=${acuityConfig.appointmentTypes.freeTrial}${memberEmail ? `&email=${encodeURIComponent(memberEmail)}` : ''}`
+          WebBrowser.openBrowserAsync(
+            `https://app.acuityscheduling.com/schedule.php?owner=${acuityConfig.ownerId}&appointmentType=${acuityConfig.appointmentTypes.freeTrial}${memberEmail ? `&email=${encodeURIComponent(memberEmail)}` : ''}`,
+            { dismissButtonStyle: 'close', toolbarColor: '#000000', controlsColor: '#D3AF37' },
           );
         }}
       >
@@ -199,11 +244,11 @@ export default function BookScreen() {
         <SvgIcon name="external-link" size={14} color={colors.primary} />
       </TouchableOpacity>
 
-      {/* ── Your packages section ─────────────────────────────────── */}
+      {/* ── Your memberships section ──────────────────────────────── */}
       {(certsQuery.isLoading || memberCerts.length > 0) && (
         <View style={styles.packagesSection}>
           <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-            YOUR PACKAGES
+            YOUR MEMBERSHIPS
           </Text>
 
           {certsQuery.isLoading ? (
@@ -272,7 +317,7 @@ export default function BookScreen() {
       {/* ── Certificate code section ──────────────────────────────── */}
       <View style={styles.certSection}>
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-          {memberCerts.length > 0 ? 'OR ENTER A CODE MANUALLY' : 'MEMBERSHIP / PACKAGE CODE'}
+          {memberCerts.length > 0 ? 'OR ENTER A CODE MANUALLY' : 'MEMBERSHIP CODE'}
         </Text>
 
         {/* Input row */}
@@ -283,7 +328,7 @@ export default function BookScreen() {
           <SvgIcon name="credit-card" size={18} color={certIconColor} />
           <TextInput
             style={[styles.certInput, { color: colors.foreground }]}
-            placeholder="Enter certificate code"
+            placeholder="Enter membership code"
             placeholderTextColor={colors.mutedForeground}
             value={code}
             onChangeText={applyCode}
@@ -324,11 +369,32 @@ export default function BookScreen() {
           <View style={[styles.certBanner, { backgroundColor: certBannerBg, borderColor: certBannerBorder }]}>
             <SvgIcon name="alert-circle" size={15} color="#ef4444" />
             <Text style={[styles.certBannerText, { color: '#ef4444' }]}>
-              Invalid or expired certificate code
+              Invalid or expired membership code
             </Text>
           </View>
         )}
       </View>
+
+      {/* ── Booking confirmation banner ───────────────────────────── */}
+      {newBooking && (
+        <TouchableOpacity
+          onPress={() => setNewBooking(null)}
+          activeOpacity={0.85}
+          style={[styles.bookingBanner, { backgroundColor: 'rgba(34,197,94,0.12)', borderColor: 'rgba(34,197,94,0.45)' }]}
+        >
+          <View style={styles.bookingBannerLeft}>
+            <SvgIcon name="check" size={20} color="#22c55e" />
+            <View style={styles.bookingBannerText}>
+              <Text style={[styles.bookingBannerTitle, { color: '#22c55e' }]}>You're booked!</Text>
+              <Text style={[styles.bookingBannerDetail, { color: colors.mutedForeground }]}>
+                {formatBookingDate(newBooking.date)} at {formatBookingTime(newBooking.time)}
+                {newBooking.calendar ? ` · ${newBooking.calendar}` : ''}
+              </Text>
+            </View>
+          </View>
+          <SvgIcon name="x" size={16} color={colors.mutedForeground} />
+        </TouchableOpacity>
+      )}
 
       {/* ── Location cards ────────────────────────────────────────── */}
       <View style={styles.cards}>
@@ -366,9 +432,10 @@ export default function BookScreen() {
             </View>
 
             <View style={styles.btnRow}>
-              <View style={[styles.btn, { backgroundColor: LOCATION_COLOR }]}>
-                <Text style={styles.btnText}>Book Now</Text>
-                <SvgIcon name="external-link" size={14} color="#000" />
+              <View style={[styles.btn, { backgroundColor: bookingInProgress ? LOCATION_COLOR_MUTED : LOCATION_COLOR }]}>
+                {bookingInProgress
+                  ? <ActivityIndicator size="small" color={LOCATION_COLOR} />
+                  : <Text style={styles.btnText}>Book Now</Text>}
               </View>
               {status === 'valid' && (
                 <View style={styles.certBadge}>
@@ -566,5 +633,34 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#22c55e',
+  },
+  bookingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 16,
+    gap: 12,
+  },
+  bookingBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  bookingBannerText: {
+    flex: 1,
+    gap: 2,
+  },
+  bookingBannerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  bookingBannerDetail: {
+    fontSize: 13,
+    fontWeight: '500',
   },
 });
