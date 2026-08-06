@@ -9,13 +9,21 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NOTIF_TIMING_KEY, DEFAULT_NOTIF_TIMING, type NotifTiming } from '@/lib/notificationPrefs';
 
 /** True when running as a real device build (EAS / production). False in Expo Go. */
 const IS_REAL_BUILD = Constants.appOwnership !== 'expo';
 
 const REMINDER_KIND = 'session-reminder';
-const ADVANCE_MINUTES = 60;
 const CHANNEL_ID = 'session-reminders';
+
+/** Minutes before each session to schedule a reminder for each timing mode. */
+const ADVANCE_BY_TIMING: Record<Exclude<NotifTiming, 'off'>, number[]> = {
+  '24h':  [24 * 60],
+  '2h':   [2 * 60],
+  'both': [24 * 60, 2 * 60],
+};
 
 function fmtTime(isoString: string): string {
   return new Date(isoString).toLocaleTimeString('en-US', {
@@ -101,29 +109,47 @@ export function useSessionReminders(appointments: ReminderAppointment[] | undefi
 
       if (cancelled) return;
 
+      // Read the member's preferred timing from AsyncStorage.
+      const rawTiming = await AsyncStorage.getItem(NOTIF_TIMING_KEY);
+      const timing: NotifTiming =
+        rawTiming === '24h' || rawTiming === '2h' || rawTiming === 'both' || rawTiming === 'off'
+          ? rawTiming
+          : DEFAULT_NOTIF_TIMING;
+
+      // 'off' — cancellation already done above; just exit.
+      if (timing === 'off' || cancelled) return;
+
+      const advanceMinutes = ADVANCE_BY_TIMING[timing];
       const now = Date.now();
 
       for (const appt of appts) {
         const sessionMs = new Date(appt.time).getTime();
-        const triggerMs = sessionMs - ADVANCE_MINUTES * 60 * 1000;
-        if (triggerMs <= now) continue;
 
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: '💪 Session Reminder',
-            body: `Your ${appt.type} starts at ${fmtTime(appt.time)}. See you there!`,
-            data: {
-              kind: REMINDER_KIND,
-              appointmentId: appt.id,
-              url: 'fitclub15:///appointments',
+        for (const mins of advanceMinutes) {
+          const triggerMs = sessionMs - mins * 60 * 1000;
+          if (triggerMs <= now) continue;
+
+          const label = mins >= 60 * 20
+            ? `${Math.round(mins / 60)} hours`
+            : `${mins} minutes`;
+
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: '💪 Session Reminder',
+              body: `Your ${appt.type} starts in ${label}. See you there!`,
+              data: {
+                kind: REMINDER_KIND,
+                appointmentId: appt.id,
+                route: 'appointments',
+              },
+              sound: true,
             },
-            sound: true,
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DATE,
-            date: new Date(triggerMs),
-          },
-        });
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.DATE,
+              date: new Date(triggerMs),
+            },
+          });
+        }
       }
     }
 

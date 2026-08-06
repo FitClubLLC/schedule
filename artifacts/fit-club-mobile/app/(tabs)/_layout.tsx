@@ -31,6 +31,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'creditcard', selected: 'creditcard.fill' }} />
         <Label>Memberships</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="profile">
+        <Icon sf={{ default: 'person', selected: 'person.fill' }} />
+        <Label>Profile</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -131,6 +135,19 @@ function ClassicTabLayout() {
               activeOpacity={0.7}
             />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="person" tintColor={color} size={24} />
+            ) : (
+              <SvgIcon name="user" size={22} color={color} />
+            ),
         }}
       />
     </Tabs>
