@@ -78,6 +78,8 @@ export default function ProfileScreen() {
   const [firstName, setFirstName] = useState(user?.firstName ?? '');
   const [lastName, setLastName] = useState(user?.lastName ?? '');
   const [nameSaving, setNameSaving] = useState(false);
+  // null = not yet attempted; true = works; false = Clerk rejected (not editable)
+  const [nameEditingSupported, setNameEditingSupported] = useState<boolean | null>(null);
   const nameDirty =
     firstName.trim() !== (user?.firstName ?? '') ||
     lastName.trim() !== (user?.lastName ?? '');
@@ -126,12 +128,23 @@ export default function ProfileScreen() {
     setNameSaving(true);
     try {
       await user?.update({ firstName: firstName.trim(), lastName: lastName.trim() });
+      setNameEditingSupported(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert(
-        'Could not save',
-        err?.errors?.[0]?.longMessage ?? 'Please try again.',
+      // Clerk rejects this when "Name" isn't enabled as an editable attribute
+      // in the Clerk Dashboard (User & Authentication → Email, Phone, Username).
+      const isUnsupported = err?.errors?.some(
+        (e: any) => e.code === 'form_param_unknown' &&
+          (e.meta?.paramName === 'first_name' || e.meta?.paramName === 'last_name'),
       );
+      if (isUnsupported) {
+        setNameEditingSupported(false);
+      } else {
+        Alert.alert(
+          'Could not save',
+          err?.errors?.[0]?.longMessage ?? 'Please try again.',
+        );
+      }
     } finally {
       setNameSaving(false);
     }
@@ -336,51 +349,63 @@ export default function ProfileScreen() {
         {/* ── Account ─────────────────────────────────────────────────────── */}
         <SectionLabel title="ACCOUNT" colors={colors} />
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.nameRow}>
-            <View style={styles.nameField}>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>FIRST NAME</Text>
-              <TextInput
-                style={[styles.nameInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.input }]}
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder="First name"
-                placeholderTextColor={colors.mutedForeground}
-                autoCapitalize="words"
-                autoCorrect={false}
-                returnKeyType="next"
-              />
+          {nameEditingSupported === false ? (
+            /* Clerk has name editing disabled for this app — show read-only display */
+            <View style={styles.nameReadOnly}>
+              <SvgIcon name="info" size={15} color={colors.mutedForeground} />
+              <Text style={[styles.nameReadOnlyText, { color: colors.mutedForeground }]}>
+                Your name is managed by your account provider and can't be edited here. Contact the studio to update it.
+              </Text>
             </View>
-            <View style={styles.nameField}>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>LAST NAME</Text>
-              <TextInput
-                style={[styles.nameInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.input }]}
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder="Last name"
-                placeholderTextColor={colors.mutedForeground}
-                autoCapitalize="words"
-                autoCorrect={false}
-                returnKeyType="done"
-                onSubmitEditing={handleSaveName}
-              />
-            </View>
-          </View>
-          <TouchableOpacity
-            style={[
-              styles.saveBtn,
-              { backgroundColor: nameDirty ? colors.primary : colors.muted },
-              (nameSaving || !nameDirty) && { opacity: 0.5 },
-            ]}
-            onPress={handleSaveName}
-            disabled={!nameDirty || nameSaving}
-            activeOpacity={0.8}
-          >
-            {nameSaving
-              ? <ActivityIndicator size="small" color={colors.primaryForeground} />
-              : <Text style={[styles.saveBtnText, { color: nameDirty ? colors.primaryForeground : colors.mutedForeground }]}>
-                  SAVE NAME
-                </Text>}
-          </TouchableOpacity>
+          ) : (
+            <>
+              <View style={styles.nameRow}>
+                <View style={styles.nameField}>
+                  <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>FIRST NAME</Text>
+                  <TextInput
+                    style={[styles.nameInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.input }]}
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    placeholder="First name"
+                    placeholderTextColor={colors.mutedForeground}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                  />
+                </View>
+                <View style={styles.nameField}>
+                  <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>LAST NAME</Text>
+                  <TextInput
+                    style={[styles.nameInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.input }]}
+                    value={lastName}
+                    onChangeText={setLastName}
+                    placeholder="Last name"
+                    placeholderTextColor={colors.mutedForeground}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onSubmitEditing={handleSaveName}
+                  />
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.saveBtn,
+                  { backgroundColor: nameDirty ? colors.primary : colors.muted },
+                  (nameSaving || !nameDirty) && { opacity: 0.5 },
+                ]}
+                onPress={handleSaveName}
+                disabled={!nameDirty || nameSaving}
+                activeOpacity={0.8}
+              >
+                {nameSaving
+                  ? <ActivityIndicator size="small" color={colors.primaryForeground} />
+                  : <Text style={[styles.saveBtnText, { color: nameDirty ? colors.primaryForeground : colors.mutedForeground }]}>
+                      SAVE NAME
+                    </Text>}
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         {/* ── Preferred location ───────────────────────────────────────────── */}
@@ -565,6 +590,20 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     padding: 14,
     paddingBottom: 10,
+  },
+
+  // Name read-only notice
+  nameReadOnly: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 16,
+  },
+  nameReadOnlyText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 19,
+    flex: 1,
   },
 
   // Name fields
