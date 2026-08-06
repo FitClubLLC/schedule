@@ -249,6 +249,8 @@ router.get(
 );
 
 // PUT /appointments/:id  — reschedule to a new datetime
+// NOTE: Acuity's PUT /appointments/:id only updates metadata (notes, fields, etc.).
+// Rescheduling requires POST /appointments/:id/reschedule — that is the correct endpoint.
 router.put(
   "/appointments/:id",
   requireAuth,
@@ -260,6 +262,7 @@ router.put(
     const email = await getClerkUserEmail(req.userId);
     if (!email) { res.status(400).json({ error: "Could not resolve user email" }); return; }
 
+    // Verify ownership before rescheduling.
     const apptRes = await fetch(`${ACUITY_BASE_URL}/appointments/${id}`, {
       headers: { Authorization: acuityAuthHeader() },
     });
@@ -269,20 +272,35 @@ router.put(
       res.status(403).json({ error: "Forbidden" }); return;
     }
 
-    const reschedRes = await fetch(`${ACUITY_BASE_URL}/appointments/${id}`, {
-      method: "PUT",
+    // Use the dedicated /reschedule endpoint — PUT /appointments/:id only updates
+    // metadata and silently ignores datetime, returning 200 without moving the slot.
+    const payload = { datetime };
+    req.log.info({ appointmentId: id, datetime }, "Rescheduling appointment via Acuity");
+
+    const reschedRes = await fetch(`${ACUITY_BASE_URL}/appointments/${id}/reschedule`, {
+      method: "POST",
       headers: { Authorization: acuityAuthHeader(), "Content-Type": "application/json" },
-      // Acuity's PUT /appointments/:id reschedule field is "datetime" (ISO string).
-      // The value comes from availability/times where Acuity uses "time" as the key —
-      // that mapping is fixed in the /times route; this field name must stay "datetime".
-      body: JSON.stringify({ datetime }),
+      body: JSON.stringify(payload),
     });
+
+    const reschedBody = await reschedRes.json().catch(() => null);
+
     if (!reschedRes.ok) {
-      const body = await reschedRes.json().catch(() => null);
-      res.status(502).json({ error: body?.message ?? "Failed to reschedule appointment" });
+      req.log.error(
+        { appointmentId: id, datetime, status: reschedRes.status, acuityResponse: reschedBody },
+        "Acuity reschedule failed",
+      );
+      res.status(502).json({
+        error: reschedBody?.message ?? reschedBody?.error ?? "Failed to reschedule appointment",
+      });
       return;
     }
-    res.json({ success: true });
+
+    req.log.info(
+      { appointmentId: id, newDatetime: reschedBody?.datetime },
+      "Appointment rescheduled successfully",
+    );
+    res.json({ success: true, datetime: reschedBody?.datetime });
   },
 );
 
