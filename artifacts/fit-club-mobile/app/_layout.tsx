@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Platform, Linking, AppState, ActivityIndicator, View, StyleSheet } from 'react-native';
+import { Platform, AppState, ActivityIndicator, View, StyleSheet } from 'react-native';
 import { focusManager } from '@tanstack/react-query';
 
 // Wire React Query's focusManager to AppState so refetchOnWindowFocus
@@ -106,11 +106,12 @@ function RootLayoutNav() {
       // App already open — notification tapped while foregrounded or from background.
       sub = Notifications.addNotificationResponseReceivedListener((response) => {
         const data = response.notification.request.content.data as Record<string, unknown>;
-        const url = data?.url as string | undefined;
-        if (url) {
-          Linking.openURL(url).catch(() => {
-            router.push('/(tabs)/appointments');
-          });
+        // Route internally only — never open arbitrary URLs from notification payloads.
+        const route = data?.route as string | undefined;
+        if (route === 'book') {
+          router.push('/(tabs)/book');
+        } else {
+          router.push('/(tabs)/appointments');
         }
       });
 
@@ -118,11 +119,12 @@ function RootLayoutNav() {
       Notifications.getLastNotificationResponseAsync().then((response) => {
         if (!response) return;
         const data = response.notification.request.content.data as Record<string, unknown>;
-        const url = data?.url as string | undefined;
-        if (url) {
-          Linking.openURL(url).catch(() => {
-            router.push('/(tabs)/appointments');
-          });
+        // Route internally only — never open arbitrary URLs from notification payloads.
+        const route = data?.route as string | undefined;
+        if (route === 'book') {
+          router.push('/(tabs)/book');
+        } else {
+          router.push('/(tabs)/appointments');
         }
       });
     }).catch(() => { /* expo-notifications unavailable in Expo Go — skip */ });

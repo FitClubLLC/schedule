@@ -89,6 +89,7 @@ export default function BookScreen() {
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
       const token = await getToken();
+      if (!token) throw new Error('Not signed in');
       const res = await fetch(`${baseUrl}/api/booking/config`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -105,6 +106,7 @@ export default function BookScreen() {
     // keeping the session count in sync after a booking or cancellation in Acuity.
     queryFn: async () => {
       const token = await getToken();
+      if (!token) throw new Error('Not signed in');
       const res = await fetch(`${baseUrl}/api/booking/certificates`, {
         headers: { Authorization: `Bearer ${token}` },
       });

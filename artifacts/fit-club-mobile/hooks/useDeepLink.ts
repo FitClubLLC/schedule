@@ -31,14 +31,17 @@ function extractCertificate(url: string): string | null {
   }
 }
 
-/** Return true if the URL is targeting the book route. */
+/** Return true if the URL is a valid fitclub15:// deep link targeting the book route. */
 function isBookUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
+    // Reject anything that isn't our registered app scheme.
+    if (parsed.protocol !== 'fitclub15:') return false;
     // pathname is "/book" or "" with host "book"
     return parsed.pathname.replace(/^\/+/, '') === 'book' || parsed.host === 'book';
   } catch {
-    return url.includes('book');
+    // Malformed URL — reject rather than fall back to a broad string match.
+    return false;
   }
 }
 

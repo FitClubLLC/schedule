@@ -1,0 +1,436 @@
+I reviewed the Expo/React Native project, focusing on authentication, biometrics, booking, deep links, notifications, API handling, and the custom server.
+
+## Most important findings
+
+### 1. High: The app stores the user’s actual password
+
+**File:** `hooks/useBiometrics.ts`, lines 23–24
+
+```ts
+await SecureStore.setItemAsync(
+  CREDS_KEY,
+  JSON.stringify({ email, password }),
+);
+```
+
+The biometric-login feature saves the member’s email and password on the device, then uses that password to sign in again.
+
+SecureStore is better than ordinary storage, but saving a reusable password is still risky. A compromised, rooted, jailbroken, or improperly backed-up device could expose it. It also means changing the authentication system later becomes harder.
+
+**Better approach:** Store a session or refresh token managed by Clerk, and use biometrics only to unlock that session. Do not save the member’s password yourself.
+
+At minimum, protect the SecureStore item with device authentication options such as `requireAuthentication`, and handle the platform-specific limitations carefully.
+
+---
+
+### 2. High: “Ghost session” handling can log in the wrong person
+
+**File:** `app/(auth)/sign-in.tsx`, lines 181–188
+
+When Clerk returns `session_exists` or `single_session_mode`, the code activates the first existing session and navigates into the app:
+
+```ts
+const ghosts = clerk.client?.activeSessions ?? [];
+
+if (ghosts.length > 0) {
+  await clerk.setActive({ session: ghosts[0].id });
+}
+
+router.replace('/(tabs)');
+```
+
+This does not verify that the existing session belongs to the email the user just entered. On a shared device, the user could type one account’s credentials and be silently placed into another account’s old session.
+
+It also navigates to the app even when no session was successfully activated.
+
+**Fix:** Never treat `session_exists` as successful authentication. Fully clear the stale session and repeat the requested sign-in, or show an error. Only navigate after confirming that `isSignedIn` is true and the active user matches the intended account.
+
+The same error code is treated differently in biometric sign-in, where `single_session_mode` causes saved credentials to be deleted. Those two flows should behave consistently.
+
+---
+
+### 3. High: The API domain may become `https://undefined`
+
+**Files:**
+
+* `app/_layout.tsx`, line 63
+* `hooks/useAppointmentActions.ts`, line 18
+* `hooks/useCertificate.ts`, line 21
+* `app/(tabs)/book.tsx`, line 83
+
+The app repeatedly creates its API URL like this:
+
+```ts
+const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+```
+
+There is no validation that `EXPO_PUBLIC_DOMAIN` exists. The development script injects it, but `eas.json` does not define it for production builds.
+
+A production build could therefore send requests to:
+
+```text
+https://undefined/api/...
+```
+
+**Fix:** Create one configuration module that validates the domain during startup.
+
+```ts
+const domain = process.env.EXPO_PUBLIC_DOMAIN;
+
+if (!domain) {
+  throw new Error('EXPO_PUBLIC_DOMAIN is not configured');
+}
+
+export const API_BASE_URL = `https://${domain}`;
+```
+
+Also configure the environment variable explicitly in the EAS production environment.
+
+---
+
+### 4. Medium-high: Deep links are not strictly validated
+
+**File:** `hooks/useDeepLink.ts`, lines 34–42
+
+The app checks whether a URL is a booking URL, but it does not verify that the scheme is actually `fitclub15:`.
+
+The fallback is especially permissive:
+
+```ts
+return url.includes('book');
+```
+
+A malformed or unexpected URL containing the word `book` could be accepted. The `certificate` parameter is then stored in AsyncStorage and sent to the API.
+
+**Fix:** Require the exact scheme and expected route:
+
+```ts
+const parsed = new URL(url);
+
+if (parsed.protocol !== 'fitclub15:') return false;
+
+return (
+  parsed.host === 'book' ||
+  parsed.pathname.replace(/^\/+/, '') === 'book'
+);
+```
+
+Validate the certificate format and length before saving it. For example, allow only the characters and maximum length actually used by Acuity.
+
+---
+
+### 5. Medium-high: Notification data can open arbitrary URLs
+
+**File:** `app/_layout.tsx`, lines 107–126
+
+When a notification is tapped, the app opens whatever URL appears in its data:
+
+```ts
+const url = data?.url as string | undefined;
+
+if (url) {
+  Linking.openURL(url);
+}
+```
+
+Currently, the app schedules local notifications with its own URL. However, if remote notifications are introduced, or notification data is otherwise manipulated, this could open a phishing website or another application.
+
+**Fix:** Do not call `Linking.openURL` on untrusted notification data. Route internally based on a small allowlist:
+
+```ts
+if (data?.route === 'appointments') {
+  router.push('/(tabs)/appointments');
+}
+```
+
+If URLs must be supported, allow only the `fitclub15:` scheme and known routes.
+
+---
+
+### 6. Medium: First and last names are collected but discarded
+
+**File:** `app/(auth)/sign-up.tsx`
+
+The form collects:
+
+```ts
+firstName
+lastName
+```
+
+But `handleSignUp` only sends:
+
+```ts
+{
+  emailAddress: email.trim(),
+  password,
+}
+```
+
+The names are never saved after verification. A member can enter them, see no error, and reasonably assume their profile contains them.
+
+**Fix:** Save the names after account creation using Clerk’s supported profile-update method, or remove the fields until that behavior is implemented.
+
+---
+
+### 7. Medium: Sensitive authentication errors are logged
+
+**File:** `app/(auth)/sign-in.tsx`, lines 284 and 349
+
+```ts
+console.log(
+  '[ForgotPassword] create error:',
+  JSON.stringify(err),
+);
+```
+
+Authentication provider errors can contain identifiers, internal details, or other information that should not appear in production logs.
+
+**Fix:** Remove these logs from production or log only a sanitized error code:
+
+```ts
+if (__DEV__) {
+  console.log(
+    '[ForgotPassword]',
+    err?.errors?.[0]?.code,
+  );
+}
+```
+
+---
+
+### 8. Medium: Raw authentication errors may reveal whether an account exists
+
+Several authentication flows show Clerk’s original `longMessage` or `message` directly to users.
+
+For password reset, messages such as “account not found” can let someone test whether a particular email is registered. This is called account enumeration.
+
+**Fix:** Use a neutral password-reset response:
+
+> If an account exists for that email, a reset code has been sent.
+
+Detailed provider messages can remain in sanitized development logs, but should not be shown publicly.
+
+For ordinary sign-in, a generic “Incorrect email or password” message is safer.
+
+---
+
+### 9. Medium: Certificates remain on the device across account changes
+
+**File:** `hooks/useCertificate.ts`, lines 23–31 and 78–94
+
+The selected certificate is saved under one global key:
+
+```ts
+const STORAGE_KEY = '@fitclub/certificate';
+```
+
+It is not tied to the signed-in user. On a shared device:
+
+1. Member A selects a certificate.
+2. Member A signs out.
+3. Member B signs in.
+4. Member A’s certificate is loaded into Member B’s booking screen.
+
+The server should reject unauthorized certificates, but the UI can still leak the code and create confusing or incorrect booking behavior.
+
+**Fix:** Either clear certificate storage during sign-out or namespace it by Clerk user ID:
+
+```ts
+`@fitclub/certificate/${userId}`
+```
+
+The React Query cache should also be cleared before another user signs in.
+
+---
+
+### 10. Medium: The global retry logic does not work as described
+
+**File:** `lib/queryClient.ts`, lines 15–19
+
+The comment says 4xx errors will not be retried:
+
+```ts
+const status = error?.status;
+
+if (status >= 400 && status < 500) return false;
+```
+
+But most fetch functions throw plain errors such as:
+
+```ts
+throw new Error('Failed to fetch certificates');
+```
+
+Those errors do not contain `status`, so 401, 403, 404, and other client errors may still be retried.
+
+**Fix:** Throw an error object that retains the HTTP status:
+
+```ts
+class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+```
+
+Then:
+
+```ts
+if (!res.ok) {
+  throw new ApiError(
+    'Failed to fetch certificates',
+    res.status,
+  );
+}
+```
+
+---
+
+### 11. Medium: Every query polls every 60 seconds
+
+**File:** `lib/queryClient.ts`, line 12
+
+```ts
+refetchInterval: 60_000
+```
+
+This is configured globally, so even data that rarely changes—such as booking configuration—may be fetched every minute.
+
+This can waste battery, consume data, increase backend traffic, and trigger avoidable authentication requests.
+
+**Fix:** Remove the global interval and add polling only to queries that genuinely need it. The app already refreshes on foreground and supports pull-to-refresh, which may be sufficient for several screens.
+
+---
+
+### 12. Medium: API calls may send `Bearer null`
+
+**Files:**
+
+* `hooks/useCertificate.ts`, lines 51–55
+* `app/(tabs)/book.tsx`, lines 91–94 and 107–110
+
+These functions do not check whether `getToken()` returned a token:
+
+```ts
+headers: {
+  Authorization: `Bearer ${token}`,
+}
+```
+
+If token retrieval fails or authentication is still initializing, the app sends:
+
+```text
+Authorization: Bearer null
+```
+
+**Fix:** Stop before making the request:
+
+```ts
+const token = await getToken();
+
+if (!token) {
+  throw new Error('You are no longer signed in');
+}
+```
+
+`useAppointmentActions` handles this slightly better by omitting the header when no token exists, although protected actions should probably fail locally rather than issue an anonymous request.
+
+---
+
+### 13. Low-medium: Date query parameter is not encoded
+
+**File:** `hooks/useAppointmentActions.ts`, line 57
+
+```ts
+`/api/appointments/${id}/times?date=${date}`
+```
+
+If `date` contains an ampersand, space, timezone value, or unexpected characters, it can alter the query string.
+
+**Fix:**
+
+```ts
+`/api/appointments/${id}/times?date=${encodeURIComponent(date)}`
+```
+
+Also validate appointment IDs before using them in paths.
+
+---
+
+### 14. Low-medium: Certificate JSON is trusted without runtime validation
+
+**File:** `hooks/useBiometrics.ts`, line 47
+
+```ts
+return JSON.parse(saved) as StoredCreds;
+```
+
+The type assertion does not validate the stored data. Corrupted storage could produce missing fields, non-string values, or a JSON parsing exception.
+
+**Fix:** Wrap parsing in `try/catch` and validate the shape before using it. Clear invalid data automatically.
+
+---
+
+### 15. Low-medium: Static server lacks basic security headers
+
+**File:** `server/serve.js`
+
+The server does not set headers such as:
+
+* `X-Content-Type-Options: nosniff`
+* `Content-Security-Policy`
+* `Referrer-Policy`
+* `X-Frame-Options` or CSP `frame-ancestors`
+* `Strict-Transport-Security`, when appropriate
+
+The landing page also loads a JavaScript library directly from `unpkg.com`. If that CDN resource changes or is compromised, code runs on the landing page.
+
+**Fix:** Add security headers and preferably bundle the QR library locally. If loading from a CDN, pin an exact file and use Subresource Integrity where supported.
+
+---
+
+### 16. Low: The static server uses blocking file reads for every request
+
+**File:** `server/serve.js`, lines 113–123
+
+```ts
+const content = fs.readFileSync(filePath);
+res.end(content);
+```
+
+For a small deployment this may work, but synchronous reads block the Node.js process. Several simultaneous large asset requests could make the server sluggish.
+
+**Fix:** Use `fs.createReadStream()` and pipe files to the response.
+
+---
+
+## Positive points
+
+Several security-conscious choices are already present:
+
+* Clerk session tokens are stored with SecureStore.
+* API requests use HTTPS.
+* Certificate query parameters are encoded in `useCertificate`.
+* Booking URLs encode email and certificate values.
+* The static server attempts to normalize paths and prevents directory serving.
+* Destructive appointment cancellation requires user confirmation.
+* Notification scheduling distinguishes the app’s own notifications before cancelling them.
+* The code avoids placing secret server credentials directly in the client project.
+
+## Priority order
+
+I would address these first:
+
+1. Stop storing user passwords.
+2. Fix the ghost-session login behavior.
+3. Validate production API configuration.
+4. Lock down deep links and notification navigation.
+5. Separate cached certificate data by user.
+6. Sanitize authentication errors and remove sensitive logs.
+7. Correct HTTP error handling and polling behavior.
+
+I could not complete a TypeScript compile because the uploaded archive does not contain installed dependencies and `pnpm` is not available in the review environment. The findings above come from static inspection, so additional dependency/API compatibility errors may appear during a real `pnpm install` and `pnpm typecheck`.

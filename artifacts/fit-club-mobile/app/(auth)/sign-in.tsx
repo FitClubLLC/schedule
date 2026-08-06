@@ -281,7 +281,7 @@ export default function SignInScreen() {
       signInRef.current = attempt;
       setScreen('forgot-code');
     } catch (err: any) {
-      console.log('[ForgotPassword] create error:', JSON.stringify(err));
+      if (__DEV__) console.log('[ForgotPassword] create error:', err?.errors?.[0]?.code ?? err?.message);
       const code = err?.errors?.[0]?.code ?? '';
       if (code === 'session_exists' || code === 'single_session_mode') {
         // Ghost session survived eviction — sign out completely and retry once.
@@ -346,7 +346,7 @@ export default function SignInScreen() {
         setError(`Unexpected status: ${result.status}. Please try again.`);
       }
     } catch (err: any) {
-      console.log('[ForgotPassword] attemptFirstFactor error:', JSON.stringify(err));
+      if (__DEV__) console.log('[ForgotPassword] attemptFirstFactor error:', err?.errors?.[0]?.code ?? err?.message);
       const msg =
         err?.errors?.[0]?.longMessage ??
         err?.errors?.[0]?.message ??

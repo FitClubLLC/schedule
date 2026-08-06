@@ -3,7 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@clerk/expo';
 import { useQuery } from '@tanstack/react-query';
 
-const STORAGE_KEY = '@fitclub/certificate';
+// Storage key is namespaced by Clerk userId so certificates don't leak
+// between accounts on a shared device.
+function storageKey(userId: string | null | undefined): string {
+  return userId ? `@fitclub/certificate/${userId}` : '@fitclub/certificate';
+}
 
 export type CertStatus = 'idle' | 'checking' | 'valid' | 'invalid';
 
@@ -13,7 +17,7 @@ export interface CertInfo {
 }
 
 export function useCertificate() {
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
   const [code, setCodeState] = useState('');
   // Separate debounced value so we don't hit the API on every keystroke,
   // but still fire immediately when a code is applied via "Tap to Use".
@@ -22,13 +26,13 @@ export function useCertificate() {
 
   // Load persisted code on mount — skip debounce so the banner appears instantly.
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((stored) => {
+    AsyncStorage.getItem(storageKey(userId)).then((stored) => {
       if (stored) {
         setCodeState(stored);
         setDebouncedCode(stored);
       }
     });
-  }, []);
+  }, [userId]);
 
   // Debounce manual keystrokes; clear immediately when the field is cleared.
   useEffect(() => {
@@ -49,6 +53,7 @@ export function useCertificate() {
     enabled: !!debouncedCode,
     queryFn: async () => {
       const token = await getToken();
+      if (!token) throw new Error('Not signed in');
       const res = await fetch(
         `${baseUrl}/api/booking/certificates/check?certificate=${encodeURIComponent(debouncedCode)}`,
         { headers: { Authorization: `Bearer ${token}` } },
@@ -81,17 +86,17 @@ export function useCertificate() {
     // Apply immediately (no debounce) when selected via "Tap to Use".
     setDebouncedCode(trimmed);
     if (trimmed) {
-      await AsyncStorage.setItem(STORAGE_KEY, trimmed);
+      await AsyncStorage.setItem(storageKey(userId), trimmed);
     } else {
-      await AsyncStorage.removeItem(STORAGE_KEY);
+      await AsyncStorage.removeItem(storageKey(userId));
     }
-  }, []);
+  }, [userId]);
 
   const clearCode = useCallback(async () => {
     setCodeState('');
     setDebouncedCode('');
-    await AsyncStorage.removeItem(STORAGE_KEY);
-  }, []);
+    await AsyncStorage.removeItem(storageKey(userId));
+  }, [userId]);
 
   return { code, applyCode, clearCode, status, info };
 }

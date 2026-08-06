@@ -19,17 +19,22 @@ export function useAppointmentActions() {
 
   async function authFetch(path: string, options: RequestInit = {}): Promise<any> {
     const token = await getToken();
+    if (!token) throw Object.assign(new Error('Not signed in'), { status: 401 });
     const res = await fetch(`${baseUrl}${path}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
         ...(options.headers ?? {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        Authorization: `Bearer ${token}`,
       },
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body?.error ?? `Request failed (${res.status})`);
+      // Attach HTTP status so queryClient retry logic can suppress 4xx retries.
+      throw Object.assign(
+        new Error(body?.error ?? `Request failed (${res.status})`),
+        { status: res.status },
+      );
     }
     return res.json().catch(() => null);
   }
@@ -54,7 +59,7 @@ export function useAppointmentActions() {
   }
 
   async function fetchAvailableTimes(id: number, date: string): Promise<TimeSlot[]> {
-    return authFetch(`/api/appointments/${id}/times?date=${date}`);
+    return authFetch(`/api/appointments/${id}/times?date=${encodeURIComponent(date)}`);
   }
 
   async function rescheduleAppointment(id: number, datetime: string): Promise<void> {
