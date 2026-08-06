@@ -1,0 +1,492 @@
+Based on the code alone, **I would not consider the app proven ready to work end to end**. The screens and user flow are mostly present, but several critical pieces are outside this ZIP, and I found some functionality risks that could stop real users.
+
+## Overall assessment
+
+| Area                          | Assessment                                                            |
+| ----------------------------- | --------------------------------------------------------------------- |
+| App navigation and screens    | Mostly complete                                                       |
+| Login and password reset      | Likely works, but needs live Clerk testing                            |
+| New account registration      | Partially complete                                                    |
+| Viewing appointments          | Depends entirely on missing backend/API package                       |
+| Booking sessions              | Opens Acuity externally; likely works only with correct configuration |
+| Rescheduling and cancellation | Implemented, but cannot be verified without backend                   |
+| Membership purchases          | Opens an external Acuity page                                         |
+| Certificates/packages         | Implemented, but highly dependent on backend and Acuity matching      |
+| Notifications                 | Reasonably implemented, but device-build testing required             |
+| Production build readiness    | Not proven; the ZIP is not independently buildable                    |
+| End-to-end readiness          | **No—not yet verified**                                               |
+
+## Definite functionality problem: the ZIP cannot be built by itself
+
+The project depends on packages that are not included:
+
+```json
+"@workspace/api-client-react": "workspace:*"
+```
+
+It also uses versions such as:
+
+```json
+"react": "catalog:"
+"@tanstack/react-query": "catalog:"
+```
+
+Those values only work inside the original monorepo, where a workspace file defines the actual package locations and versions.
+
+The build script also searches upward for:
+
+```text
+pnpm-workspace.yaml
+```
+
+That file is not in the ZIP.
+
+Therefore, this archive is **not a complete standalone application**. It cannot presently be installed, type-checked, or built without the missing workspace.
+
+This is especially important because `@workspace/api-client-react` supplies the hooks used for:
+
+* Upcoming appointments
+* Past appointments
+* Appointment summaries
+* API query keys
+* Authentication integration with the backend
+
+Without that package, the core member dashboard and appointments functionality cannot run.
+
+## The backend is also missing
+
+The mobile app calls these endpoints:
+
+```text
+GET    /api/appointments/upcoming
+GET    /api/appointments/past
+GET    /api/appointments/summary
+DELETE /api/appointments/:id
+PUT    /api/appointments/:id
+GET    /api/appointments/:id/times
+GET    /api/booking/config
+GET    /api/booking/certificates
+GET    /api/booking/certificates/check
+```
+
+None of those backend routes are included in this ZIP.
+
+The `server/serve.js` file is only a static-file server. It does not implement the appointment or booking APIs.
+
+That means I cannot verify from this package whether:
+
+* Clerk tokens are accepted correctly.
+* A signed-in member is matched to the correct Acuity customer.
+* Appointment data is returned in the format the app expects.
+* Members can only cancel their own appointments.
+* Rescheduling preserves the certificate or package.
+* Certificate balances update correctly.
+* Acuity calendar and appointment IDs are valid.
+* Cancellations correctly restore package credits.
+
+These are the most important end-to-end functions.
+
+## Functionality bugs and likely failure points
+
+### 1. Production builds may have no API address
+
+The application repeatedly uses:
+
+```ts
+const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+```
+
+However, `eas.json` does not define `EXPO_PUBLIC_DOMAIN`.
+
+The development command injects the domain from Replit, but a normal EAS production build does not appear to do that.
+
+A production app may therefore try to contact:
+
+```text
+https://undefined/api/...
+```
+
+If the variable is configured separately in EAS secrets or Expo environment variables, it may work. That configuration is not included here, so production functionality is not proven.
+
+---
+
+### 2. Account registration does not save the member’s name
+
+The registration screen asks for:
+
+* First name
+* Last name
+* Email
+* Password
+
+But only email and password are sent to Clerk.
+
+The member will think their name was saved, but it is discarded.
+
+This may also affect the dashboard because it attempts to greet the member using Clerk profile data. Newly registered users may see a generic greeting or no name.
+
+---
+
+### 3. Registration may create users who are not Fit Club members
+
+Anyone who can access the app can reach the account-creation screen.
+
+After email verification, the user is signed in and allowed into the tabs. There is no visible invitation check, membership validation, or approval step.
+
+If the backend merely matches appointments by email, a nonmember might enter the app but see empty data. If the backend is not strict enough, this could create larger authorization issues.
+
+Operationally, you should decide whether:
+
+* Anyone may create an account, or
+* Only existing Fit Club members should register.
+
+If only members should register, the app needs an invitation, certificate, membership, or backend eligibility check.
+
+---
+
+### 4. Booking is not truly handled inside the app
+
+The Book screen sends the user to Acuity’s website.
+
+That is acceptable as a design choice, but it means the app cannot directly confirm that a booking succeeded. Instead, it waits for the user to return and refreshes appointment data.
+
+Potential failure sequence:
+
+1. User taps Book.
+2. Acuity opens.
+3. User books using a different email or changes the prefilled email.
+4. User returns to the app.
+5. The appointment does not appear because the backend matches by Clerk email.
+
+The code tries to prefill the email, which helps, but the external site controls the final booking.
+
+This needs a real test using an actual member account.
+
+---
+
+### 5. Free-trial booking does not pass the member’s email or location
+
+Normal booking links include the member’s email and calendar ID.
+
+The free-trial link only includes:
+
+```ts
+owner
+appointmentType
+```
+
+It does not include:
+
+* The user’s email
+* A selected location/calendar
+* A certificate
+
+If the free-trial appointment type is available on multiple calendars, the Acuity page may ask for more information or show unexpected options. The resulting appointment may also be harder to associate with the app account.
+
+---
+
+### 6. Location behavior is hard-coded around IDs `"1"` and `"2"`
+
+This logic controls which appointment types appear:
+
+```ts
+if (locationId === '1') {
+  // Workout only
+} else {
+  // Workout plus red light therapy
+}
+```
+
+That assumes the backend always returns the Potomac location with app-specific ID `"1"` and Kentlands with another ID.
+
+If the backend returns Acuity calendar IDs, database IDs, UUIDs, or locations in a different order, the wrong services may be displayed.
+
+It would be safer for the backend configuration to explicitly specify the allowed appointment types for each location.
+
+---
+
+### 7. Rescheduling assumes a very specific backend response
+
+The reschedule modal expects:
+
+```ts
+[
+  {
+    time: string,
+    datetime: string
+  }
+]
+```
+
+It then formats `slot.time` as though it were a complete date string:
+
+```ts
+new Date(slot.time)
+```
+
+If the backend returns `time` as something like:
+
+```text
+9:30am
+```
+
+rather than a complete ISO timestamp, `new Date(slot.time)` may produce “Invalid Date” on some devices.
+
+The contract needs to be confirmed. A safer design would use `datetime` for display as well as submission.
+
+---
+
+### 8. Rescheduling only searches the next 14 days
+
+The modal generates exactly 14 calendar days.
+
+If no availability exists during those two weeks, the user sees no way to look farther ahead. That may be perceived as a broken rescheduling feature even though later appointments exist.
+
+A “next 14 days” button, calendar picker, or longer range would be more practical.
+
+---
+
+### 9. No protection against race conditions when changing reschedule dates
+
+When a user quickly taps several dates, multiple availability requests can run simultaneously.
+
+Example:
+
+1. User taps Monday.
+2. Monday request starts.
+3. User taps Tuesday.
+4. Tuesday request starts.
+5. Tuesday response arrives.
+6. Monday response arrives later and replaces Tuesday’s slots.
+
+The screen may then show appointment times for the wrong selected date.
+
+The requests should be cancellable, or the response should be ignored unless it belongs to the currently selected date.
+
+---
+
+### 10. Cancellation balance refresh is based on a fixed four-second delay
+
+After cancellation, the code waits four seconds and refreshes certificates:
+
+```ts
+setTimeout(() => {
+  queryClient.invalidateQueries({
+    queryKey: ['member-certificates'],
+  });
+}, 4000);
+```
+
+If Acuity restores the package credit in six or ten seconds, the app may still show the old balance. If it happens instantly, the delay is unnecessary.
+
+A more reliable approach would retry the balance refresh a few times or have the backend return the updated certificate balance.
+
+---
+
+### 11. Pull-to-refresh can remain stuck if one refresh throws
+
+The Book screen does:
+
+```ts
+setRefreshing(true);
+
+await Promise.all([
+  refetchCertificates(),
+  refetchCertificateCheck(),
+]);
+
+setRefreshing(false);
+```
+
+There is no `try/finally`.
+
+If either operation rejects rather than resolving with a React Query result, `setRefreshing(false)` may never run, leaving the refresh spinner active.
+
+It should be:
+
+```ts
+setRefreshing(true);
+
+try {
+  await Promise.all([...]);
+} finally {
+  setRefreshing(false);
+}
+```
+
+---
+
+### 12. The selected certificate may not match the certificate list
+
+A stored or deep-linked certificate can become invalid or expire.
+
+The app correctly marks it invalid, but the code can remain stored until manually cleared. On every subsequent visit, it loads and checks that invalid code again.
+
+The app should probably remove the stored certificate automatically when the server confirms it is permanently invalid.
+
+---
+
+### 13. The Memberships tab may behave inconsistently on newer iPhones
+
+The classic tab layout explicitly replaces the tab button with one that opens Acuity.
+
+The newer native tab layout uses:
+
+```tsx
+<NativeTabs.Trigger
+  name="memberships"
+  onPress={openMemberships}
+>
+```
+
+Because `NativeTabs` is marked unstable and its event behavior may differ from the classic tabs, this needs physical iOS testing.
+
+A possible failure is that it both navigates to the blank Memberships screen and opens the browser, or ignores the custom `onPress`.
+
+The actual Memberships screen is empty:
+
+```tsx
+return <View />;
+```
+
+Therefore, any interception failure results in a blank page.
+
+A safer approach is to make `memberships.tsx` itself open the URL and display a fallback button.
+
+---
+
+### 14. Notification navigation may not go to the intended route
+
+Scheduled notifications use:
+
+```text
+fitclub15:///appointments
+```
+
+But the Expo Router route is:
+
+```text
+/(tabs)/appointments
+```
+
+Custom linking often maps `/appointments` correctly, but this is not guaranteed merely from reading the code.
+
+The app also listens to the link in more than one place:
+
+* Expo Router’s built-in linking
+* The notification listener
+* The custom deep-link hook
+
+This can produce duplicate navigation events in some circumstances.
+
+It needs cold-start, background, and foreground notification testing on both iOS and Android.
+
+---
+
+### 15. Deep-link booking may be lost during authentication
+
+Suppose a signed-out user taps:
+
+```text
+fitclub15://book?certificate=ABC123
+```
+
+The custom deep-link hook attempts to navigate to Book, while the root authentication logic redirects unsigned users to Sign In.
+
+After signing in, the code redirects to the tabs, but there is no clear mechanism preserving the original intended destination and certificate parameter through authentication.
+
+The user may land on Home rather than Book, and the certificate may be lost.
+
+This is a common end-to-end failure that should be explicitly tested.
+
+---
+
+### 16. Error screens may hide the difference between an empty account and a failed integration
+
+For example, certificate errors are mostly reduced to messages such as:
+
+```text
+Failed to fetch certificates
+```
+
+Appointment screens similarly depend on generic query errors.
+
+A member cannot easily distinguish between:
+
+* No appointments
+* Incorrect email matching
+* Expired login
+* Acuity outage
+* Backend outage
+* Incorrect production domain
+* Misconfigured calendar
+* No active membership
+
+This makes support and troubleshooting harder.
+
+## What appears structurally sound
+
+The intended member journey is understandable:
+
+1. Register or sign in through Clerk.
+2. Fetch appointment summary and upcoming sessions.
+3. View upcoming and past appointments.
+4. Open Acuity to book.
+5. Return to the app and refresh.
+6. Cancel or reschedule through the backend.
+7. Check package/certificate balances.
+8. Receive local appointment reminders.
+9. Open Acuity’s catalog to purchase memberships.
+
+The screens and navigation exist for that journey. There are also loading states, empty states, pull-to-refresh controls, cancellation confirmation, rescheduling UI, token attachment, and cache invalidation.
+
+So this is not just a mockup. It appears to be a serious client implementation. But the business-critical behavior is concentrated in missing components.
+
+## What is required to determine whether it truly works
+
+A proper end-to-end validation requires these items:
+
+1. The full monorepo, including `pnpm-workspace.yaml`.
+2. The source for `@workspace/api-client-react`.
+3. The backend API source.
+4. Clerk development or staging credentials.
+5. Acuity staging/test credentials and configuration.
+6. All Expo public environment variables.
+7. At least two test member accounts.
+8. One active package/certificate.
+9. One expired or exhausted certificate.
+10. Test appointments on both locations.
+11. An iPhone build and Android build.
+
+The minimum test sequence should cover:
+
+* Create account and verify email.
+* Confirm first and last names are stored.
+* Sign out and sign back in.
+* Reset password.
+* Book at Potomac.
+* Book at Kentlands.
+* Book with a certificate.
+* Confirm appointment appears after returning from Acuity.
+* Cancel and confirm package credit returns.
+* Reschedule and confirm both Acuity and the app update.
+* Attempt to cancel another user’s appointment.
+* Test expired and depleted packages.
+* Open a booking deep link while signed in.
+* Open the same link while signed out.
+* Tap a reminder notification with the app open, backgrounded, and terminated.
+* Test memberships on iOS native tabs and Android tabs.
+
+## Bottom line
+
+**The app may work in its original Replit/monorepo environment, but this ZIP does not provide enough code or configuration to establish that it works end to end.**
+
+My practical rating from static review is:
+
+* **UI completeness:** 8/10
+* **Client-flow completeness:** 7/10
+* **Standalone build readiness:** 3/10
+* **Verified end-to-end readiness:** 2/10
+* **Likely production readiness without additional testing:** 4/10
+
+The most significant issue is not one isolated screen bug. It is that the mobile client, generated API client, backend, Clerk setup, Acuity setup, and production environment variables must all line up exactly—and most of those pieces are absent from the supplied archive.

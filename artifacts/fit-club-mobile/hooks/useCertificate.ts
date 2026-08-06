@@ -44,10 +44,8 @@ export function useCertificate() {
     return () => clearTimeout(timer);
   }, [code]);
 
-  // React Query owns the /check fetch.
-  // Because the global QueryClient has staleTime:0 and refetchInterval:60_000,
-  // and the focusManager is wired to AppState, this query automatically re-fetches
-  // when the user returns from the Acuity booking browser — no manual recheck needed.
+  // React Query owns the /check fetch. staleTime:0 + focusManager wired to
+  // AppState means this re-fetches automatically on foreground return.
   const checkQuery = useQuery<CertInfo>({
     queryKey: ['cert-check', debouncedCode],
     enabled: !!debouncedCode,
@@ -58,7 +56,12 @@ export function useCertificate() {
         `${baseUrl}/api/booking/certificates/check?certificate=${encodeURIComponent(debouncedCode)}`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      if (!res.ok) throw new Error('Invalid certificate');
+      if (!res.ok) {
+        // Permanently invalid — remove from storage so it doesn't reload on
+        // every future visit and silently fail in the background.
+        await AsyncStorage.removeItem(storageKey(userId));
+        throw new Error('Invalid certificate');
+      }
       return res.json();
     },
     retry: false, // Don't keep retrying an invalid code

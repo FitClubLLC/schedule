@@ -70,11 +70,15 @@ export default function BookScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([
-      queryClient.refetchQueries({ queryKey: ['member-certificates'] }),
-      queryClient.refetchQueries({ queryKey: ['cert-check'] }),
-    ]);
-    setRefreshing(false);
+    try {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['member-certificates'] }),
+        queryClient.refetchQueries({ queryKey: ['cert-check'] }),
+      ]);
+    } finally {
+      // Always clear the spinner — even if a refetch throws.
+      setRefreshing(false);
+    }
   }, [queryClient]);
 
   // Auto-refresh session counts when returning from Acuity's browser booking page
@@ -184,7 +188,7 @@ export default function BookScreen() {
         onPress={() => {
           if (!acuityConfig) return;
           Linking.openURL(
-            `https://app.acuityscheduling.com/schedule.php?owner=${acuityConfig.ownerId}&appointmentType=${acuityConfig.appointmentTypes.freeTrial}`
+            `https://app.acuityscheduling.com/schedule.php?owner=${acuityConfig.ownerId}&appointmentType=${acuityConfig.appointmentTypes.freeTrial}${memberEmail ? `&email=${encodeURIComponent(memberEmail)}` : ''}`
           );
         }}
       >

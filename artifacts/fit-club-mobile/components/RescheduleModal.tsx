@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -72,18 +72,27 @@ export default function RescheduleModal({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
+  // Tracks the date key of the most-recently-started request so stale
+  // responses from earlier taps are silently discarded (race condition guard).
+  const currentDateKey = React.useRef<string>('');
+
   const loadSlots = useCallback(async (date: Date) => {
+    const key = toYMD(date);
+    currentDateKey.current = key;
     setLoadingSlots(true);
     setSlotsError('');
     setSlots([]);
     setSelectedSlot(null);
     try {
-      const result = await fetchAvailableTimes(appointmentId, toYMD(date));
+      const result = await fetchAvailableTimes(appointmentId, key);
+      // Ignore the response if the user already tapped a different date.
+      if (currentDateKey.current !== key) return;
       setSlots(result ?? []);
     } catch (err: any) {
+      if (currentDateKey.current !== key) return;
       setSlotsError(err?.message ?? 'Could not load available times.');
     } finally {
-      setLoadingSlots(false);
+      if (currentDateKey.current === key) setLoadingSlots(false);
     }
   }, [appointmentId]);
 
