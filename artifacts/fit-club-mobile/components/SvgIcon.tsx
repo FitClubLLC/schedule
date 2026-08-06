@@ -22,6 +22,7 @@ export type SvgIconName =
   | 'eye'
   | 'eye-off'
   | 'home'
+  | 'info'
   | 'key'
   | 'log-out'
   | 'map-pin'
@@ -30,6 +31,7 @@ export type SvgIconName =
   | 'credit-card'
   | 'rotate-ccw'
   | 'trash-2'
+  | 'user'
   | 'wifi-off'
   | 'x';
 
@@ -191,6 +193,21 @@ export default function SvgIcon({ name, size = 24, color = 'currentColor' }: Pro
           <>
             <Line x1="18" y1="6" x2="6" y2="18" {...s} />
             <Line x1="6" y1="6" x2="18" y2="18" {...s} />
+          </>
+        );
+      case 'info':
+        return (
+          <>
+            <Circle cx="12" cy="12" r="10" {...s} />
+            <Line x1="12" y1="8" x2="12" y2="8" {...s} />
+            <Line x1="12" y1="12" x2="12" y2="16" {...s} />
+          </>
+        );
+      case 'user':
+        return (
+          <>
+            <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" {...s} />
+            <Circle cx="12" cy="7" r="4" {...s} />
           </>
         );
       case 'fingerprint':
