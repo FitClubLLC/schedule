@@ -239,7 +239,10 @@ router.get(
     // Return only what the client needs.
     res.json(
       Array.isArray(times)
-        ? times.map((t: any) => ({ time: t.time, datetime: t.datetime }))
+        // Acuity's availability/times response uses "time" for the ISO datetime string.
+        // There is no separate "datetime" field — map t.time to both slots so the
+        // client's selectedSlot.datetime is always a valid ISO string, not undefined.
+        ? times.map((t: any) => ({ time: t.time, datetime: t.time }))
         : [],
     );
   },
@@ -269,7 +272,8 @@ router.put(
     const reschedRes = await fetch(`${ACUITY_BASE_URL}/appointments/${id}`, {
       method: "PUT",
       headers: { Authorization: acuityAuthHeader(), "Content-Type": "application/json" },
-      body: JSON.stringify({ datetime }),
+      // Acuity's PUT /appointments/:id expects the field named "time", not "datetime"
+      body: JSON.stringify({ time: datetime }),
     });
     if (!reschedRes.ok) {
       const body = await reschedRes.json().catch(() => null);
