@@ -72,7 +72,7 @@ export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useUser();
-  const { signOut } = useAuth();
+  const { signOut, getToken } = useAuth();
 
   // ── Name editing ──────────────────────────────────────────────────────────
   const [firstName, setFirstName] = useState(user?.firstName ?? '');
@@ -121,34 +121,37 @@ export default function ProfileScreen() {
     });
   }, []);
 
-  // ── Name save ─────────────────────────────────────────────────────────────
+  // ── Name save (via backend admin API — bypasses Clerk's user-editable setting) ──
   const handleSaveName = useCallback(async () => {
     if (!nameDirty || nameSaving) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setNameSaving(true);
     try {
-      await user?.update({ firstName: firstName.trim(), lastName: lastName.trim() });
+      const token = await getToken();
+      if (!token) throw new Error('Not signed in.');
+      const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+      const res = await fetch(`${baseUrl}/api/user/profile`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim() }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? `Server error ${res.status}`);
+      }
+      // Refresh Clerk's local user object so the UI reflects the new name
+      await user?.reload();
       setNameEditingSupported(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      // Clerk rejects this when "Name" isn't enabled as an editable attribute
-      // in the Clerk Dashboard (User & Authentication → Email, Phone, Username).
-      const isUnsupported = err?.errors?.some(
-        (e: any) => e.code === 'form_param_unknown' &&
-          (e.meta?.paramName === 'first_name' || e.meta?.paramName === 'last_name'),
-      );
-      if (isUnsupported) {
-        setNameEditingSupported(false);
-      } else {
-        Alert.alert(
-          'Could not save',
-          err?.errors?.[0]?.longMessage ?? 'Please try again.',
-        );
-      }
+      Alert.alert('Could not save', err?.message ?? 'Please try again.');
     } finally {
       setNameSaving(false);
     }
-  }, [firstName, lastName, nameDirty, nameSaving, user]);
+  }, [firstName, lastName, nameDirty, nameSaving, user, getToken]);
 
   // ── Location preference ───────────────────────────────────────────────────
   const handleSelectLocation = useCallback(async (id: string) => {
