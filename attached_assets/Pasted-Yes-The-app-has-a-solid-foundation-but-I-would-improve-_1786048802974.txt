@@ -1,0 +1,541 @@
+Yes. The app has a solid foundation, but I would improve it in three stages: first make the core member journey dependable, then simplify the experience, and finally add features that increase retention.
+
+## Highest-priority improvements
+
+### 1. Make booking feel like one continuous app experience
+
+Right now, booking sends the member to Acuity in a browser. That creates several risks:
+
+* The member may use a different email.
+* They may not return to the app.
+* The app cannot immediately confirm success.
+* The experience feels less polished.
+
+A better interim version would open Acuity in an in-app browser and display a clear “Return to Fit Club” path. After the member returns, the app should automatically refresh appointments and show:
+
+> Your session has been booked.
+
+Longer term, direct booking through the backend would create a much stronger experience.
+
+---
+
+### 2. Create a clear home-screen action
+
+The home screen should immediately answer:
+
+* When is my next workout?
+* What should I do now?
+* How many sessions do I have left?
+
+A strong layout would include:
+
+**Next session**
+Tuesday, August 11 at 10:30 a.m.
+Potomac
+
+**Primary button:** Check In or View Session
+
+**Secondary button:** Book Another Workout
+
+**Membership status:** 5 sessions remaining
+
+The most important action should be visible without scrolling.
+
+---
+
+### 3. Improve the certificate and membership language
+
+“Certificate” sounds technical and may confuse members. In the member-facing app, consider using:
+
+* Sessions remaining
+* Membership balance
+* Workout credits
+* Available sessions
+
+You can still use “certificate” internally in the code and Acuity integration.
+
+Instead of:
+
+> Select certificate
+
+Use:
+
+> Choose your membership
+
+And display:
+
+> Strength Membership
+> 6 sessions remaining
+> Expires October 31
+
+---
+
+### 4. Add a reliable post-booking confirmation flow
+
+After returning from Acuity, the app should:
+
+1. Refresh upcoming appointments.
+2. Compare the new list with the previous list.
+3. Detect the new appointment.
+4. Show a success message.
+5. Offer to add or confirm the reminder.
+
+For example:
+
+> You’re booked!
+> Monday, August 17 at 9:15 a.m.
+> Potomac Village
+
+This would greatly reduce uncertainty.
+
+---
+
+### 5. Make cancellation rules visible before cancellation
+
+The confirmation currently asks whether the member wants to cancel, but members should also see the policy.
+
+For example:
+
+> Cancel this appointment?
+> Sessions cancelled less than 24 hours in advance may still be deducted from your membership.
+
+The backend should return whether the credit will be restored, and the app should confirm the result:
+
+> Appointment cancelled. Your session has been returned to your balance.
+
+Or:
+
+> Appointment cancelled. Because it was within the late-cancellation window, the session was not returned.
+
+---
+
+### 6. Improve rescheduling
+
+The current 14-day availability window is too restrictive.
+
+Add:
+
+* A calendar picker
+* Previous and next week controls
+* Location display
+* Appointment type display
+* A confirmation screen before saving
+* A success message after rescheduling
+
+The app should also clearly state:
+
+> Your original appointment will remain reserved until the new time is confirmed.
+
+That prevents members from worrying that they will lose both appointments if something fails.
+
+---
+
+## Important reliability improvements
+
+### 7. Add one central API service
+
+The app currently builds API URLs in several files. Create one API module responsible for:
+
+* Base URL validation
+* Clerk token retrieval
+* Request timeouts
+* Error parsing
+* HTTP status handling
+* Logging in development
+* Automatic sign-out on invalid sessions
+
+This avoids slightly different behavior across booking, certificates, and appointments.
+
+---
+
+### 8. Add useful error messages
+
+Generic errors such as “Failed to fetch certificates” are not enough for members.
+
+Translate technical failures into helpful actions:
+
+| Situation                       | Member message                                                                      |
+| ------------------------------- | ----------------------------------------------------------------------------------- |
+| Internet unavailable            | “You appear to be offline. Check your connection and try again.”                    |
+| Login expired                   | “Your session has expired. Please sign in again.”                                   |
+| Acuity unavailable              | “Booking is temporarily unavailable. Please try again shortly.”                     |
+| No membership found             | “We could not find an active membership for this email. Contact Fit Club for help.” |
+| Appointment no longer available | “That time was just booked. Please choose another.”                                 |
+
+Add a visible **Try Again** button instead of requiring pull-to-refresh.
+
+---
+
+### 9. Add offline and loading protection
+
+Buttons should become disabled after being tapped so members cannot accidentally:
+
+* Cancel twice
+* Submit two reschedule requests
+* Open multiple booking pages
+* Trigger duplicate API calls
+
+Each action should show a clear loading state such as:
+
+> Cancelling appointment…
+
+The app should also detect offline status before attempting important actions.
+
+---
+
+### 10. Separate information by member account
+
+Stored certificate selections, query caches, and other member data should be cleared or namespaced when the user signs out.
+
+Otherwise, one member’s information could briefly appear after another person signs into the same device.
+
+On logout:
+
+* Clear React Query cache
+* Clear selected membership
+* Cancel pending requests
+* Clear member-specific reminders
+* Preserve only nonpersonal app settings
+
+---
+
+## Experience improvements for Fit Club members
+
+### 11. Add measurable progress
+
+Fit Club’s strongest differentiator is measurable strength progress. The app should showcase that.
+
+A progress section could display:
+
+* Total workouts completed
+* Current workout streak
+* Strength increase since joining
+* Recent personal bests
+* Total training time
+* Next reassessment date
+
+For example:
+
+> **You are 28% stronger than when you started.**
+
+That message is much more motivating than a standard gym-app activity feed.
+
+---
+
+### 12. Highlight the 15-minute advantage
+
+The app should reinforce the brand every time the member opens it.
+
+Examples:
+
+> Stronger in 15 minutes.
+
+> Your next 15-minute workout is tomorrow.
+
+> You completed 12 workouts—just three total hours of training.
+
+That last statistic helps members understand how efficiently they are progressing.
+
+---
+
+### 13. Add a workout history summary
+
+Past appointments should provide more than dates.
+
+Each completed session could show:
+
+* Workout number
+* Trainer
+* Location
+* Duration
+* Strength change
+* Machines completed
+* Personal records
+
+Example:
+
+> **Workout 18**
+> 15 minutes · Potomac
+> 3 personal records
+> Overall strength increased 2.4%
+
+---
+
+### 14. Add a simple progress chart
+
+A simple chart could show:
+
+* Overall strength over time
+* Strength by muscle group
+* Workout consistency
+* Total workouts per month
+
+Avoid overwhelming members with machine-level detail at first. One clear upward progress line is more effective.
+
+---
+
+### 15. Add trainer notes or a post-workout recap
+
+After each session, members could receive a short recap:
+
+> Great workout today. You increased resistance on the leg press and chest press. Focus on protein and hydration before your next visit.
+
+This could be automated using workout data, with an optional trainer-written note.
+
+---
+
+### 16. Add milestone celebrations
+
+Celebrate meaningful events:
+
+* First workout
+* Five workouts
+* Ten workouts
+* 10% strength increase
+* New personal record
+* Three-month anniversary
+* 50 workouts
+
+Example:
+
+> **Milestone unlocked**
+> You’ve completed 25 Fit Club workouts—and spent only 6 hours and 15 minutes doing it.
+
+This fits your “less time, better results” positioning very well.
+
+---
+
+## Navigation improvements
+
+### 17. Replace the empty Memberships tab
+
+A tab should never depend entirely on an intercepted link. The Memberships screen should contain useful information even if the external page fails.
+
+It could show:
+
+* Current membership
+* Sessions remaining
+* Expiration date
+* Renewal status
+* Purchase or renew button
+* Contact Fit Club button
+
+The purchase button can still open Acuity.
+
+---
+
+### 18. Consider a simpler tab structure
+
+A cleaner navigation might be:
+
+* Home
+* Book
+* Progress
+* Appointments
+* Account
+
+Membership information could appear under Account and on Home.
+
+This gives measurable progress a central role, rather than treating the app as only a scheduling tool.
+
+---
+
+### 19. Add a persistent help option
+
+Members should have a simple way to get help:
+
+> Need help? Contact Fit Club
+
+Options could include:
+
+* Call
+* Text
+* Email
+* Directions
+* Frequently asked questions
+
+This is especially valuable for older adults who may be less comfortable troubleshooting booking issues.
+
+---
+
+## Account improvements
+
+### 20. Complete the profile area
+
+Allow members to view and update:
+
+* First and last name
+* Email
+* Phone
+* Preferred location
+* Notification preferences
+* Biometric login
+* Password
+* Emergency contact, only if operationally necessary
+
+The app should explain when changes affect Acuity. For example, changing an email address may break appointment matching unless the backend updates both systems.
+
+---
+
+### 21. Simplify authentication
+
+For many members, passwordless login may be easier than password management.
+
+Consider:
+
+* Email verification link
+* One-time email code
+* Passkeys
+* Biometrics after initial login
+
+This may be especially helpful for Fit Club’s older member base.
+
+Avoid storing passwords for biometric sign-in.
+
+---
+
+## Notification improvements
+
+### 22. Let members control reminders
+
+Offer simple choices:
+
+* 24 hours before
+* 2 hours before
+* Both
+* No reminders
+
+Potential useful notifications:
+
+* Appointment tomorrow
+* Appointment in two hours
+* Membership running low
+* Membership expiring soon
+* You have not booked your next session
+* Progress milestone reached
+
+Avoid excessive reminders. The app should feel supportive rather than nagging.
+
+---
+
+### 23. Add action buttons to reminders
+
+A reminder could offer:
+
+* View appointment
+* Get directions
+* Reschedule
+* Call Fit Club
+
+Cancellation through a notification should still require confirmation.
+
+---
+
+## Administrative and technical improvements
+
+### 24. Add analytics for important steps
+
+Track anonymous or appropriately consented events such as:
+
+* Registration completed
+* Booking started
+* Booking completed
+* Booking abandoned
+* Reschedule attempted
+* Cancellation failed
+* Membership purchase opened
+* Certificate not found
+
+This will show where members get stuck.
+
+Avoid collecting passwords, certificate codes, authentication tokens, or unnecessary health data.
+
+---
+
+### 25. Add crash and error reporting
+
+Use a service such as Sentry or another mobile crash-reporting platform.
+
+It should capture:
+
+* Screen where failure occurred
+* App version
+* Device and operating system
+* API status code
+* Sanitized error type
+
+Do not send member tokens, passwords, or private booking details.
+
+---
+
+### 26. Create a staging environment
+
+Before production releases, maintain separate:
+
+* Clerk staging application
+* Backend staging URL
+* Acuity test calendar or test configuration
+* Expo staging build
+
+This allows testing bookings and cancellations without changing real member appointments.
+
+---
+
+### 27. Add automated end-to-end tests
+
+The most valuable automated tests would cover:
+
+1. Sign in.
+2. View upcoming appointments.
+3. Open booking.
+4. Cancel an appointment.
+5. Reschedule an appointment.
+6. Handle an expired login.
+7. Switch users on the same device.
+8. Open a deep link.
+9. Open a notification.
+10. Display no-membership and exhausted-membership states.
+
+Even a small set of automated tests would prevent major regressions.
+
+---
+
+## Suggested development order
+
+### Phase 1: Make it dependable
+
+* Restore the complete build workspace.
+* Centralize API configuration.
+* Fix session and password handling.
+* Verify backend authorization.
+* Improve errors and loading states.
+* Clear data properly on logout.
+* Test booking, cancellation, and rescheduling on real devices.
+
+### Phase 2: Make it easier
+
+* Improve the Home screen.
+* Rename certificates in the UI.
+* Add booking confirmation.
+* Expand rescheduling.
+* Build a real Memberships screen.
+* Add help and contact options.
+
+### Phase 3: Make it valuable between appointments
+
+* Strength progress
+* Workout summaries
+* Milestones
+* Trainer notes
+* Membership reminders
+* Personalized notifications
+
+## My strongest recommendation
+
+The biggest opportunity is to make the app about **results**, not just appointments.
+
+Many gyms have scheduling apps. Fit Club can stand out by showing members:
+
+> You are getting stronger, it is taking only 15 minutes, and here is the proof.
+
+That turns the app from a booking utility into a retention and motivation tool.
