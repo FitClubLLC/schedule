@@ -272,8 +272,10 @@ router.put(
     const reschedRes = await fetch(`${ACUITY_BASE_URL}/appointments/${id}`, {
       method: "PUT",
       headers: { Authorization: acuityAuthHeader(), "Content-Type": "application/json" },
-      // Acuity's PUT /appointments/:id expects the field named "time", not "datetime"
-      body: JSON.stringify({ time: datetime }),
+      // Acuity's PUT /appointments/:id reschedule field is "datetime" (ISO string).
+      // The value comes from availability/times where Acuity uses "time" as the key —
+      // that mapping is fixed in the /times route; this field name must stay "datetime".
+      body: JSON.stringify({ datetime }),
     });
     if (!reschedRes.ok) {
       const body = await reschedRes.json().catch(() => null);
