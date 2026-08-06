@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Platform, Linking, AppState } from 'react-native';
+import { Platform, Linking, AppState, ActivityIndicator, View, StyleSheet } from 'react-native';
 import { focusManager } from '@tanstack/react-query';
 
 // Wire React Query's focusManager to AppState so refetchOnWindowFocus
@@ -17,7 +17,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { ClerkProvider, ClerkLoaded, useAuth } from '@clerk/expo';
+import { ClerkProvider, ClerkLoaded, ClerkLoading, useAuth } from '@clerk/expo';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
@@ -183,6 +183,11 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+          <ClerkLoading>
+            <View style={loadingStyles.container}>
+              <ActivityIndicator size="large" color="#C8A96E" />
+            </View>
+          </ClerkLoading>
           <ClerkLoaded>
             <QueryClientProvider client={queryClient}>
               <GestureHandlerRootView style={{ flex: 1 }}>
@@ -197,3 +202,12 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+const loadingStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#1A1A1A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
