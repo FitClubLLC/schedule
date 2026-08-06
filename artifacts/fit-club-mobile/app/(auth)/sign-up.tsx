@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
-  Alert,
 } from 'react-native';
 import { useSignUp } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
@@ -22,7 +21,10 @@ import SvgIcon from '@/components/SvgIcon';
 type Step = 'form' | 'verify';
 
 export default function SignUpScreen() {
-  const { isLoaded, signUp, setActive } = useSignUp();
+  // @clerk/expo v4 — useSignUp() no longer returns `isLoaded` or `setActive`.
+  // The `signUp` object is a SignUpFuture; use signUp.password(), signUp.verifications.*,
+  // and signUp.finalize() instead of the old v2 create/prepare/attempt/setActive API.
+  const { signUp, fetchStatus } = useSignUp();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -40,35 +42,37 @@ export default function SignUpScreen() {
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 20);
   const bottomPad = insets.bottom + (Platform.OS === 'web' ? 34 : 24);
 
+  const busy = loading || fetchStatus === 'fetching';
+
   const clearError = () => setError('');
 
   // ── Sign up: create account + send verification code ──────────────────────
   const handleSignUp = async () => {
-    if (!email || !password || loading) return;
-    if (!isLoaded || !signUp) {
-      Alert.alert('Not Ready', 'The app is still loading. Please wait a moment and try again.');
-      return;
-    }
+    if (!email || !password || busy) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     clearError();
     try {
-      await signUp.create({
+      // v4 API: signUp.password() initiates the sign-up
+      const result = await (signUp as any).password({
         emailAddress: email.trim(),
         password,
         ...(firstName ? { firstName } : {}),
         ...(lastName ? { lastName } : {}),
       });
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      if (result?.error) {
+        setError(result.error.longMessage ?? result.error.message ?? 'Could not create account. Please try again.');
+        return;
+      }
+      await (signUp as any).verifications.sendEmailCode();
       setStep('verify');
     } catch (err: any) {
-      const msg =
+      setError(
         err?.errors?.[0]?.longMessage ??
         err?.errors?.[0]?.message ??
         err?.message ??
-        'Could not create account. Please try again.';
-      setError(msg);
-      Alert.alert('Sign Up Failed', msg);
+        'Could not create account. Please try again.',
+      );
     } finally {
       setLoading(false);
     }
@@ -76,15 +80,16 @@ export default function SignUpScreen() {
 
   // ── Verify email ───────────────────────────────────────────────────────────
   const handleVerify = async () => {
-    if (!isLoaded || !verifyCode || loading) return;
+    if (!verifyCode || busy) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     clearError();
     try {
-      const result = await signUp.attemptEmailAddressVerification({ code: verifyCode });
-      if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
-        router.replace('/(tabs)');
+      await (signUp as any).verifications.verifyEmailCode({ code: verifyCode });
+      if ((signUp as any).status === 'complete') {
+        await (signUp as any).finalize({
+          navigate: () => { router.replace('/(tabs)'); },
+        });
       } else {
         setError('Verification could not be completed. Please try again.');
       }
@@ -92,6 +97,7 @@ export default function SignUpScreen() {
       setError(
         err?.errors?.[0]?.longMessage ??
         err?.errors?.[0]?.message ??
+        err?.message ??
         'Invalid verification code.',
       );
     } finally {
@@ -101,13 +107,13 @@ export default function SignUpScreen() {
 
   // ── Resend verification code ───────────────────────────────────────────────
   const handleResend = async () => {
-    if (!isLoaded || loading) return;
+    if (busy) return;
     setLoading(true);
     clearError();
     try {
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      await (signUp as any).verifications.sendEmailCode();
     } catch (err: any) {
-      setError(err?.errors?.[0]?.message ?? 'Could not resend code.');
+      setError(err?.errors?.[0]?.message ?? err?.message ?? 'Could not resend code.');
     } finally {
       setLoading(false);
     }
@@ -142,18 +148,18 @@ export default function SignUpScreen() {
             />
             {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!verifyCode || loading) && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!verifyCode || busy) && styles.buttonDisabled]}
               onPress={handleVerify}
-              disabled={!verifyCode || loading}
+              disabled={!verifyCode || busy}
               activeOpacity={0.8}
             >
-              {loading
+              {busy
                 ? <ActivityIndicator color={colors.primaryForeground} />
                 : <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>VERIFY & JOIN</Text>}
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={{ marginTop: 20 }} onPress={handleResend} disabled={loading}>
+          <TouchableOpacity style={{ marginTop: 20 }} onPress={handleResend} disabled={busy}>
             <Text style={[styles.linkText, { color: colors.primary }]}>Resend code</Text>
           </TouchableOpacity>
           <TouchableOpacity style={{ marginTop: 10 }} onPress={() => { setStep('form'); clearError(); }}>
@@ -232,12 +238,12 @@ export default function SignUpScreen() {
           {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
 
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || !password || loading) && styles.buttonDisabled]}
+            style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || !password || busy) && styles.buttonDisabled]}
             onPress={handleSignUp}
-            disabled={!email || !password || loading}
+            disabled={!email || !password || busy}
             activeOpacity={0.8}
           >
-            {loading
+            {busy
               ? <ActivityIndicator color={colors.primaryForeground} />
               : <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>CREATE ACCOUNT</Text>}
           </TouchableOpacity>
