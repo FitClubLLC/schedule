@@ -1,0 +1,402 @@
+The web booking redesign is complete. Do NOT make another broad redesign.
+
+The next task is to bring the MOBILE native booking flow into visual and UX parity with the redesigned web booking flow, while preserving the existing mobile booking architecture and business logic.
+
+Current desired flow:
+
+Book
+→ Location
+→ Service (only when multiple eligible services exist)
+→ Date + Time
+→ Confirm
+→ Confirmed
+
+The web implementation is now the visual reference.
+
+IMPORTANT:
+Do not change backend APIs, Acuity behavior, certificate eligibility, availability logic, booking validation, cancellation, rescheduling, or Free Trial behavior.
+
+Do not change business rules.
+
+==================================================
+1. FIRST INSPECT THE EXISTING MOBILE IMPLEMENTATION
+==================================================
+
+Before changing anything, inspect:
+
+- app/(tabs)/book/index.tsx
+- app/(tabs)/book/select-service.tsx
+- app/(tabs)/book/select-datetime.tsx
+- app/(tabs)/book/confirm.tsx
+- app/(tabs)/book/confirmed.tsx
+- the mobile booking layout/navigation
+- existing shared mobile components/styles
+
+Also inspect the completed web versions:
+
+- src/pages/Book.tsx
+- src/pages/book/SelectService.tsx
+- src/pages/book/SelectDateTime.tsx
+- src/pages/book/Confirm.tsx
+- src/pages/book/Confirmed.tsx
+- src/components/book/BookingProgress.tsx
+
+Use the web implementation as the UX reference, NOT as code to copy literally.
+
+==================================================
+2. MOBILE BOOK SCREEN
+==================================================
+
+Make the mobile Book screen communicate:
+
+BOOK A SESSION
+
+Where would you like to train?
+
+Location cards should be the primary visual focus.
+
+Each card should clearly show:
+
+- Location
+- Available services
+- Clear selection/navigation affordance
+
+The entire card should be tappable.
+
+Do not create nested interactive controls.
+
+Keep package/certificate functionality, but make it visually secondary to location selection.
+
+Keep Free Trial available according to the existing business behavior.
+
+Do not invent copy, services, addresses, amenities, or claims.
+
+==================================================
+3. MOBILE SERVICE SELECTION
+==================================================
+
+When more than one eligible appointment type exists:
+
+Use:
+
+CHOOSE YOUR SESSION
+
+Service cards should be full-width touch targets.
+
+Show the actual appointment type name.
+
+Show duration/description only when already available from the existing data.
+
+Do not invent descriptions.
+
+Selected/pressed states should be obvious.
+
+Do not add nested buttons.
+
+==================================================
+4. MOBILE BOOKING PROGRESS
+==================================================
+
+Create a mobile equivalent of the web BookingProgress concept.
+
+It should remain extremely compact.
+
+Show the actual path:
+
+Location → Service → Date & Time → Confirm
+
+or, when Service is skipped:
+
+Location → Date & Time → Confirm
+
+Do not show a Service step when it isn't part of the actual flow.
+
+Use the existing FitClub visual language.
+
+Do not create a large banner.
+
+==================================================
+5. MOBILE DATE + TIME
+==================================================
+
+This is the most important screen.
+
+The mobile flow should feel like the same product as the redesigned web Date + Time experience.
+
+At the top:
+
+CHOOSE YOUR TIME
+
+Then compact context:
+
+Kentlands · Workout for 1
+
+Use actual selected location/service values.
+
+Then:
+
+CALENDAR
+
+followed by:
+
+AVAILABLE TIMES
+
+Keep the existing availability hooks and API behavior unchanged.
+
+Preserve:
+
+- unavailable dates
+- past dates
+- loading
+- error
+- no availability
+- month navigation
+- stale-slot invalidation
+- exact Acuity datetime
+- timezone behavior
+
+Do not reconstruct datetime values from display strings.
+
+==================================================
+6. MOBILE TIME SLOTS
+==================================================
+
+Keep:
+
+Morning
+Afternoon
+Evening
+
+Only display non-empty groups.
+
+Use generous touch targets.
+
+The selected slot must have a clear selected state.
+
+Do not overuse pill styling.
+
+The screen should feel premium and calm rather than like a generic scheduling app.
+
+==================================================
+7. STICKY CONTINUE CTA
+==================================================
+
+The mobile Date + Time screen should have a sticky bottom CTA.
+
+When no time is selected:
+
+Select a time to continue
+
+When selected:
+
+Continue · Thu, Aug 20 at 2:30 PM
+
+Use the actual selected date/time.
+
+The CTA must:
+
+- remain above the safe-area
+- never obscure calendar or time slots
+- remain disabled until a valid slot exists
+- remain accessible
+- update when the selection changes
+
+If the existing mobile app uses a shared button component, reuse it.
+
+==================================================
+8. MOBILE CONFIRM
+==================================================
+
+Match the web redesign conceptually.
+
+Remove redundant "Your Details" presentation if it still exists.
+
+Show a clean summary:
+
+SERVICE
+Workout for 1
+
+LOCATION
+Kentlands
+
+DATE
+Thursday, August 20
+
+TIME
+2:30 PM
+
+Certificate information only when relevant.
+
+Primary action:
+
+CONFIRM BOOKING
+
+Keep existing booking mutation behavior exactly as-is.
+
+==================================================
+9. MOBILE CONFIRMED
+==================================================
+
+Preserve the existing successful booking behavior.
+
+Use the redesigned web screen as the visual reference:
+
+YOU'RE BOOKED!
+
+Service
+Location
+Date
+Time
+
+Then:
+
+View My Sessions
+Book Another Session
+
+Keep the confirmation message.
+
+Do not add calendar export yet.
+
+Do not add new functionality.
+
+==================================================
+10. BACK NAVIGATION
+==================================================
+
+Preserve the existing correct mobile stack behavior.
+
+Verify:
+
+Book
+→ Date + Time
+→ Back
+returns to Book.
+
+Book
+→ Service
+→ Date + Time
+→ Back
+returns to Service.
+
+Date + Time
+→ Confirm
+→ Back
+restores the selected date/time.
+
+If the selected slot is no longer available, clear it and require a new selection.
+
+Do not break the existing stale-slot protection.
+
+==================================================
+11. ACCESSIBILITY
+==================================================
+
+Verify:
+
+- semantic accessible labels
+- adequate touch targets
+- selected state communicated
+- buttons clearly labeled
+- dynamic availability changes announced where appropriate
+- sufficient contrast
+- no nested interactive elements
+- focus/accessibility behavior appropriate for React Native
+
+Use existing mobile accessibility patterns where available.
+
+==================================================
+12. VISUAL CONSISTENCY
+==================================================
+
+Use the existing FitClub mobile design system.
+
+Do not introduce:
+
+- new fonts
+- new colors
+- new icon libraries
+- new component libraries
+- new dependencies
+
+The mobile experience should visually belong to the same product as the web redesign.
+
+Use the gold accent primarily for:
+
+- selected states
+- primary actions
+- important emphasis
+
+Avoid turning every component gold.
+
+==================================================
+13. RESPONSIVE / DEVICE QA
+==================================================
+
+Test the mobile UI at approximately:
+
+375px width
+390px width
+430px width
+
+Check:
+
+- calendar doesn't overflow
+- time grids don't overflow
+- sticky CTA doesn't cover content
+- safe-area handling
+- long service names
+- long location names
+- error messages
+- empty availability states
+- navigation labels
+- small screens with large text
+
+==================================================
+14. DO NOT CHANGE
+==================================================
+
+Do NOT modify:
+
+- backend
+- Acuity API calls
+- appointment creation
+- certificate eligibility
+- location eligibility
+- appointment type eligibility
+- cancellation
+- rescheduling
+- Free Trial
+- web booking implementation unless a shared dependency genuinely requires it
+
+Do not redesign the rest of the mobile app.
+
+==================================================
+15. VALIDATION
+==================================================
+
+Run:
+
+- mobile TypeScript check
+- existing mobile build/bundle validation
+- web typecheck/build only if shared code was modified
+
+Do not fix unrelated pre-existing errors.
+
+==================================================
+16. FINAL REPORT
+==================================================
+
+Report:
+
+- files changed
+- components created/reused
+- mobile screens redesigned
+- navigation behavior
+- accessibility changes
+- device-width testing
+- TypeScript/build results
+- any remaining issues
+
+Do not make any additional changes outside this scope.
+
+Commit the completed mobile booking UX parity work.
