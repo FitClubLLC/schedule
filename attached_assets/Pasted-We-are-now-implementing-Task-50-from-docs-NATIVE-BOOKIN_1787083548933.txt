@@ -1,0 +1,298 @@
+We are now implementing Task #50 from docs/NATIVE_BOOKING_PLAN.md.
+
+IMPORTANT:
+Only implement the native MOBILE booking flow in this step.
+
+Do not modify the web booking experience yet.
+Do not implement Task #51 yet.
+Do not make unrelated changes.
+
+The goal is to replace the current mobile handoff to Acuity's hosted booking page with a native FitClub booking experience while continuing to use the existing backend/Acuity integration.
+
+## Desired mobile flow
+
+The member should experience:
+
+Book
+→ Select Date
+→ Select Time
+→ Review & Confirm
+→ Booking Success
+
+The member should never be sent to Acuity's hosted scheduling UI during this flow.
+
+Acuity remains the scheduling engine/source of truth behind the scenes.
+
+## IMPORTANT: Use the existing implementation
+
+Before writing new code, review:
+
+* docs/NATIVE_BOOKING_PLAN.md
+* mobile/book.tsx
+* mobile/RescheduleModal.tsx
+* the existing booking API implementation
+* the existing availability API implementation
+* the existing certificate/eligibility logic
+
+Reuse existing API functions, hooks, types, styling patterns, and components wherever possible.
+
+Do NOT duplicate backend logic.
+
+## STEP 1 — Replace the mobile Acuity handoff
+
+In mobile/book.tsx, the current handleBook() function opens the Acuity URL using WebBrowser.openBrowserAsync().
+
+Replace that behavior with navigation into the new native booking flow.
+
+Do NOT delete unrelated functionality from book.tsx.
+
+The existing Book screen should continue to work normally.
+
+## STEP 2 — Create the booking screens
+
+Create the minimum number of new screens necessary for this flow.
+
+Follow the existing Expo/React Navigation architecture and conventions.
+
+The screens should be:
+
+1. Select Date
+2. Select Time
+3. Review & Confirm
+4. Success
+
+Use the existing RescheduleModal.tsx as the primary visual/interaction reference for:
+
+* Date selection
+* Time slot selection
+* Loading states
+* Empty availability
+* Error handling
+* Selected states
+* Navigation patterns
+
+Do not copy code blindly. Extract/reuse shared functionality if that is cleaner.
+
+## STEP 3 — Date selection
+
+The date screen should use the existing availability-date API.
+
+Show only dates that are actually available.
+
+The UI should make it immediately obvious:
+
+* Which date is selected
+* Which dates are available
+* Which dates are unavailable
+* How to move forward/backward through dates
+
+Preserve the existing FitClub visual language.
+
+Do not introduce a new design system.
+
+## STEP 4 — Time selection
+
+After the member selects a date, retrieve availability using the existing availability API.
+
+Display available appointment times as native FitClub UI.
+
+Do NOT display an Acuity iframe or Acuity-hosted interface.
+
+Handle:
+
+* Loading
+* No availability
+* API errors
+* Time slot selection
+
+Make the time slots easy to tap on a phone.
+
+## STEP 5 — Preserve appointment/service logic
+
+Use the existing appointment type, certificate, membership, and eligibility logic.
+
+Do not allow the member to bypass existing eligibility rules.
+
+If the current application already determines the appropriate appointment type or certificate, reuse that logic.
+
+Do not create a second implementation of those rules.
+
+## STEP 6 — Review & Confirm screen
+
+Before creating the appointment, show the member a clear summary.
+
+At minimum display:
+
+* Appointment/service
+* Date
+* Time
+* Location
+* Coach/provider if applicable
+* Any membership/certificate information that is relevant
+
+Provide a clear primary button:
+
+"Confirm Booking"
+
+The member should not have to re-enter information that the authenticated application already knows.
+
+## STEP 7 — Create the appointment
+
+Use the existing POST /api/booking/appointments endpoint.
+
+Do not create a new booking endpoint unless the existing endpoint genuinely cannot support the native flow.
+
+When the member taps Confirm Booking:
+
+* Prevent duplicate submissions
+* Show a clear loading state
+* Call the existing backend
+* Handle successful booking
+* Handle booking conflicts
+* Handle API failures
+* Preserve the selected information if the booking fails
+
+Do not expose Acuity credentials to the mobile application.
+
+## STEP 8 — Success screen
+
+After successful booking, show a native FitClub confirmation screen.
+
+It should clearly communicate:
+
+"You're booked!"
+
+And show:
+
+* Appointment/service
+* Date
+* Time
+* Location
+* Coach/provider if applicable
+
+Provide an obvious next action such as:
+
+"View My Appointments"
+
+or the appropriate existing FitClub navigation destination.
+
+Do not redirect the member to Acuity.
+
+## STEP 9 — Navigation
+
+Follow the application's existing navigation architecture.
+
+Do not introduce a new navigation library.
+
+The member should be able to:
+
+* Go back from Time → Date
+* Go back from Confirm → Time
+* Cancel the booking flow safely
+* Return to the main booking screen
+
+Do not leave the member in a broken navigation state after successful booking.
+
+## STEP 10 — Loading/error/empty states
+
+Every API-driven step needs appropriate states.
+
+At minimum:
+
+* Loading availability
+* No available dates
+* No available times
+* Availability API error
+* Booking API error
+* Booking conflict
+* Successful booking
+* Duplicate submission prevention
+
+Use the application's existing components and visual patterns wherever available.
+
+## STEP 11 — Do not change these areas
+
+Do NOT modify:
+
+* Web booking flow
+* Web Acuity integration
+* Task #51
+* Authentication
+* Database schema
+* Acuity credentials/configuration
+* Existing cancellation flow
+* Existing rescheduling flow
+* Unrelated dashboard functionality
+* Unrelated mobile screens
+
+Do not install new dependencies unless absolutely necessary.
+
+## STEP 12 — Code quality
+
+Keep the implementation consistent with the existing codebase.
+
+Prefer:
+
+* Existing hooks
+* Existing API clients
+* Existing TypeScript types
+* Existing design components
+* Existing navigation patterns
+* Shared components where appropriate
+
+Avoid:
+
+* Duplicated API calls
+* Hardcoded appointment types
+* Hardcoded provider IDs
+* Hardcoded calendar IDs
+* Hardcoded member information
+* Hardcoded availability
+* Acuity credentials in client code
+
+## STEP 13 — Testing
+
+Before declaring the task complete, test the flow.
+
+At minimum verify:
+
+1. Member can open Book
+2. Member enters native booking flow
+3. Available dates load
+4. Date selection works
+5. Available times load
+6. Time selection works
+7. Review screen displays correct information
+8. Confirm creates an appointment
+9. Success screen appears
+10. Back navigation works
+11. API failure is handled
+12. No-availability state is handled
+13. Confirm cannot be accidentally submitted twice
+14. Existing rescheduling still works
+15. Existing cancellation still works
+16. Existing unrelated mobile functionality still works
+
+If automated tests exist, run the relevant tests.
+
+Also run the project's normal typecheck/lint/build validation.
+
+## STEP 14 — Do not expand scope
+
+If you discover additional bugs or improvements during implementation, do NOT fix them in this task unless they directly prevent the native booking flow from working.
+
+Document them instead.
+
+## Final response
+
+After implementation, report:
+
+1. Files created
+2. Files modified
+3. Existing APIs reused
+4. Navigation flow implemented
+5. Testing performed
+6. Any remaining issues
+7. Any bugs discovered but intentionally left untouched
+
+Do not modify the web booking flow in this task.
