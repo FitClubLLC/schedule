@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Shell } from "@/components/layout/Shell";
 import { Button } from "@/components/ui/button";
-import { useCreateBooking } from "@/hooks/useBookingApi";
+import { useCreateBooking, useAppointmentTypes } from "@/hooks/useBookingApi";
 import { useUser } from "@clerk/react";
 import {
   ArrowLeft,
@@ -23,7 +23,7 @@ function getParams() {
     locationId: p.get("locationId") ?? "",
     locationName: p.get("locationName") ?? "",
     appointmentTypeID: p.get("appointmentTypeID") ?? "",
-    appointmentTypeName: p.get("appointmentTypeName") ?? "Workout for 1",
+    appointmentTypeName: p.get("appointmentTypeName") ?? "",
     certificate: p.get("certificate") ?? "",
     date: p.get("date") ?? "",
     dateDisplay: p.get("dateDisplay") ?? "",
@@ -32,15 +32,17 @@ function getParams() {
   };
 }
 
-function buildSelectTimeUrl(params: ReturnType<typeof getParams>) {
+function buildSelectTimeUrl(params: ReturnType<typeof getParams>, resolvedTypeName: string) {
   const q = new URLSearchParams({
     locationId: params.locationId,
     locationName: params.locationName,
     appointmentTypeID: params.appointmentTypeID,
-    appointmentTypeName: params.appointmentTypeName,
+    appointmentTypeName: resolvedTypeName,
     ...(params.certificate ? { certificate: params.certificate } : {}),
     date: params.date,
     dateDisplay: params.dateDisplay,
+    // Pass the previously selected datetime so SelectTime can restore the selection.
+    ...(params.datetime ? { datetime: params.datetime } : {}),
   });
   return `/book/select-time?${q}`;
 }
@@ -51,6 +53,13 @@ export default function Confirm() {
   const [, setLocation] = useLocation();
   const params = getParams();
   const { user } = useUser();
+
+  // Resolve the appointment type name from URL param → API lookup (already cached) → neutral fallback.
+  const { data: appointmentTypes = [] } = useAppointmentTypes();
+  const appointmentTypeName =
+    params.appointmentTypeName ||
+    appointmentTypes.find((t) => String(t.id) === params.appointmentTypeID)?.name ||
+    "Appointment";
   const { mutateAsync: createBooking, isPending } = useCreateBooking();
   const [submitError, setSubmitError] = useState("");
 
@@ -81,7 +90,7 @@ export default function Confirm() {
       // Replace the confirm entry in browser history so pressing Back from
       // the confirmed screen cannot land the member back on a live submit form.
       const confirmed = new URLSearchParams({
-        appointmentType: appt.type ?? params.appointmentTypeName,
+        appointmentType: appt.type ?? appointmentTypeName,
         dateDisplay: params.dateDisplay,
         timeDisplay: params.timeDisplay,
         locationName: params.locationName,
@@ -104,7 +113,7 @@ export default function Confirm() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setLocation(buildSelectTimeUrl(params))}
+          onClick={() => setLocation(buildSelectTimeUrl(params, appointmentTypeName))}
           className="gap-1.5 text-muted-foreground hover:text-foreground -ml-2"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -133,7 +142,7 @@ export default function Confirm() {
           <div className="divide-y divide-border">
             <DetailRow
               icon={<Clock className="w-4 h-4" />}
-              label={params.appointmentTypeName}
+              label={appointmentTypeName}
               sub={params.locationName}
             />
             <DetailRow

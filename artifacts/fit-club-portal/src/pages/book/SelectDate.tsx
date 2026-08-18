@@ -4,7 +4,7 @@ import { format, startOfMonth } from "date-fns";
 import { Shell } from "@/components/layout/Shell";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
-import { useAvailableDates } from "@/hooks/useBookingApi";
+import { useAvailableDates, useAppointmentTypes } from "@/hooks/useBookingApi";
 import {
   ArrowLeft,
   ChevronRight,
@@ -21,7 +21,7 @@ function getParams() {
     locationId: p.get("locationId") ?? "",
     locationName: p.get("locationName") ?? "",
     appointmentTypeID: p.get("appointmentTypeID") ?? "",
-    appointmentTypeName: p.get("appointmentTypeName") ?? "Workout for 1",
+    appointmentTypeName: p.get("appointmentTypeName") ?? "",
     certificate: p.get("certificate") ?? "",
   };
 }
@@ -35,6 +35,15 @@ function toYMD(date: Date): string {
 export default function SelectDate() {
   const [, setLocation] = useLocation();
   const params = getParams();
+
+  // Resolve the appointment type name from URL param (set by Book.tsx or SelectService) →
+  // API lookup (already cached) → neutral fallback.
+  // This prevents a stale "Workout for 1" label if the param is absent.
+  const { data: appointmentTypes = [] } = useAppointmentTypes();
+  const appointmentTypeName =
+    params.appointmentTypeName ||
+    appointmentTypes.find((t) => String(t.id) === params.appointmentTypeID)?.name ||
+    "Appointment";
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -79,7 +88,7 @@ export default function SelectDate() {
       locationId: params.locationId,
       locationName: params.locationName,
       appointmentTypeID: params.appointmentTypeID,
-      appointmentTypeName: params.appointmentTypeName,
+      appointmentTypeName: appointmentTypeName,
       ...(params.certificate ? { certificate: params.certificate } : {}),
       date: ymd,
       dateDisplay,
@@ -111,7 +120,7 @@ export default function SelectDate() {
         </h1>
         <p className="text-muted-foreground mt-1">
           {params.locationName}
-          {params.appointmentTypeName ? ` · ${params.appointmentTypeName}` : ""}
+          {appointmentTypeName ? ` · ${appointmentTypeName}` : ""}
         </p>
       </div>
 

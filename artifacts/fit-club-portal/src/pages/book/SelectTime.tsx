@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { format, parseISO } from "date-fns";
 import { Shell } from "@/components/layout/Shell";
 import { Button } from "@/components/ui/button";
-import { useAvailableTimes } from "@/hooks/useBookingApi";
+import { useAvailableTimes, useAppointmentTypes } from "@/hooks/useBookingApi";
 import {
   ArrowLeft,
   ChevronRight,
@@ -21,19 +21,21 @@ function getParams() {
     locationId: p.get("locationId") ?? "",
     locationName: p.get("locationName") ?? "",
     appointmentTypeID: p.get("appointmentTypeID") ?? "",
-    appointmentTypeName: p.get("appointmentTypeName") ?? "Workout for 1",
+    appointmentTypeName: p.get("appointmentTypeName") ?? "",
     certificate: p.get("certificate") ?? "",
     date: p.get("date") ?? "",
     dateDisplay: p.get("dateDisplay") ?? "",
+    // Preserved when navigating back from Confirm so the slot stays selected.
+    datetime: p.get("datetime") ?? "",
   };
 }
 
-function buildSelectDateUrl(params: ReturnType<typeof getParams>) {
+function buildSelectDateUrl(params: ReturnType<typeof getParams>, resolvedTypeName: string) {
   const q = new URLSearchParams({
     locationId: params.locationId,
     locationName: params.locationName,
     appointmentTypeID: params.appointmentTypeID,
-    appointmentTypeName: params.appointmentTypeName,
+    appointmentTypeName: resolvedTypeName,
     ...(params.certificate ? { certificate: params.certificate } : {}),
   });
   return `/book/select-date?${q}`;
@@ -44,7 +46,16 @@ function buildSelectDateUrl(params: ReturnType<typeof getParams>) {
 export default function SelectTime() {
   const [, setLocation] = useLocation();
   const params = getParams();
-  const [selectedDatetime, setSelectedDatetime] = useState<string>("");
+
+  // Resolve the appointment type name from URL param → API lookup → neutral fallback.
+  const { data: appointmentTypes = [] } = useAppointmentTypes();
+  const appointmentTypeName =
+    params.appointmentTypeName ||
+    appointmentTypes.find((t) => String(t.id) === params.appointmentTypeID)?.name ||
+    "Appointment";
+
+  // Initialise from URL param so the selection is restored when navigating back from Confirm.
+  const [selectedDatetime, setSelectedDatetime] = useState<string>(params.datetime);
 
   // React Query automatically scopes each (locationId, appointmentTypeID, date)
   // combination to its own cache entry. There is no stale-overwrite risk when
@@ -65,6 +76,16 @@ export default function SelectTime() {
       : null,
   );
 
+  // If navigating back from Confirm with a previously selected datetime, validate it
+  // against the freshly-loaded slots. Reset if the slot is no longer available
+  // (e.g. someone else booked it between the member's first selection and now).
+  useEffect(() => {
+    if (isLoading || !selectedDatetime) return;
+    if (!slots.some((s) => s.time === selectedDatetime)) {
+      setSelectedDatetime("");
+    }
+  }, [slots, isLoading, selectedDatetime]);
+
   function handleContinue() {
     if (!selectedDatetime) return;
     const timeDisplay = format(parseISO(selectedDatetime), "h:mm a");
@@ -72,7 +93,7 @@ export default function SelectTime() {
       locationId: params.locationId,
       locationName: params.locationName,
       appointmentTypeID: params.appointmentTypeID,
-      appointmentTypeName: params.appointmentTypeName,
+      appointmentTypeName: appointmentTypeName,
       ...(params.certificate ? { certificate: params.certificate } : {}),
       date: params.date,
       dateDisplay: params.dateDisplay,
@@ -89,7 +110,7 @@ export default function SelectTime() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setLocation(buildSelectDateUrl(params))}
+          onClick={() => setLocation(buildSelectDateUrl(params, appointmentTypeName))}
           className="gap-1.5 text-muted-foreground hover:text-foreground -ml-2"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -143,7 +164,7 @@ export default function SelectTime() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setLocation(buildSelectDateUrl(params))}
+                onClick={() => setLocation(buildSelectDateUrl(params, appointmentTypeName))}
               >
                 Pick Another Date
               </Button>
