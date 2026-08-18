@@ -67,7 +67,7 @@ export default function ConfirmedScreen() {
 
       {/* ── Booking summary card ─────────────────────────────────── */}
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <DetailRow icon="clock" value={appointmentType} colors={colors} />
+        <DetailRow icon="info" value={appointmentType} colors={colors} />
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <DetailRow icon="calendar" value={dateDisplay} colors={colors} />
         <View style={[styles.divider, { backgroundColor: colors.border }]} />

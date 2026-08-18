@@ -100,12 +100,14 @@ export default function BookScreen() {
   const memberCerts: MemberCert[] = certsQuery.data ?? [];
   const acuityConfig = configQuery.data;
 
-  // Auto-apply certificate from deep link / navigation param
+  // Auto-apply certificate from deep link / navigation param.
+  // applyCode is a useCallback keyed on userId — include it so a
+  // sign-out/sign-in between renders doesn't call a stale closure.
   useEffect(() => {
     if (certParam?.trim()) {
       applyCode(certParam.trim());
     }
-  }, [certParam]);
+  }, [certParam, applyCode]);
 
   // Navigate into the native booking flow for the selected location.
   // Acuity is called behind the scenes via POST /api/booking/appointments —
