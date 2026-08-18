@@ -1,0 +1,448 @@
+We have completed and QA-tested the native mobile booking flow.
+
+The mobile flow is now the reference implementation.
+
+We are now implementing the equivalent native booking experience in the WEB portal.
+
+IMPORTANT:
+This task is ONLY for the authenticated web member booking experience.
+
+Do NOT modify:
+
+* Mobile booking
+* Free Trial booking
+* Cancellation
+* Rescheduling
+* Authentication
+* Database schema
+* Acuity backend/API architecture
+* Unrelated web pages
+
+The goal is to remove the current web member-facing handoff to Acuity and replace it with a native FitClub booking experience.
+
+## Desired web flow
+
+The authenticated member should experience:
+
+Book
+→ Select Date
+→ Select Time
+→ Review & Confirm
+→ Confirmed
+
+The member should remain inside the FitClub web portal throughout the process.
+
+Acuity remains the scheduling engine/source of truth.
+
+## STEP 1 — Study the mobile implementation
+
+Before coding, inspect the completed mobile implementation:
+
+* book/index.tsx
+* book/select-date.tsx
+* book/select-time.tsx
+* book/confirm.tsx
+* book/confirmed.tsx
+* book/_layout.tsx
+
+Also inspect:
+
+* docs/NATIVE_BOOKING_PLAN.md
+* docs/ACUITY_INTEGRATION.md
+* the existing web Book.tsx
+* the existing web API client/hooks
+* the existing RescheduleModal.tsx or equivalent web scheduling components
+* the existing backend booking endpoints
+
+The web implementation should use the same business rules and API endpoints.
+
+Do not duplicate business logic that already exists on the server.
+
+## STEP 2 — Remove the current web Acuity handoff
+
+The current web Book.tsx contains a location card/link that opens Acuity using:
+
+<a target="_blank">
+
+Replace that member-facing booking behavior with navigation into the native web booking flow.
+
+Do NOT remove the Free Trial Acuity flow.
+
+The Free Trial CTA should continue to open Acuity as it does today.
+
+The change applies only to authenticated member appointment booking.
+
+## STEP 3 — Create the web booking flow
+
+Use the application's existing web routing architecture.
+
+Create the minimum number of pages/components necessary for:
+
+1. Select Date
+2. Select Time
+3. Review & Confirm
+4. Confirmed
+
+Use the existing web design system and components.
+
+Do NOT create a completely new visual design system.
+
+The web experience should feel like the rest of the FitClub portal.
+
+## STEP 4 — Select Date
+
+Use:
+
+GET /api/booking/availability/dates
+
+or the existing client abstraction for that endpoint.
+
+Show:
+
+* Available dates
+* Unavailable dates
+* Past dates disabled
+* Selected date
+* Month navigation
+
+Use the existing backend/business logic for determining availability.
+
+Do not hardcode dates.
+
+The UI should work on desktop and mobile-width browsers.
+
+## STEP 5 — Select Time
+
+When the user selects a date, retrieve availability using the existing:
+
+GET /api/booking/availability/times
+
+endpoint/client abstraction.
+
+Display available times as FitClub-native UI.
+
+Do NOT display an Acuity iframe.
+
+Handle:
+
+* Loading
+* No available times
+* API errors
+* Selecting a time
+* Changing the date
+
+Preserve the same race-condition protection used by the mobile implementation.
+
+Do not allow a stale API response for one date to overwrite the selected date's availability.
+
+## STEP 6 — Preserve eligibility rules
+
+Use the existing server-side eligibility/certificate logic.
+
+Do not recreate membership or certificate rules in the browser.
+
+The web client should request and display the information necessary to make the correct booking.
+
+The backend remains authoritative.
+
+Do not allow the browser to submit arbitrary:
+
+* appointment type
+* calendar ID
+* provider ID
+* certificate
+* member identity
+
+without the backend validating them.
+
+## STEP 7 — Review & Confirm
+
+Create a clear confirmation/review screen.
+
+Display:
+
+* Appointment/service
+* Date
+* Time
+* Location
+* Coach/provider, if applicable
+* Certificate/package information when relevant
+* Member information where useful
+
+The member should NOT need to re-enter their:
+
+* Name
+* Email
+* Phone
+
+if that information already exists in the authenticated account.
+
+The primary CTA should be clearly labeled:
+
+"Confirm Booking"
+
+## STEP 8 — Create the appointment
+
+Use the existing:
+
+POST /api/booking/appointments
+
+endpoint.
+
+Do not create another booking endpoint.
+
+When Confirm Booking is clicked:
+
+* Prevent duplicate submissions
+* Show a loading state
+* Submit the selected appointment
+* Handle successful booking
+* Handle slot conflicts
+* Handle Acuity errors
+* Preserve the user's selections when practical if booking fails
+
+Never expose Acuity API credentials to the browser.
+
+## STEP 9 — Confirmed screen
+
+After successful booking, show a native FitClub confirmation page.
+
+Example structure:
+
+You're booked!
+
+[Service]
+
+Wednesday, August 20
+5:30 AM
+
+[Location]
+
+[Coach]
+
+Then provide a clear action such as:
+
+"View My Sessions"
+
+Use the application's existing route for the Sessions/Appointments area.
+
+The page should NOT redirect to Acuity.
+
+## STEP 10 — Browser navigation
+
+Pay particular attention to browser history.
+
+The user should be able to:
+
+Date → Time → Confirm
+
+and use normal browser back navigation without creating an invalid state.
+
+After a successful booking:
+
+* Do not allow browser Back to accidentally resubmit the appointment
+* Do not leave an active "Confirm Booking" state behind the success page
+* Do not allow accidental duplicate submission
+* Do not rely solely on disabling a button
+
+Use the appropriate route/navigation pattern for the existing web architecture.
+
+## STEP 11 — Loading/error/empty states
+
+Every asynchronous operation must have appropriate UI for:
+
+* Loading dates
+* No available dates
+* Date API failure
+* Loading times
+* No available times
+* Time API failure
+* Booking in progress
+* Booking conflict
+* Booking failure
+* Successful booking
+
+Errors should be understandable to members.
+
+Do not expose raw Acuity/API error messages unless the existing application intentionally does so.
+
+## STEP 12 — Responsive design
+
+The booking experience must work well on:
+
+* Desktop
+* Laptop
+* Tablet
+* Mobile browser
+
+Do not simply shrink the desktop UI.
+
+On smaller screens:
+
+* Date selection should remain easy to use
+* Time slots should be easy to tap
+* Primary CTA should remain visible
+* Content should not overflow horizontally
+* Navigation should remain obvious
+
+Reuse existing responsive patterns from the web application.
+
+## STEP 13 — Existing web Acuity email bug
+
+There is a known issue where the old web Acuity URL does not include the member email while the mobile implementation does.
+
+Since we are replacing the authenticated member booking flow with native booking, do NOT add a workaround for that old flow.
+
+However:
+
+* Verify the new native flow obtains the authenticated member identity correctly.
+* Verify the backend obtains the member's email server-side.
+* Do not accept an arbitrary member email from the browser as the identity used to create the appointment.
+
+The separate Free Trial flow is not part of this task.
+
+## STEP 14 — Reuse code intelligently
+
+If the mobile and web implementations contain identical business logic, do NOT blindly duplicate it.
+
+The preferred architecture is:
+
+UI-specific code
+→ shared API/client abstractions
+→ existing FitClub backend
+→ Acuity
+
+If there are already shared TypeScript types or API hooks, reuse them.
+
+Do not create a new scheduling service.
+
+Do not create a second set of appointment eligibility rules.
+
+## STEP 15 — Do NOT change backend behavior unless required
+
+The backend is already working.
+
+Do not modify backend booking endpoints unless you discover a specific incompatibility that prevents the web native flow from working.
+
+If a backend change genuinely is required:
+
+STOP before making it.
+
+Report:
+
+* Why the change is required
+* Which endpoint needs modification
+* What the proposed change is
+* Why it cannot be solved in the web client
+
+Do not make the backend change without further instruction.
+
+## STEP 16 — Testing
+
+Test the complete web flow:
+
+1. Open Book
+2. Select location
+3. Enter native booking flow
+4. Select available date
+5. Select time
+6. Review booking
+7. Confirm booking
+8. Verify success
+9. Verify appointment appears in Sessions
+10. Test browser Back
+11. Test refresh
+12. Test no availability
+13. Test booking conflict
+14. Test API failure
+15. Test duplicate Confirm clicks
+16. Test mobile-width browser
+17. Verify Free Trial still opens Acuity
+18. Verify existing cancellation still works
+19. Verify existing rescheduling still works
+
+Run the project's existing:
+
+* Typecheck
+* Tests
+* Build
+
+Use existing project commands.
+
+## STEP 17 — Visual consistency
+
+Do not redesign the entire application.
+
+However, ensure the new booking screens use:
+
+* Existing FitClub typography
+* Existing colors
+* Existing buttons
+* Existing cards
+* Existing spacing conventions
+* Existing icons
+* Existing responsive patterns
+
+The booking flow should look like a native part of the FitClub portal, not a separate application.
+
+## STEP 18 — Scope control
+
+Do NOT:
+
+* Modify mobile booking
+* Modify Free Trial booking
+* Modify cancellation
+* Modify rescheduling
+* Modify authentication
+* Modify the database schema
+* Add unnecessary dependencies
+* Change Acuity credentials
+* Expose Acuity credentials
+* Rewrite unrelated components
+
+If you discover unrelated bugs, document them rather than fixing them.
+
+## Final report
+
+When complete, report:
+
+### Implementation
+
+* Files created
+* Files modified
+* Routes created
+* Components created
+
+### API
+
+* Existing endpoints reused
+* Any backend changes required
+
+### Booking flow
+
+Describe the final user journey.
+
+### Testing
+
+Report:
+
+* Typecheck
+* Tests
+* Build
+* Desktop testing
+* Mobile-width testing
+* Browser navigation testing
+* Booking conflict testing
+* Error testing
+
+### Acuity
+
+Confirm that authenticated web member booking no longer sends the member to the Acuity hosted booking UI.
+
+Confirm that Acuity credentials remain server-side.
+
+### Remaining issues
+
+List anything discovered but intentionally not fixed.
+
+Do not make additional changes outside this scope.
