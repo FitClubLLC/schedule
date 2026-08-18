@@ -8,7 +8,7 @@
  *   - Workout for 1 is always shown (no certificate required).
  *   - All other types require a certificate that covers them.
  *
- * On selection → navigates to SelectDate with all required booking params.
+ * On selection → navigates to SelectDateTime with all required booking params.
  */
 
 import React, { useCallback } from 'react';
@@ -26,8 +26,9 @@ import { useAuth } from '@clerk/expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
+import { BookingProgress } from '@/components/book/BookingProgress';
 
-// ── Types (mirrors backend shapes) ────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface AcuityLocation {
   id: string;
@@ -68,8 +69,6 @@ interface AcuityAppointmentType {
 }
 
 // ── Eligibility ───────────────────────────────────────────────────────────────
-//
-// Mirrors web portal's src/lib/bookingEligibility.ts — keep in sync if rules change.
 
 function getEligibleTypeIds(
   locationTypeIds: string[],
@@ -79,27 +78,23 @@ function getEligibleTypeIds(
   certCode: string,
 ): string[] {
   return locationTypeIds.filter((typeId) => {
-    // 1. Workout for 1 — always shown, no certificate required.
     if (typeId === workoutFor1Id) return true;
-
-    // 2a. Member has an account certificate that covers this type.
     if (
       memberCerts.some(
         (c) => c.appliesToAllProducts === true || (c.appointmentTypeIDs ?? []).includes(typeId),
       )
     ) return true;
-
-    // 2b. Member entered a code manually and the check result covers this type.
     if (
       certCode &&
       certCheck &&
       certCheck.valid &&
       (certCheck.appliesToAllProducts || certCheck.productIDs.includes(typeId))
     ) return true;
-
     return false;
   });
 }
+
+const STEPS_WITH_SERVICE = ['Location', 'Service', 'Date & Time', 'Confirm'];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -123,7 +118,7 @@ export default function SelectServiceScreen() {
   const certCode = (certificate as string).trim();
   const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
 
-  // ── Queries (all share queryKeys with index.tsx — cached hits are instant) ──
+  // ── Queries (shared queryKeys with index.tsx — instant cache hits) ─────────
 
   const configQuery = useQuery<AcuityConfig>({
     queryKey: ['acuity-config'],
@@ -185,10 +180,9 @@ export default function SelectServiceScreen() {
     },
   });
 
-  // ── Derived state ─────────────────────────────────────────────────────────
+  // ── Derived state ──────────────────────────────────────────────────────────
 
-  const isLoading =
-    configQuery.isLoading || certsQuery.isLoading || typesQuery.isLoading;
+  const isLoading = configQuery.isLoading || certsQuery.isLoading || typesQuery.isLoading;
 
   const acuityConfig   = configQuery.data;
   const memberCerts    = certsQuery.data   ?? [];
@@ -208,30 +202,30 @@ export default function SelectServiceScreen() {
         )
       : [];
 
-  // Match eligible IDs against the full type metadata list.
   const eligibleTypes: AcuityAppointmentType[] = eligibleIds
     .map((id) => appointmentTypes.find((t) => String(t.id) === id))
     .filter((t): t is AcuityAppointmentType => !!t);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleSelect = useCallback(
     (type: AcuityAppointmentType) => {
       router.push({
-        pathname: '/(tabs)/book/select-date',
+        pathname: '/(tabs)/book/select-datetime',
         params: {
           locationId:          locationId as string,
           locationName:        locationName as string,
           appointmentTypeID:   String(type.id),
           appointmentTypeName: type.name,
           certificate:         certCode,
+          from:                'select-service',
         },
       });
     },
     [router, locationId, locationName, certCode],
   );
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <ScrollView
@@ -247,31 +241,30 @@ export default function SelectServiceScreen() {
         style={styles.backBtn}
         onPress={() => router.back()}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Back to Location"
       >
-        <SvgIcon name="arrow-left" size={18} color={colors.mutedForeground} />
-        <Text style={[styles.backText, { color: colors.mutedForeground }]}>Back</Text>
+        <SvgIcon name="arrow-left" size={17} color={colors.mutedForeground} />
+        <Text style={[styles.backText, { color: colors.mutedForeground }]}>Back to Location</Text>
       </TouchableOpacity>
+
+      {/* Progress */}
+      <BookingProgress steps={STEPS_WITH_SERVICE} currentStep="Service" />
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Choose a Service</Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {locationName} — select the service you&apos;d like to book.
+        <Text style={[styles.title, { color: colors.foreground }]}>CHOOSE YOUR SESSION</Text>
+        <Text style={[styles.subtitle, { color: colors.mutedForeground }]} numberOfLines={1}>
+          {locationName as string}
         </Text>
       </View>
 
       {/* Content */}
       {isLoading ? (
-        <ActivityIndicator
-          color={colors.primary}
-          style={{ marginTop: 32 }}
-        />
+        <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
       ) : eligibleTypes.length === 0 ? (
         <View
-          style={[
-            styles.emptyCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
+          style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
           <SvgIcon name="alert-circle" size={20} color={colors.mutedForeground} />
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
@@ -285,16 +278,15 @@ export default function SelectServiceScreen() {
               key={type.id}
               onPress={() => handleSelect(type)}
               activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={type.name}
               style={[
                 styles.card,
-                {
-                  backgroundColor: 'rgba(211,175,55,0.08)',
-                  borderColor: 'rgba(211,175,55,0.45)',
-                },
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
             >
               <View style={styles.cardBody}>
-                <Text style={[styles.typeName, { color: '#D3AF37' }]}>
+                <Text style={[styles.typeName, { color: colors.foreground }]}>
                   {type.name}
                 </Text>
 
@@ -309,7 +301,7 @@ export default function SelectServiceScreen() {
 
                 {!!type.duration && (
                   <View style={styles.durationRow}>
-                    <SvgIcon name="clock" size={13} color={colors.mutedForeground} />
+                    <SvgIcon name="clock" size={12} color={colors.mutedForeground} />
                     <Text style={[styles.durationText, { color: colors.mutedForeground }]}>
                       {type.duration} min
                     </Text>
@@ -317,9 +309,7 @@ export default function SelectServiceScreen() {
                 )}
               </View>
 
-              <View style={[styles.selectBtn, { backgroundColor: '#D3AF37' }]}>
-                <Text style={styles.selectBtnText}>Select</Text>
-              </View>
+              <SvgIcon name="chevron-right" size={18} color={colors.mutedForeground} />
             </TouchableOpacity>
           ))}
         </View>
@@ -333,31 +323,25 @@ export default function SelectServiceScreen() {
 const styles = StyleSheet.create({
   container:   { paddingHorizontal: 20 },
   backBtn:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 20 },
-  backText:    { fontSize: 14, fontWeight: '500' },
+  backText:    { fontFamily: 'Inter_500Medium', fontSize: 14 },
   header:      { marginBottom: 24 },
-  title:       { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, marginBottom: 6 },
-  subtitle:    { fontSize: 15, lineHeight: 22 },
-  cards:       { gap: 14 },
+  title:       { fontFamily: 'BarlowCondensed_800ExtraBold', fontSize: 32, letterSpacing: 2, marginBottom: 4 },
+  subtitle:    { fontFamily: 'Inter_400Regular', fontSize: 14 },
+  cards:       { gap: 12 },
   card: {
     borderWidth: 1.5,
-    borderRadius: 18,
-    padding: 20,
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 12,
   },
-  cardBody:    { flex: 1, gap: 6 },
-  typeName:    { fontSize: 19, fontWeight: '700', letterSpacing: -0.3 },
-  typeDesc:    { fontSize: 13, lineHeight: 18 },
-  durationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  durationText:{ fontSize: 13 },
-  selectBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 10,
-  },
-  selectBtnText: { fontSize: 14, fontWeight: '700', color: '#0D0D0D' },
+  cardBody:     { flex: 1, gap: 5 },
+  typeName:     { fontFamily: 'BarlowCondensed_700Bold', fontSize: 20, letterSpacing: 0.3, lineHeight: 24 },
+  typeDesc:     { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 18 },
+  durationRow:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  durationText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: '#A6A6A6' },
   emptyCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -366,5 +350,5 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
   },
-  emptyText: { flex: 1, fontSize: 14, lineHeight: 20 },
+  emptyText: { fontFamily: 'Inter_400Regular', flex: 1, fontSize: 14, lineHeight: 20 },
 });

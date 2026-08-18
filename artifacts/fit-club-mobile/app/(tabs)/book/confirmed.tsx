@@ -37,7 +37,7 @@ export default function ConfirmedScreen() {
     calendar: string;
   }>();
 
-  // Invalidate appointment caches so Sessions and Dashboard show the new booking immediately.
+  // Invalidate appointment caches so Sessions and Dashboard reflect the new booking immediately.
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: getGetUpcomingAppointmentsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetPastAppointmentsQueryKey() });
@@ -51,29 +51,44 @@ export default function ConfirmedScreen() {
     <View
       style={[
         styles.container,
-        { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom + 24 },
+        {
+          backgroundColor: colors.background,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom + 24,
+        },
       ]}
     >
-      {/* ── Success icon ────────────────────────────────────────── */}
+      {/* ── Success mark ─────────────────────────────────────────── */}
       <View style={styles.topSection}>
-        <View style={[styles.iconCircle, { backgroundColor: 'rgba(34,197,94,0.12)', borderColor: 'rgba(34,197,94,0.35)' }]}>
-          <SvgIcon name="check" size={40} color="#22c55e" />
+        <View
+          style={[
+            styles.iconCircle,
+            {
+              backgroundColor: 'rgba(34,197,94,0.10)',
+              borderColor: 'rgba(34,197,94,0.30)',
+            },
+          ]}
+        >
+          <SvgIcon name="check" size={32} color="#22c55e" />
         </View>
+
         <Text style={[styles.title, { color: '#22c55e' }]}>YOU'RE BOOKED!</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          Your session has been confirmed.
+          A confirmation is on its way.
         </Text>
       </View>
 
       {/* ── Booking summary card ─────────────────────────────────── */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <DetailRow icon="info" value={appointmentType} colors={colors} />
+      <View
+        style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+      >
+        <DetailRow icon="info"     value={appointmentType}  colors={colors} />
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <DetailRow icon="calendar" value={dateDisplay} colors={colors} />
+        <DetailRow icon="map-pin"  value={displayLocation}  colors={colors} />
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <DetailRow icon="clock" value={timeDisplay} colors={colors} />
+        <DetailRow icon="calendar" value={dateDisplay}       colors={colors} />
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <DetailRow icon="map-pin" value={displayLocation} colors={colors} />
+        <DetailRow icon="clock"    value={timeDisplay}       colors={colors} />
       </View>
 
       {/* ── Actions ─────────────────────────────────────────────── */}
@@ -81,9 +96,10 @@ export default function ConfirmedScreen() {
         <TouchableOpacity
           onPress={() => router.navigate('/(tabs)/appointments')}
           activeOpacity={0.85}
+          accessibilityRole="button"
           style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
         >
-          <SvgIcon name="calendar" size={18} color={colors.primaryForeground} />
+          <SvgIcon name="calendar" size={17} color={colors.primaryForeground} />
           <Text style={[styles.primaryBtnText, { color: colors.primaryForeground }]}>
             VIEW MY SESSIONS
           </Text>
@@ -92,6 +108,7 @@ export default function ConfirmedScreen() {
         <TouchableOpacity
           onPress={() => router.navigate('/(tabs)/book')}
           activeOpacity={0.8}
+          accessibilityRole="button"
           style={[styles.secondaryBtn, { borderColor: colors.border }]}
         >
           <Text style={[styles.secondaryBtnText, { color: colors.foreground }]}>
@@ -103,6 +120,8 @@ export default function ConfirmedScreen() {
   );
 }
 
+// ── Sub-components ────────────────────────────────────────────────────────────
+
 interface DetailRowProps {
   icon: SvgIconName;
   value: string;
@@ -112,10 +131,12 @@ interface DetailRowProps {
 function DetailRow({ icon, value, colors }: DetailRowProps) {
   return (
     <View style={rowStyles.row}>
-      <View style={[rowStyles.iconWrap, { backgroundColor: 'rgba(211,175,55,0.12)' }]}>
-        <SvgIcon name={icon} size={16} color={colors.primary} />
+      <View style={[rowStyles.iconWrap, { backgroundColor: 'rgba(211,175,55,0.10)' }]}>
+        <SvgIcon name={icon} size={15} color={colors.primary} />
       </View>
-      <Text style={[rowStyles.value, { color: colors.foreground }]}>{value}</Text>
+      <Text style={[rowStyles.value, { color: colors.foreground }]} numberOfLines={2}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -125,14 +146,15 @@ const rowStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    paddingVertical: 14,
+    paddingVertical: 13,
   },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   value: {
     fontFamily: 'Inter_500Medium',
@@ -141,6 +163,8 @@ const rowStyles = StyleSheet.create({
   },
 });
 
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -148,18 +172,18 @@ const styles = StyleSheet.create({
   },
   topSection: {
     alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 32,
-    gap: 12,
+    paddingTop: 44,
+    paddingBottom: 28,
+    gap: 10,
   },
   iconCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    borderWidth: 2,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   title: {
     fontFamily: 'BarlowCondensed_800ExtraBold',
@@ -175,7 +199,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     paddingHorizontal: 16,
-    marginBottom: 32,
+    marginBottom: 28,
   },
   divider: {
     height: 1,

@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Alert,
+  View, Text, TouchableOpacity, StyleSheet, Pressable,
   TextInput, ActivityIndicator, ScrollView, RefreshControl,
+  Linking,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -47,13 +48,10 @@ function getEligibleTypeIds(
   certStatus: CertStatus,
 ): string[] {
   return locationTypeIds.filter((typeId) => {
-    // 1. Workout for 1 — always visible, no certificate required.
     if (typeId === workoutFor1Id) return true;
-    // 2a. Member has an account certificate that covers this type.
     if (memberCerts.some(
       (c) => c.appliesToAllProducts === true || (c.appointmentTypeIDs ?? []).includes(typeId),
     )) return true;
-    // 2b. Member entered a code manually and the check result covers this type.
     if (
       certStatus === 'valid' &&
       certInfo &&
@@ -74,14 +72,9 @@ interface AcuityConfig {
     id: string;
     name: string;
     calendarId: string;
-    /** Appointment type IDs bookable through the native flow at this location. */
     appointmentTypeIDs: string[];
   }>;
 }
-
-const LOCATION_COLOR = '#D3AF37';
-const LOCATION_COLOR_MUTED = 'rgba(211,175,55,0.18)';
-const LOCATION_COLOR_BORDER = 'rgba(211,175,55,0.5)';
 
 export default function BookScreen() {
   const colors = useColors();
@@ -112,7 +105,6 @@ export default function BookScreen() {
 
   const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
 
-  // Fetch Acuity config (owner ID, appointment type IDs, location calendar IDs)
   const configQuery = useQuery<AcuityConfig>({
     queryKey: ['acuity-config'],
     enabled: !!isSignedIn,
@@ -128,7 +120,6 @@ export default function BookScreen() {
     },
   });
 
-  // Fetch member's active certificates from Acuity
   const certsQuery = useQuery<MemberCert[]>({
     queryKey: ['member-certificates'],
     enabled: !!isSignedIn,
@@ -143,8 +134,6 @@ export default function BookScreen() {
     },
   });
 
-  // Fetch appointment type metadata (name, duration) for the service-selection step.
-  // Cached 10 min — shared queryKey with select-service.tsx, so hits are instant.
   const typesQuery = useQuery<AcuityAppointmentType[]>({
     queryKey: ['appointment-types'],
     enabled: !!isSignedIn,
@@ -164,23 +153,15 @@ export default function BookScreen() {
   const appointmentTypes: AcuityAppointmentType[] = typesQuery.data ?? [];
   const acuityConfig = configQuery.data;
 
-  // Auto-apply certificate from deep link / navigation param.
-  // applyCode is a useCallback keyed on userId — include it so a
-  // sign-out/sign-in between renders doesn't call a stale closure.
   useEffect(() => {
     if (certParam?.trim()) {
       applyCode(certParam.trim());
     }
   }, [certParam, applyCode]);
 
-  // Navigate into the native booking flow for the selected location.
-  // Acuity is called behind the scenes via POST /api/booking/appointments —
-  // the member never sees Acuity's hosted scheduling UI.
   const handleBook = (loc: AcuityConfig['locations'][number]) => {
     if (!acuityConfig) return;
 
-    // Determine which appointment types this member can book at this location.
-    // loc.appointmentTypeIDs comes from the backend config — not hardcoded here.
     const eligibleIds = getEligibleTypeIds(
       loc.appointmentTypeIDs,
       acuityConfig.appointmentTypes.workoutFor1,
@@ -192,23 +173,20 @@ export default function BookScreen() {
     if (eligibleIds.length === 0) return;
 
     if (eligibleIds.length === 1) {
-      // Single eligible service — skip the service selector, go straight to dates.
       const typeId = eligibleIds[0];
       const typeMeta = appointmentTypes.find((t) => String(t.id) === typeId);
       router.push({
-        pathname: '/(tabs)/book/select-date',
+        pathname: '/(tabs)/book/select-datetime',
         params: {
           locationId:          loc.id,
           locationName:        loc.name,
           appointmentTypeID:   typeId,
           appointmentTypeName: typeMeta?.name ?? '',
-          // Pass an empty string rather than undefined — Expo Router serialises
-          // params as strings, so the confirm screen checks certificate.trim().
           certificate: status === 'valid' ? code : '',
+          from: 'book',
         },
       });
     } else {
-      // Multiple eligible services — show the service selector first.
       router.push({
         pathname: '/(tabs)/book/select-service',
         params: {
@@ -239,7 +217,7 @@ export default function BookScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={[styles.container, { paddingTop: insets.top + 16, paddingBottom: 32 }]}
+      contentContainerStyle={[styles.container, { paddingTop: insets.top + 20, paddingBottom: 40 }]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       refreshControl={
@@ -251,38 +229,76 @@ export default function BookScreen() {
         />
       }
     >
-      {/* Header */}
+      {/* ── Header ────────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Book a Session</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>BOOK A SESSION</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          Choose your preferred location to view availability and book.
+          Where would you like to train?
         </Text>
       </View>
 
-      {/* ── Free trial CTA ───────────────────────────────────────── */}
-      <TouchableOpacity
-        style={[styles.trialBtn, { borderColor: colors.primary, opacity: acuityConfig ? 1 : 0.5 }]}
-        activeOpacity={0.75}
-        onPress={() => {
-          if (!acuityConfig) return;
-          WebBrowser.openBrowserAsync(
-            `https://app.acuityscheduling.com/schedule.php?owner=${acuityConfig.ownerId}&appointmentType=${acuityConfig.appointmentTypes.freeTrial}${memberEmail ? `&email=${encodeURIComponent(memberEmail)}` : ''}`,
-            { dismissButtonStyle: 'close', toolbarColor: '#000000', controlsColor: '#D3AF37' },
-          );
-        }}
-      >
+      {/* ── Location cards — PRIMARY ───────────────────────────────── */}
+      <View style={styles.locationCards}>
         {configQuery.isLoading
-          ? <ActivityIndicator size="small" color={colors.primary} />
-          : <SvgIcon name="plus-circle" size={18} color={colors.primary} />}
-        <Text style={[styles.trialBtnText, { color: colors.primary }]}>Book a Free Trial</Text>
-        <SvgIcon name="external-link" size={14} color={colors.primary} />
-      </TouchableOpacity>
+          ? [1, 2].map((i) => (
+              <View
+                key={i}
+                style={[styles.locationCard, { backgroundColor: colors.card, borderColor: colors.border, minHeight: 88 }]}
+              >
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ))
+          : (acuityConfig?.locations ?? []).map((loc) => {
+              const serviceNames = loc.appointmentTypeIDs
+                .map((id) => appointmentTypes.find((t) => String(t.id) === id)?.name)
+                .filter((n): n is string => !!n);
 
-      {/* ── Your memberships section ──────────────────────────────── */}
+              return (
+                <TouchableOpacity
+                  key={loc.id}
+                  onPress={() => handleBook(loc)}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Book at ${loc.name}`}
+                  style={[styles.locationCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                >
+                  <View style={styles.locationCardBody}>
+                    <Text style={[styles.locationName, { color: colors.foreground }]}>
+                      {loc.name}
+                    </Text>
+                    {serviceNames.length > 0 && (
+                      <Text
+                        style={[styles.locationServices, { color: colors.mutedForeground }]}
+                        numberOfLines={1}
+                      >
+                        {serviceNames.join(' · ')}
+                      </Text>
+                    )}
+                    {status === 'valid' && (
+                      <View style={styles.appliedRow}>
+                        <SvgIcon name="check" size={11} color="#22c55e" />
+                        <Text style={styles.appliedText}>Package applied</Text>
+                      </View>
+                    )}
+                  </View>
+                  <SvgIcon
+                    name="chevron-right"
+                    size={18}
+                    color={colors.mutedForeground}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+      </View>
+
+      {/* ── Divider ────────────────────────────────────────────────── */}
+      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+      {/* ── Your packages — SECONDARY ─────────────────────────────── */}
       {(certsQuery.isLoading || memberCerts.length > 0) && (
-        <View style={styles.packagesSection}>
+        <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-            YOUR MEMBERSHIPS
+            YOUR PACKAGES
           </Text>
 
           {certsQuery.isLoading ? (
@@ -294,33 +310,40 @@ export default function BookScreen() {
                 return (
                   <TouchableOpacity
                     key={cert.code}
-                    onPress={() => isActive ? clearCode() : applyCode(cert.code)}
+                    onPress={() => (isActive ? clearCode() : applyCode(cert.code))}
                     activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${cert.productName}${isActive ? ', applied' : ', tap to use'}`}
                     style={[
                       styles.packageCard,
                       {
                         backgroundColor: isActive
                           ? 'rgba(34,197,94,0.10)'
-                          : LOCATION_COLOR_MUTED,
+                          : colors.card,
                         borderColor: isActive
                           ? 'rgba(34,197,94,0.45)'
-                          : LOCATION_COLOR_BORDER,
+                          : colors.border,
                       },
                     ]}
                   >
                     <View style={styles.packageCardLeft}>
-                      <View style={[
-                        styles.packageIconWrap,
-                        { backgroundColor: isActive ? 'rgba(34,197,94,0.15)' : 'rgba(211,175,55,0.12)' },
-                      ]}>
+                      <View
+                        style={[
+                          styles.packageIconWrap,
+                          { backgroundColor: isActive ? 'rgba(34,197,94,0.15)' : 'rgba(211,175,55,0.10)' },
+                        ]}
+                      >
                         <SvgIcon
                           name={isActive ? 'check' : 'credit-card'}
-                          size={16}
+                          size={15}
                           color={isActive ? '#22c55e' : colors.primary}
                         />
                       </View>
                       <View style={styles.packageInfo}>
-                        <Text style={[styles.packageName, { color: isActive ? colors.foreground : LOCATION_COLOR }]} numberOfLines={1}>
+                        <Text
+                          style={[styles.packageName, { color: colors.foreground }]}
+                          numberOfLines={1}
+                        >
                           {cert.productName}
                         </Text>
                         <Text style={[styles.packageValue, { color: colors.mutedForeground }]}>
@@ -330,11 +353,13 @@ export default function BookScreen() {
                         </Text>
                       </View>
                     </View>
-                    <Text style={[
-                      styles.packageAction,
-                      { color: isActive ? '#22c55e' : colors.primary },
-                    ]}>
-                      {isActive ? 'Applied ✓' : 'Tap to Use'}
+                    <Text
+                      style={[
+                        styles.packageAction,
+                        { color: isActive ? '#22c55e' : colors.mutedForeground },
+                      ]}
+                    >
+                      {isActive ? 'Applied ✓' : 'Use'}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -345,45 +370,53 @@ export default function BookScreen() {
       )}
 
       {/* ── Certificate code section ──────────────────────────────── */}
-      <View style={styles.certSection}>
+      <View style={styles.section}>
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-          {memberCerts.length > 0 ? 'OR ENTER A CODE MANUALLY' : 'MEMBERSHIP CODE'}
+          {memberCerts.length > 0 ? 'OR ENTER A CODE MANUALLY' : 'MEMBERSHIP / PACKAGE CODE'}
         </Text>
 
-        {/* Input row */}
-        <View style={[
-          styles.certInputRow,
-          { backgroundColor: colors.card, borderColor: code ? certBannerBorder : colors.border },
-        ]}>
-          <SvgIcon name="credit-card" size={18} color={certIconColor} />
+        <View
+          style={[
+            styles.certInputRow,
+            {
+              backgroundColor: colors.card,
+              borderColor: code ? certBannerBorder : colors.border,
+            },
+          ]}
+        >
+          <SvgIcon name="credit-card" size={17} color={certIconColor} />
           <TextInput
             style={[styles.certInput, { color: colors.foreground }]}
-            placeholder="Enter membership code"
+            placeholder="Enter certificate code"
             placeholderTextColor={colors.mutedForeground}
             value={code}
             onChangeText={applyCode}
             autoCapitalize="characters"
             autoCorrect={false}
             returnKeyType="done"
+            accessibilityLabel="Membership or package certificate code"
           />
           {status === 'checking' && (
             <ActivityIndicator size="small" color={colors.primary} />
           )}
           {code.length > 0 && status !== 'checking' && (
-            <TouchableOpacity onPress={clearCode} hitSlop={8}>
-              <SvgIcon name="x" size={18} color={colors.mutedForeground} />
+            <TouchableOpacity
+              onPress={clearCode}
+              hitSlop={10}
+              accessibilityLabel="Clear certificate code"
+            >
+              <SvgIcon name="x" size={17} color={colors.mutedForeground} />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Status banner */}
         {status === 'valid' && info && (
           <View style={[styles.certBanner, { backgroundColor: certBannerBg, borderColor: certBannerBorder }]}>
-            <SvgIcon name="check" size={15} color="#22c55e" />
+            <SvgIcon name="check" size={14} color="#22c55e" />
             <Text style={[styles.certBannerText, { color: '#22c55e' }]}>
               {info.productName}
               {(() => {
-                const matchedCert = memberCerts.find(c => c.code === code);
+                const matchedCert = memberCerts.find((c) => c.code === code);
                 const rv = matchedCert?.remainingValue ?? info.remainingValue;
                 return rv && rv !== '0.00'
                   ? ` · ${rv.includes('session') ? '' : '$'}${rv} remaining`
@@ -395,63 +428,37 @@ export default function BookScreen() {
         )}
         {status === 'invalid' && code.length > 0 && (
           <View style={[styles.certBanner, { backgroundColor: certBannerBg, borderColor: certBannerBorder }]}>
-            <SvgIcon name="alert-circle" size={15} color="#ef4444" />
+            <SvgIcon name="alert-circle" size={14} color="#ef4444" />
             <Text style={[styles.certBannerText, { color: '#ef4444' }]}>
-              Invalid or expired membership code
+              Invalid or expired certificate code
             </Text>
           </View>
         )}
       </View>
 
-      {/* ── Location cards ────────────────────────────────────────── */}
-      <View style={styles.cards}>
-        {configQuery.isLoading
-          ? [1, 2].map((i) => (
-              <View
-                key={i}
-                style={[styles.card, { backgroundColor: LOCATION_COLOR_MUTED, borderColor: LOCATION_COLOR_BORDER, minHeight: 160 }]}
-              >
-                <ActivityIndicator color={LOCATION_COLOR} />
-              </View>
-            ))
-          : (acuityConfig?.locations ?? []).map((loc) => (
-          <TouchableOpacity
-            key={loc.id}
-            onPress={() => handleBook(loc)}
-            activeOpacity={0.75}
-            style={[
-              styles.card,
-              {
-                backgroundColor: LOCATION_COLOR_MUTED,
-                borderColor: LOCATION_COLOR_BORDER,
-              },
-            ]}
-          >
-            <View style={[styles.iconWrap, { backgroundColor: LOCATION_COLOR_MUTED }]}>
-              <SvgIcon name="map-pin" size={22} color={LOCATION_COLOR} />
-            </View>
-
-            <View style={styles.cardBody}>
-              <Text style={[styles.locName, { color: LOCATION_COLOR }]}>{loc.name}</Text>
-              <Text style={[styles.locSub, { color: colors.mutedForeground }]}>
-                View availability &amp; book a session
-              </Text>
-            </View>
-
-            <View style={styles.btnRow}>
-              <View style={[styles.btn, { backgroundColor: LOCATION_COLOR }]}>
-                <Text style={styles.btnText}>Book Now</Text>
-              </View>
-              {status === 'valid' && (
-                <View style={styles.certBadge}>
-                  <SvgIcon name="check" size={11} color="#22c55e" />
-                  <Text style={styles.certBadgeText}>Code applied</Text>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* ── Free Trial — small text link at bottom ────────────────── */}
+      <TouchableOpacity
+        onPress={() => {
+          if (!acuityConfig) return;
+          WebBrowser.openBrowserAsync(
+            `https://app.acuityscheduling.com/schedule.php?owner=${acuityConfig.ownerId}&appointmentType=${acuityConfig.appointmentTypes.freeTrial}${memberEmail ? `&email=${encodeURIComponent(memberEmail)}` : ''}`,
+            { dismissButtonStyle: 'close', toolbarColor: '#000000', controlsColor: '#D3AF37' },
+          );
+        }}
+        activeOpacity={0.7}
+        disabled={!acuityConfig}
+        accessibilityRole="link"
+        accessibilityLabel="Book a free trial"
+        style={[styles.trialLink, { opacity: acuityConfig ? 1 : 0.4 }]}
+      >
+        <Text style={[styles.trialLinkText, { color: colors.mutedForeground }]}>
+          New to Fit Club?{' '}
+          <Text style={[styles.trialLinkCta, { color: colors.primary }]}>
+            Book a free trial
+          </Text>
+        </Text>
+        <SvgIcon name="external-link" size={12} color={colors.primary} />
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -460,49 +467,81 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
   },
+
+  // Header
   header: {
     marginBottom: 24,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    marginBottom: 6,
+    fontFamily: 'BarlowCondensed_800ExtraBold',
+    fontSize: 34,
+    letterSpacing: 2,
+    marginBottom: 4,
   },
   subtitle: {
+    fontFamily: 'Inter_400Regular',
     fontSize: 15,
     lineHeight: 22,
   },
 
-  // Free trial button
-  trialBtn: {
+  // Location cards
+  locationCards: {
+    gap: 12,
+    marginBottom: 28,
+  },
+  locationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
     borderWidth: 1.5,
-    borderRadius: 14,
-    borderStyle: 'dashed',
-    paddingVertical: 14,
-    marginBottom: 20,
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    gap: 12,
   },
-  trialBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+  locationCardBody: {
+    flex: 1,
+    gap: 4,
+  },
+  locationName: {
+    fontFamily: 'BarlowCondensed_700Bold',
+    fontSize: 22,
+    letterSpacing: 0.5,
+    lineHeight: 26,
+  },
+  locationServices: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+  },
+  appliedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  appliedText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    color: '#22c55e',
   },
 
-  // Packages section
-  packagesSection: {
+  // Divider
+  divider: {
+    height: 1,
+    marginBottom: 24,
+  },
+
+  // Sections
+  section: {
     marginBottom: 24,
     gap: 10,
   },
   sectionLabel: {
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 11,
-    fontWeight: '700',
     letterSpacing: 0.8,
-    marginBottom: 2,
   },
+
+  // Packages
   packagesList: {
     gap: 8,
   },
@@ -522,8 +561,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   packageIconWrap: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -533,36 +572,33 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   packageName: {
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 14,
-    fontWeight: '700',
   },
   packageValue: {
+    fontFamily: 'Inter_400Regular',
     fontSize: 12,
   },
   packageAction: {
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 13,
-    fontWeight: '700',
     marginLeft: 8,
   },
 
-  // Certificate code section
-  certSection: {
-    marginBottom: 24,
-    gap: 8,
-  },
+  // Certificate input
   certInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
     gap: 10,
   },
   certInput: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
     letterSpacing: 1.5,
     padding: 0,
   },
@@ -576,67 +612,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   certBannerText: {
+    fontFamily: 'Inter_500Medium',
     fontSize: 13,
-    fontWeight: '600',
     flex: 1,
   },
 
-  // Location cards
-  cards: {
-    gap: 16,
-  },
-  card: {
-    borderWidth: 1.5,
-    borderRadius: 20,
-    padding: 24,
-    gap: 14,
-  },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  // Free trial text link
+  trialLink: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 4,
   },
-  cardBody: {
-    gap: 4,
-  },
-  locName: {
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  locSub: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  btnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 4,
-  },
-  btn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 6,
-  },
-  btnText: {
+  trialLinkText: {
+    fontFamily: 'Inter_400Regular',
     fontSize: 14,
-    fontWeight: '700',
-    color: '#000',
   },
-  certBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  certBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#22c55e',
+  trialLinkCta: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
   },
 });

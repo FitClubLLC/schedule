@@ -8,17 +8,20 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useAuth, useUser } from '@clerk/expo';
+import { useAuth } from '@clerk/expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
-import SvgIcon, { SvgIconName } from '@/components/SvgIcon';
+import SvgIcon from '@/components/SvgIcon';
+import { BookingProgress } from '@/components/book/BookingProgress';
+
+const STEPS_WITH_SERVICE    = ['Location', 'Service', 'Date & Time', 'Confirm'];
+const STEPS_WITHOUT_SERVICE = ['Location', 'Date & Time', 'Confirm'];
 
 export default function ConfirmScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { getToken } = useAuth();
-  const { user } = useUser();
 
   const {
     locationId,
@@ -26,6 +29,7 @@ export default function ConfirmScreen() {
     appointmentTypeID,
     appointmentTypeName,
     certificate,
+    from,
     date,
     dateDisplay,
     datetime,
@@ -36,18 +40,17 @@ export default function ConfirmScreen() {
     appointmentTypeID: string;
     appointmentTypeName: string;
     certificate: string;
+    from: string;
     date: string;
     dateDisplay: string;
     datetime: string;
     timeDisplay: string;
   }>();
 
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
+  const steps = from === 'select-service' ? STEPS_WITH_SERVICE : STEPS_WITHOUT_SERVICE;
 
-  const memberName =
-    [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Member';
-  const memberEmail = user?.primaryEmailAddress?.emailAddress ?? '';
+  const [submitting, setSubmitting]   = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const hasCertificate = !!(certificate?.trim());
   const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
@@ -86,7 +89,7 @@ export default function ConfirmScreen() {
       router.replace({
         pathname: '/(tabs)/book/confirmed',
         params: {
-          appointmentId: String(appt.id ?? ''),
+          appointmentId:   String(appt.id ?? ''),
           appointmentType: appt.type ?? appointmentTypeName,
           dateDisplay,
           timeDisplay,
@@ -101,16 +104,24 @@ export default function ConfirmScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+    <View
+      style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}
+    >
       {/* ── Header ─────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={12}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Back to Date & Time"
+        >
           <SvgIcon name="chevron-left" size={24} color={colors.foreground} />
         </TouchableOpacity>
         <View style={styles.headerText}>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>REVIEW BOOKING</Text>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>CONFIRM BOOKING</Text>
           <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>
-            Confirm your details below
+            Review your session details
           </Text>
         </View>
       </View>
@@ -120,43 +131,27 @@ export default function ConfirmScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Booking details card ────────────────────────────────── */}
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>YOUR SESSION</Text>
+        {/* Progress */}
+        <BookingProgress steps={steps} currentStep="Confirm" />
 
-          <Row
-            icon="clock"
-            label={appointmentTypeName}
-            value={locationName}
-            colors={colors}
-          />
+        {/* ── Session summary ──────────────────────────────────── */}
+        <View
+          style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
+          <SummaryRow label="SERVICE"  value={appointmentTypeName ?? ''} colors={colors} />
           <Divider colors={colors} />
-          <Row
-            icon="calendar"
-            label={dateDisplay ?? date}
-            value={timeDisplay}
-            colors={colors}
-          />
+          <SummaryRow label="LOCATION" value={locationName ?? ''} colors={colors} />
           <Divider colors={colors} />
-          <Row
-            icon="map-pin"
-            label="Location"
-            value={locationName}
-            colors={colors}
-          />
+          <SummaryRow label="DATE"     value={dateDisplay ?? date ?? ''} colors={colors} />
+          <Divider colors={colors} />
+          <SummaryRow label="TIME"     value={timeDisplay ?? ''} colors={colors} />
         </View>
 
-        {/* ── Member details card ──────────────────────────────────── */}
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.cardLabel, { color: colors.mutedForeground }]}>YOUR DETAILS</Text>
-          <Row icon="user" label={memberName} value={memberEmail} colors={colors} />
-        </View>
-
-        {/* ── Certificate card ─────────────────────────────────────── */}
+        {/* ── Certificate banner ───────────────────────────────── */}
         {hasCertificate && (
           <View
             style={[
-              styles.card,
+              styles.certCard,
               {
                 backgroundColor: 'rgba(34,197,94,0.08)',
                 borderColor: 'rgba(34,197,94,0.35)',
@@ -164,11 +159,9 @@ export default function ConfirmScreen() {
             ]}
           >
             <View style={styles.certRow}>
-              <SvgIcon name="check" size={16} color="#22c55e" />
+              <SvgIcon name="check" size={15} color="#22c55e" />
               <View style={{ flex: 1 }}>
-                <Text style={[styles.certTitle, { color: '#22c55e' }]}>
-                  Membership Applied
-                </Text>
+                <Text style={styles.certTitle}>Membership Applied</Text>
                 <Text style={[styles.certCode, { color: colors.mutedForeground }]}>
                   Code: {certificate}
                 </Text>
@@ -177,15 +170,18 @@ export default function ConfirmScreen() {
           </View>
         )}
 
-        {/* ── Error ───────────────────────────────────────────────── */}
+        {/* ── Submit error ─────────────────────────────────────── */}
         {submitError ? (
           <View
             style={[
               styles.errorBox,
-              { backgroundColor: 'rgba(239,68,68,0.10)', borderColor: 'rgba(239,68,68,0.35)' },
+              {
+                backgroundColor: 'rgba(239,68,68,0.10)',
+                borderColor: 'rgba(239,68,68,0.35)',
+              },
             ]}
           >
-            <SvgIcon name="alert-circle" size={16} color={colors.destructive} />
+            <SvgIcon name="alert-circle" size={15} color={colors.destructive} />
             <Text style={[styles.errorText, { color: colors.destructive }]}>
               {submitError}
             </Text>
@@ -212,6 +208,8 @@ export default function ConfirmScreen() {
           onPress={handleConfirm}
           disabled={submitting}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Confirm Booking"
           style={[
             styles.confirmBtn,
             { backgroundColor: colors.primary, opacity: submitting ? 0.6 : 1 },
@@ -230,65 +228,56 @@ export default function ConfirmScreen() {
   );
 }
 
-// ─── small sub-components ─────────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────────────────────────
 
-interface RowProps {
-  icon: SvgIconName;
+interface SummaryRowProps {
   label: string;
   value: string;
   colors: ReturnType<typeof import('@/hooks/useColors').useColors>;
 }
 
-function Row({ icon, label, value, colors }: RowProps) {
+function SummaryRow({ label, value, colors }: SummaryRowProps) {
   return (
     <View style={rowStyles.row}>
-      <View style={[rowStyles.iconWrap, { backgroundColor: 'rgba(211,175,55,0.12)' }]}>
-        <SvgIcon name={icon} size={16} color={colors.primary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[rowStyles.label, { color: colors.foreground }]}>{label}</Text>
-        {value ? (
-          <Text style={[rowStyles.value, { color: colors.mutedForeground }]}>{value}</Text>
-        ) : null}
-      </View>
+      <Text style={[rowStyles.label, { color: colors.mutedForeground }]}>{label}</Text>
+      <Text style={[rowStyles.value, { color: colors.foreground }]} numberOfLines={2}>
+        {value}
+      </Text>
     </View>
   );
 }
 
 function Divider({ colors }: { colors: ReturnType<typeof import('@/hooks/useColors').useColors> }) {
-  return <View style={[dividerStyles.line, { backgroundColor: colors.border }]} />;
+  return <View style={[dividerStyle.line, { backgroundColor: colors.border }]} />;
 }
 
 const rowStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingVertical: 12,
-  },
-  iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    gap: 16,
   },
   label: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    flexShrink: 0,
   },
   value: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
-    marginTop: 1,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 15,
+    flex: 1,
+    textAlign: 'right',
   },
 });
 
-const dividerStyles = StyleSheet.create({
-  line: {
-    height: 1,
-  },
+const dividerStyle = StyleSheet.create({
+  line: { height: 1 },
 });
+
+// ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -319,21 +308,18 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 4,
     gap: 16,
   },
-  card: {
+  summaryCard: {
     borderRadius: 16,
     borderWidth: 1.5,
     paddingHorizontal: 16,
-    paddingVertical: 8,
   },
-  cardLabel: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 10,
-    letterSpacing: 1.2,
-    paddingTop: 10,
-    paddingBottom: 4,
+  certCard: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
   },
   certRow: {
     flexDirection: 'row',
@@ -344,6 +330,7 @@ const styles = StyleSheet.create({
   certTitle: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 14,
+    color: '#22c55e',
   },
   certCode: {
     fontFamily: 'Inter_400Regular',
