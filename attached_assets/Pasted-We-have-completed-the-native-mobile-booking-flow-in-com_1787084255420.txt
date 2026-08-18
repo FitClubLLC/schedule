@@ -1,0 +1,311 @@
+We have completed the native mobile booking flow in commit 36cc6da.
+
+Before we make any additional scheduling changes, perform a focused QA and hardening pass on the new native mobile booking flow.
+
+IMPORTANT:
+Do not redesign the flow.
+Do not modify the web booking experience.
+Do not change the Free Trial CTA.
+Do not make unrelated application changes.
+
+The goal is to find and fix bugs in the new native booking flow before we proceed.
+
+## Flow to test
+
+Book
+→ Select Date
+→ Select Time
+→ Confirm
+→ Confirmed
+
+Routes:
+
+/(tabs)/book
+/(tabs)/book/select-date
+/(tabs)/book/select-time
+/(tabs)/book/confirm
+/(tabs)/book/confirmed
+
+## 1. Test appointment eligibility
+
+Verify that the native flow uses the exact same eligibility rules as the previous Acuity booking flow.
+
+Pay particular attention to:
+
+* Appointment type
+* Membership status
+* Certificate/package
+* Certificate availability
+* Location
+* Calendar/provider
+* Any restrictions based on the member
+
+There must not be a way for the native UI to allow a booking that Acuity/backend would reject because of eligibility.
+
+If you find duplicated eligibility logic, do not create a third version. Consolidate only if necessary and safe.
+
+## 2. Test availability
+
+Verify:
+
+* Past dates cannot be selected
+* Unavailable dates cannot be selected
+* Available dates can be selected
+* Changing the month works
+* Changing dates refreshes times correctly
+* Loading states are correct
+* Empty availability is understandable
+* API failures are handled
+
+Pay special attention to race conditions:
+
+Example:
+
+User selects Monday
+→ times request begins
+
+User quickly selects Tuesday
+→ second request begins
+
+Monday's response arrives after Tuesday's response
+
+The UI must NOT display Monday's times for Tuesday.
+
+The existing implementation reportedly contains a race-condition guard. Verify that it actually works correctly.
+
+## 3. Test timezone behavior
+
+Inspect the date/time handling carefully.
+
+Determine:
+
+* What timezone Acuity returns
+* What timezone the backend uses
+* What timezone the mobile UI displays
+* What timezone is submitted when creating an appointment
+
+Make sure a member selecting:
+
+"Wednesday at 5:30 AM"
+
+does not accidentally receive:
+
+"Tuesday at 11:30 PM"
+
+or another incorrect time because of UTC conversion.
+
+Do not change timezone architecture unless you identify an actual problem.
+
+If the existing behavior is correct, document why.
+
+## 4. Test duplicate booking prevention
+
+Verify what happens if the member:
+
+* Taps Confirm twice quickly
+* Has a slow network connection
+* Leaves the screen while booking is submitting
+* Returns to the screen
+* Receives a timeout after Acuity actually created the appointment
+
+The application must not intentionally submit duplicate bookings.
+
+If the backend already protects against duplication, document that rather than creating redundant protection.
+
+## 5. Test booking conflicts
+
+Simulate or inspect the behavior when:
+
+* A time slot was available
+* Another user books it
+* This member then attempts to book it
+
+The member should receive a clear error rather than seeing a false success.
+
+The app should not assume that a previously retrieved availability slot is guaranteed to remain available.
+
+## 6. Test back navigation
+
+Verify:
+
+Book
+→ Date
+→ Time
+→ Confirm
+
+Then:
+
+Confirm → Time
+Time → Date
+
+Verify that selections are preserved appropriately.
+
+Also verify what happens if the user:
+
+* Leaves the booking flow
+* Returns later
+* Uses the system back gesture
+* Uses Android back
+* Uses iOS navigation gestures
+
+There must not be stale or corrupted booking state.
+
+## 7. Test successful booking state
+
+After successful booking:
+
+Verify that:
+
+* Confirmation screen appears
+* Appointment information is correct
+* Correct date/time is displayed
+* Correct location is displayed
+* Correct service is displayed
+* Certificate state is updated
+* Appointment/session data is refreshed
+* Sessions tab reflects the new appointment
+* Returning to the booking flow does not show stale availability or certificate data
+
+Verify the cache invalidation implemented in the current version.
+
+## 8. Test failed booking state
+
+Verify behavior for:
+
+* Network failure
+* Acuity/API error
+* Invalid appointment
+* Expired certificate
+* Slot no longer available
+* Server error
+
+The member should:
+
+* See a clear explanation
+* Remain in a recoverable state
+* Not lose all of their selections unnecessarily
+* Be able to try again
+
+Do not expose raw API errors to the user.
+
+## 9. Test member information
+
+On Confirm, verify that member information comes from the authenticated application rather than user-entered values.
+
+Verify that:
+
+* Correct member
+* Correct name
+* Correct email
+* Correct account information
+
+are used.
+
+Do not move any sensitive information into client-side configuration.
+
+## 10. Test navigation after booking
+
+Verify:
+
+Confirmed
+→ Sessions
+
+and make sure the new appointment actually appears there.
+
+Verify that the member can navigate back to the dashboard without being trapped in the booking flow.
+
+## 11. Test existing functionality
+
+Run regression checks on:
+
+* Existing cancellation
+* Existing rescheduling
+* Existing Sessions screen
+* Existing Book screen
+* Existing authentication
+* Existing membership/certificate functionality
+
+Do not modify unrelated functionality just because you notice cosmetic improvements.
+
+## 12. Static/code review
+
+Inspect the new code for:
+
+* TypeScript errors
+* Unused imports
+* Incorrect navigation types
+* Duplicate API logic
+* Hardcoded appointment IDs
+* Hardcoded calendar IDs
+* Hardcoded member information
+* Hardcoded dates/times
+* Acuity credentials exposed to the client
+* Missing error handling
+* Missing loading states
+
+Run the project's standard:
+
+* Typecheck
+* Lint
+* Tests
+* Build
+
+Use the project's existing commands rather than inventing new ones.
+
+## 13. Fix only real problems
+
+If you find bugs that directly affect the native booking flow, fix them.
+
+Do NOT:
+
+* Redesign the UI
+* Change the web portal
+* Change Acuity architecture
+* Change the database schema
+* Modify unrelated screens
+* Add unnecessary dependencies
+* Refactor large portions of the application
+
+## 14. Final report
+
+When finished, report:
+
+### Tests performed
+
+List each test and result.
+
+### Bugs found
+
+For each bug:
+
+* Description
+* Cause
+* File
+* Fix
+
+### Potential issues not fixed
+
+List anything you discovered but intentionally left untouched.
+
+### Architecture confirmation
+
+Confirm whether the native flow is correctly using:
+
+FitClub UI
+→ Existing FitClub API
+→ Acuity
+
+rather than exposing Acuity credentials or logic to the mobile client.
+
+### Validation
+
+Report the results of:
+
+* Typecheck
+* Lint
+* Tests
+* Build
+
+If all tests pass, explicitly say so.
+
+Do not modify the web booking experience during this task.
