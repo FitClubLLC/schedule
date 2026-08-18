@@ -1,0 +1,145 @@
+We are preparing the native booking flow for a visual/UX redesign.
+
+Before redesigning the UI, make two small correctness/usability fixes identified in the previous implementation report.
+
+Do NOT redesign the booking screens yet.
+
+Do NOT change the backend architecture.
+
+Do NOT modify unrelated functionality.
+
+## Fix 1 — Correct appointment type name
+
+Current issue:
+
+SelectDate.tsx has a fallback of:
+
+"Workout for 1"
+
+when appointmentTypeName is not present in the URL.
+
+This is incorrect because the selected appointment type may be Red Light Therapy.
+
+Fix this so the UI always derives the appointment type name from the authoritative booking configuration when possible.
+
+Requirements:
+
+* Do not hardcode "Workout for 1" as a generic fallback.
+* Use the selected appointmentTypeID to find the corresponding appointment type from /api/booking/config.
+* If the type cannot be resolved, use a neutral fallback such as "Appointment" rather than incorrectly claiming it is Workout for 1.
+* Apply the same principle anywhere else in the booking flow where appointmentTypeName is displayed.
+* Do not duplicate appointment type definitions.
+
+Verify that:
+
+* Workout for 1 displays correctly.
+* Red Light Therapy displays correctly.
+
+## Fix 2 — Preserve selected time when navigating backward
+
+Current issue:
+
+On web:
+
+Select Date
+→ Select Time
+→ Confirm
+→ Back
+
+can cause the previously selected time slot to be lost because selection is stored only in local component state.
+
+Improve this behavior.
+
+The preferred approach is to preserve the selected date/time through the existing route/query state rather than introducing a large global state solution.
+
+For example, if the existing architecture supports it:
+
+Select Time
+→ Confirm?datetime=<selected ISO datetime>
+
+or an equivalent route-state mechanism.
+
+Requirements:
+
+* Preserve the exact Acuity datetime value.
+* Do not convert it to a display string and then attempt to reconstruct it.
+* Do not alter timezone behavior.
+* Do not duplicate booking state globally unless necessary.
+* If the user changes the date, invalidate/remove the previously selected time.
+* If the selected time is no longer available, require the user to choose another time.
+* Confirm must always submit the currently valid selected datetime.
+
+Do not implement a complex state-management system for this.
+
+## Mobile
+
+Inspect the mobile flow as well.
+
+If mobile already behaves correctly, do not change it.
+
+If the same appointment-name fallback exists on mobile, fix it using the same authoritative config approach.
+
+Do not make unrelated mobile changes.
+
+## Testing
+
+Test:
+
+### Appointment names
+
+* Potomac → Workout for 1
+* Kentlands → Workout for 1
+* Kentlands → Red Light Therapy
+
+Verify the correct service name appears throughout the flow.
+
+### Back navigation
+
+* Select date
+* Select time
+* Continue to Confirm
+* Navigate back
+* Verify selected time remains selected
+* Continue again
+* Verify correct datetime is submitted
+
+### Date change
+
+* Select Date A
+* Select Time A
+* Go back
+* Change to Date B
+* Verify Time A is no longer considered selected
+* Select Time B
+* Confirm
+* Verify Time B is submitted
+
+### Availability change
+
+If practical, verify behavior when a previously selected time is no longer available.
+
+Do not create a fake booking or modify production Acuity data just for testing.
+
+## Validation
+
+Run:
+
+* Web typecheck
+* Mobile typecheck
+* Web build
+* Existing tests if available
+
+Do not fix unrelated pre-existing errors.
+
+## Final response
+
+Report:
+
+* Files changed
+* Appointment-name solution
+* Time-selection persistence solution
+* Tests performed
+* Typecheck/build results
+* Any remaining issues
+
+Do not perform any visual redesign in this task.
