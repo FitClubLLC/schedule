@@ -1,0 +1,240 @@
+We now have native booking flows working on both mobile and web.
+
+Before doing visual polish, we need to correct one architectural limitation identified during implementation:
+
+The current native booking flow is effectively hardcoded to the "Workout for 1" appointment type.
+
+Do NOT redesign the entire booking experience yet.
+
+The goal of this task is to determine and implement the correct data-driven service/appointment-type model.
+
+## IMPORTANT
+
+Do not modify:
+
+* Acuity credentials
+* Authentication
+* Database schema
+* Cancellation
+* Rescheduling
+* Free Trial booking
+* Unrelated dashboard functionality
+
+Do not make assumptions about which appointment types members should see.
+
+Inspect the actual application and Acuity configuration/backend logic first.
+
+## STEP 1 — Inventory appointment types
+
+Inspect the existing:
+
+* /api/booking/config
+* Acuity integration
+* appointment type configuration
+* certificate/package logic
+* location logic
+* membership logic
+* mobile booking implementation
+* web booking implementation
+
+Determine every appointment type currently relevant to FitClub.
+
+For each appointment type, identify:
+
+* Acuity appointmentTypeID
+* Name
+* Duration
+* Location(s)
+* Calendar/provider if applicable
+* Whether it requires a certificate
+* Which certificates/packages can be used
+* Whether it is member-only
+* Whether it is available for free trials
+* Whether it is currently exposed anywhere in the application
+
+Do not expose Acuity credentials.
+
+## STEP 2 — Determine the correct booking model
+
+Answer this question based on the actual code and business logic:
+
+Should the member choose:
+
+A. Service first → then location
+
+B. Location first → then service
+
+C. The application should automatically determine the service based on the member's certificate/package
+
+D. Some combination of the above
+
+Do not simply choose A/B/C based on preference.
+
+Base the recommendation on the actual appointment types, certificates, and existing FitClub behavior.
+
+Document the reasoning.
+
+## STEP 3 — Identify the Kentlands / Red Light Therapy issue
+
+The previous implementation identified:
+
+"Service selector (Red Light Therapy at Kentlands) — Not implemented; hardcoded to Workout for 1."
+
+Investigate this specifically.
+
+Determine:
+
+* What appointment type represents Red Light Therapy
+* Which location(s) support it
+* How a member becomes eligible
+* Whether it requires a specific certificate
+* Whether members can have multiple eligible services
+* Whether the service should appear as a selectable option
+
+Do not guess.
+
+## STEP 4 — Design the smallest correct service-selection model
+
+Based on the investigation, propose the simplest correct booking model.
+
+For example, if a member can legitimately choose between:
+
+Workout for 1
+Red Light Therapy
+
+then the UI may need:
+
+Choose Service
+→ Choose Location
+→ Choose Date
+→ Choose Time
+
+But if the member's certificate/package uniquely determines the appointment type, the service selection may not be necessary.
+
+The goal is to minimize unnecessary decisions for the member.
+
+## STEP 5 — Backend remains authoritative
+
+Do not move eligibility rules into the browser.
+
+The client may display eligible options, but the backend must remain authoritative.
+
+The browser must not be trusted to determine:
+
+* Member identity
+* Eligibility
+* Certificate ownership
+* Valid appointment type
+* Valid location
+
+Do not expose Acuity credentials.
+
+## STEP 6 — Implement only after determining the model
+
+Once you have determined the correct model:
+
+Implement the smallest necessary change to make appointment type selection/data flow correct.
+
+Reuse existing APIs and hooks.
+
+Do not create duplicated appointment-type logic.
+
+If the existing backend needs a change to expose the correct appointment types, STOP before changing it and report the required backend change to me.
+
+Do not modify the backend without approval.
+
+## STEP 7 — Mobile and web consistency
+
+The same booking rules must apply to:
+
+* Mobile
+* Web
+
+Do not create separate lists of appointment types.
+
+Both clients should consume the same backend data.
+
+The UI can differ appropriately between mobile and web, but the underlying appointment/service model must be shared.
+
+## STEP 8 — Preserve existing booking functionality
+
+Verify that after this change:
+
+* Workout for 1 still works
+* Any other valid service still works
+* Certificate application still works
+* Availability remains correct
+* Correct appointmentTypeID is sent
+* Correct location is sent
+* Booking creation still works
+* Existing cancellation works
+* Existing rescheduling works
+* Free Trial is unchanged
+
+## STEP 9 — Do NOT address these yet
+
+Do not spend time on:
+
+* Overall visual redesign
+* Animation
+* Typography redesign
+* Dashboard redesign
+* Slot-selection persistence
+* Acuity email bug
+* Web/mobile visual parity
+
+Those will be addressed later.
+
+## STEP 10 — Testing
+
+Test every valid service/appointment type you discover.
+
+For each:
+
+* Eligibility
+* Location
+* Date availability
+* Time availability
+* Confirmation
+* Booking
+* Certificate behavior
+
+Run:
+
+* Typecheck
+* Build
+* Existing tests if available
+
+## Final report
+
+Report:
+
+### Appointment type inventory
+
+List all relevant appointment types and their IDs.
+
+### Recommended booking model
+
+Explain exactly what the member should choose and why.
+
+### Red Light Therapy
+
+Explain its correct place in the booking flow.
+
+### Implementation
+
+List files changed and why.
+
+### Backend
+
+Confirm whether backend changes were required.
+
+### Testing
+
+Report results.
+
+### Remaining questions
+
+List anything that requires business clarification rather than a technical decision.
+
+If the correct service-selection behavior cannot be determined from the code/configuration, STOP and ask for clarification rather than guessing.
