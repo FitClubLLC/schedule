@@ -1,0 +1,454 @@
+We have completed the native booking architecture for both web and mobile.
+
+The current flow is:
+
+Book
+→ Location
+→ Service (when multiple eligible services exist)
+→ Date
+→ Time
+→ Confirm
+→ Confirmed
+
+The underlying functionality is now stable.
+
+Before making any UI changes, perform a detailed UX/UI audit.
+
+IMPORTANT:
+
+DO NOT MODIFY CODE.
+
+DO NOT CHANGE STYLES.
+
+DO NOT CREATE COMPONENTS.
+
+DO NOT MAKE A COMMIT.
+
+This is an audit and recommendation task only.
+
+We need to understand how the current FitClub portal looks and behaves before deciding what to redesign.
+
+## 1. Review the overall web application
+
+Audit the major authenticated member areas, including:
+
+* Dashboard/home
+* Book
+* Sessions/Appointments
+* Profile/account
+* Any navigation/sidebar/header
+* Cards
+* Buttons
+* Forms
+* Modals
+* Empty states
+* Error states
+* Mobile responsive behavior
+
+Identify the existing visual language:
+
+* Typography
+* Font sizes
+* Font weights
+* Colors
+* Backgrounds
+* Borders
+* Corner radius
+* Shadows
+* Spacing
+* Iconography
+* Button styles
+* Card styles
+* Navigation patterns
+
+Determine whether the application currently feels:
+
+* Cohesive
+* Premium
+* Modern
+* Fitness/wellness-oriented
+* Trustworthy
+* Easy to use
+
+Do not redesign it yet.
+
+## 2. Audit the current booking experience
+
+Walk through:
+
+Book
+→ Location
+→ Service
+→ Date
+→ Time
+→ Confirm
+→ Confirmed
+
+Evaluate each screen from a member's perspective.
+
+For every screen answer:
+
+### A. What is the member trying to accomplish?
+
+### B. Is that action immediately obvious?
+
+### C. What information does the member need?
+
+### D. Is there unnecessary information?
+
+### E. Is the hierarchy clear?
+
+### F. Is the primary action obvious?
+
+### G. Is it clear what happens next?
+
+### H. Is it clear how to go backward?
+
+### I. Does the screen feel consistent with the rest of FitClub?
+
+### J. Does anything feel like an Acuity replacement rather than a native FitClub experience?
+
+## 3. Analyze the booking flow as a whole
+
+Evaluate whether:
+
+Location
+→ Service
+→ Date
+→ Time
+→ Confirm
+
+is the right mental model.
+
+Specifically assess:
+
+* Number of steps
+* Cognitive load
+* Amount of information per step
+* Whether steps can be combined
+* Whether the member needs a persistent summary
+* Whether the member understands their current selection
+* Whether the member knows how many steps remain
+
+Recommend whether we should use:
+
+A. Separate screens
+
+B. A wizard/stepper
+
+C. One booking page with progressive sections
+
+D. Another approach
+
+Do not implement the recommendation.
+
+Explain why.
+
+## 4. Analyze location selection
+
+Review the existing Potomac/Kentlands cards.
+
+Evaluate:
+
+* Whether the locations are visually distinguishable
+* Whether the member gets enough information
+* Whether address/location details are useful
+* Whether map/directions information should appear
+* Whether the card clearly communicates "choose this location"
+* Whether the card looks clickable
+* Whether the design works on mobile
+
+Recommend improvements.
+
+## 5. Analyze service selection
+
+Review the new service selector.
+
+Evaluate:
+
+* Workout for 1
+* Red Light Therapy
+
+Determine whether the service cards communicate:
+
+* What the service is
+* Who it is for
+* Duration
+* Location
+* Any important eligibility information
+
+Consider whether Red Light Therapy needs a short explanatory description.
+
+Do NOT invent business copy.
+
+If information is missing, identify what information should be supplied.
+
+## 6. Analyze date selection
+
+Review the calendar.
+
+Evaluate:
+
+* Month navigation
+* Available vs unavailable dates
+* Selected date
+* Current date
+* Past dates
+* Mobile usability
+* Desktop usability
+* Visual hierarchy
+
+Consider whether the calendar should show:
+
+* Availability indicators
+* "Today"
+* Selected state
+* Day-of-week labels
+* Month/year context
+
+Recommend the clearest approach.
+
+## 7. Analyze time selection
+
+Review the time slot UI.
+
+Evaluate:
+
+* Slot grouping
+* Morning/afternoon/evening organization
+* Number of slots displayed
+* Selected state
+* Loading state
+* Empty state
+* Mobile usability
+* Desktop usability
+
+Determine whether a simple grid is optimal.
+
+Consider whether times should be grouped into:
+
+Morning
+Afternoon
+Evening
+
+if that improves scanning.
+
+Do not implement.
+
+## 8. Analyze confirmation
+
+Review the Confirm screen.
+
+Determine whether the member can immediately answer:
+
+"What exactly am I booking?"
+
+The confirmation should make these obvious:
+
+* Service
+* Location
+* Date
+* Time
+
+Evaluate whether the member information should be shown.
+
+Evaluate whether the certificate/package should be shown.
+
+Recommend the ideal hierarchy.
+
+## 9. Analyze the confirmed/success screen
+
+Evaluate:
+
+* Confirmation messaging
+* Appointment details
+* Next action
+* Sessions link
+* Book another session
+* Whether the member feels confident the booking actually succeeded
+
+Recommend improvements.
+
+## 10. Analyze responsive design
+
+Audit the booking experience at approximately:
+
+* 1440px desktop
+* 1024px tablet
+* 768px tablet
+* 390px mobile
+* 375px mobile
+
+Identify:
+
+* Overflow
+* Excessive scrolling
+* Poor button placement
+* Small touch targets
+* Broken grids
+* Excessive whitespace
+* Information that becomes difficult to scan
+
+Do not make changes.
+
+## 11. Compare web and mobile
+
+Compare the web and mobile booking experiences.
+
+They should NOT necessarily be identical.
+
+Identify:
+
+* What should be visually consistent
+* What should differ because of platform
+* Where terminology differs
+* Where navigation differs
+* Where one platform has a better interaction pattern
+
+Recommend which implementation should serve as the design reference for each interaction.
+
+## 12. Evaluate accessibility
+
+Audit:
+
+* Color contrast
+* Button labels
+* Keyboard navigation
+* Focus states
+* Touch target sizes
+* Form/control labeling
+* Screen-reader semantics
+* Calendar accessibility
+* Error messaging
+
+Do not fix anything yet.
+
+Identify the highest-priority accessibility issues.
+
+## 13. Evaluate perceived quality
+
+This is important.
+
+Assess the booking flow against the standard of a polished consumer wellness/fitness application.
+
+Ask:
+
+Does this feel like:
+
+"an Acuity replacement"
+
+or:
+
+"a purpose-built FitClub booking experience"?
+
+Explain exactly what creates that perception.
+
+## 14. Identify unnecessary friction
+
+List every unnecessary action or decision a member currently has to make.
+
+For example:
+
+* Re-entering information
+* Choosing something the system already knows
+* Navigating through redundant screens
+* Confirming information multiple times
+* Searching for their appointment after booking
+
+Separate:
+
+### Must fix
+
+### Should improve
+
+### Nice to have
+
+## 15. Recommend the ideal future flow
+
+Create a proposed booking journey.
+
+For example:
+
+Book
+→ Location
+→ Service
+→ Date & Time
+→ Confirm
+
+or another model if your analysis supports it.
+
+Explain every step.
+
+The goal is to minimize friction while preserving clarity.
+
+## 16. Design system recommendations
+
+Based on the existing application, recommend whether we should establish reusable booking-specific patterns for:
+
+* Page header
+* Step indicator
+* Location card
+* Service card
+* Calendar
+* Time slot
+* Summary card
+* Primary CTA
+* Secondary CTA
+* Empty state
+* Error state
+* Success state
+
+Again: recommendations only.
+
+## 17. Prioritize recommendations
+
+Create three categories:
+
+### P0 — Fix before launch
+
+Problems that materially affect usability, trust, accessibility, or booking completion.
+
+### P1 — High-value improvements
+
+Changes that substantially improve the experience.
+
+### P2 — Polish
+
+Visual refinements that improve perceived quality but aren't essential.
+
+## 18. Final deliverable
+
+Produce a detailed report with these sections:
+
+1. Executive Summary
+2. Current Booking Experience
+3. Web Application UX Audit
+4. Mobile Booking UX Audit
+5. Booking Flow Analysis
+6. Location Selection
+7. Service Selection
+8. Calendar
+9. Time Selection
+10. Confirmation
+11. Success Screen
+12. Responsive Design
+13. Accessibility
+14. Friction Analysis
+15. Recommended Future Flow
+16. Design System Recommendations
+17. P0/P1/P2 Priorities
+18. Specific Recommended Changes
+
+For every recommendation include:
+
+* Problem
+* Why it matters
+* Recommended solution
+* Priority
+* Web/mobile/both
+
+DO NOT MODIFY CODE.
+
+DO NOT MAKE A COMMIT.
+
+This is an analysis-only task.
