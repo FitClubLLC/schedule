@@ -1,0 +1,285 @@
+I want to have an external AI review this application for functionality, UX/UI design, architecture, and especially the Acuity Scheduling integration.
+
+Do NOT make any changes to the application yet. I only want you to inspect and document the current implementation.
+
+Production URL:
+https://client-dashboard-fitclub.replit.app
+
+Please perform a thorough technical and UX audit of the application and create a review package that another developer/AI can use to understand the app and recommend improvements.
+
+## 1. Application overview
+
+Explain:
+
+* What the application does
+* The primary user types/roles
+* The main user journeys
+* The main pages/routes
+* The primary actions users can take
+* What technologies/frameworks/libraries are being used
+* How the frontend, backend, database, and external services are connected
+
+## 2. Project structure
+
+Provide the relevant project directory/file structure.
+
+Identify the files responsible for:
+
+* Main application/layout
+* Navigation
+* Dashboard
+* Authentication
+* User/client profiles
+* Scheduling/appointments
+* Acuity integration
+* API/server routes
+* Database models/schema
+* Forms
+* Notifications
+* Email/SMS
+* Styling/theme/design system
+* Mobile/responsive behavior
+
+Do not include node_modules, build artifacts, secrets, environment files, or other unnecessary generated files.
+
+## 3. Acuity Scheduling integration — IMPORTANT
+
+This is the highest-priority part of the audit.
+
+Identify exactly how Acuity Scheduling is currently integrated.
+
+Tell me:
+
+* Whether the application uses an iframe/embed
+* Whether it uses Acuity's API
+* Whether it uses Acuity scheduling links
+* Whether it uses Acuity OAuth
+* Which Acuity appointment types are used
+* Which calendars/providers are used
+* How availability is retrieved
+* How appointments are created
+* How appointment information is stored locally
+* How client information is passed to Acuity
+* How cancellations/rescheduling work
+* How confirmations work
+* Whether webhooks are used
+* Whether Acuity data is synchronized with the application's database
+* Where Acuity-related code lives
+* Which environment variables/secrets are required
+
+IMPORTANT:
+Do NOT reveal actual API keys, access tokens, passwords, secrets, or private credentials. Show only the variable names and explain how they are used.
+
+## 4. Trace the scheduling flow
+
+Trace the complete scheduling experience from the moment a user decides to book an appointment through confirmation.
+
+For example:
+
+User action
+→ frontend component
+→ API request
+→ backend
+→ Acuity
+→ database
+→ confirmation
+
+Identify every step.
+
+For each step, identify the relevant file/component/function.
+
+Also identify unnecessary steps, duplicated steps, redirects, external-looking screens, or places where the user is effectively leaving the application's experience.
+
+## 5. Acuity UX assessment
+
+Analyze the current scheduling experience specifically from the user's perspective.
+
+Identify:
+
+* How many screens/clicks are required to book
+* What information the user must enter
+* What information we already know about the user that could potentially be pre-filled
+* Whether the user has to repeat information
+* Whether the user sees unnecessary Acuity branding/UI
+* Whether the transition into Acuity feels seamless
+* Whether users can easily understand appointment type/service
+* Whether provider selection is clear
+* Whether date/time selection is intuitive
+* Whether errors are understandable
+* Whether confirmation is clear
+* Whether cancellation/rescheduling is intuitive
+* Whether the experience works well on mobile
+
+Then recommend how the scheduling flow could be redesigned so that Acuity functions primarily as the scheduling engine while the application's UI provides a more seamless branded experience.
+
+## 6. Explore alternative Acuity architectures
+
+Based on the existing implementation, compare these possible approaches:
+
+A. Improved Acuity embed
+
+B. Custom frontend + Acuity scheduling backend/API
+
+C. Hybrid approach where our application controls service/provider/client selection and Acuity handles availability and appointment creation
+
+D. Any other architecture you believe would be better
+
+For each approach, explain:
+
+* User experience
+* Technical complexity
+* Development effort
+* Reliability
+* Maintenance
+* Security considerations
+* What existing code could be reused
+* What would need to be rebuilt
+* Advantages
+* Disadvantages
+
+Then recommend ONE approach as the preferred architecture.
+
+## 7. Functional audit
+
+Look for potential bugs or weak areas involving:
+
+* Authentication
+* Authorization
+* Data persistence
+* API errors
+* Loading states
+* Empty states
+* Error states
+* Form validation
+* Duplicate submissions
+* Race conditions
+* Appointment conflicts
+* Time zones
+* Date/time handling
+* Mobile behavior
+* Browser compatibility
+* Network failures
+* Security
+* Performance
+
+Do not modify anything. Just document findings.
+
+## 8. UI/UX audit
+
+Review the application visually and structurally.
+
+Evaluate:
+
+* Overall visual hierarchy
+* Navigation
+* Dashboard organization
+* Typography
+* Spacing
+* Buttons
+* Forms
+* Cards
+* Tables
+* Modals
+* Color usage
+* Consistency
+* Mobile responsiveness
+* Accessibility
+* Empty states
+* Error states
+* Calls to action
+* User onboarding
+* Information density
+
+Identify anything that makes the application feel unfinished, confusing, dated, inconsistent, or harder to use than necessary.
+
+## 9. Scheduling redesign proposal
+
+Create a proposed ideal scheduling experience for this application.
+
+The goal is:
+
+"Make booking an appointment feel like a native feature of this application, while using Acuity behind the scenes wherever it makes sense."
+
+Describe the proposed flow screen-by-screen.
+
+For example:
+
+Dashboard
+→ Book Appointment
+→ Choose Service
+→ Choose Provider
+→ Choose Date
+→ Choose Time
+→ Confirm Details
+→ Booking Confirmation
+
+But do not assume this exact flow is correct. Base your recommendation on the actual application and Acuity implementation.
+
+For every proposed screen, describe:
+
+* What the user sees
+* What information is displayed
+* What information is pre-filled
+* What actions are available
+* What data is sent to Acuity
+* What data is stored locally
+* What happens after the action
+
+## 10. Code-level recommendations
+
+Identify specific files/components that should eventually be:
+
+* changed
+* consolidated
+* removed
+* created
+* refactored
+
+For each recommendation, explain why.
+
+Do NOT make these changes yet.
+
+## 11. Create an audit document
+
+Please create a markdown file at:
+
+/docs/APP_AUDIT.md
+
+It should contain the complete findings above.
+
+Also create:
+
+/docs/ACUITY_INTEGRATION.md
+
+This should contain:
+
+* Current Acuity architecture
+* Current booking flow
+* Relevant files/components
+* API/data flow
+* Current problems
+* Recommended architecture
+* Proposed future booking flow
+* Migration considerations
+
+And create:
+
+/docs/FILE_MAP.md
+
+This should provide a concise map of the important application files and what each one does.
+
+## 12. Final executive summary
+
+At the top of APP_AUDIT.md, provide a concise summary containing:
+
+1. Overall assessment
+2. Top 5 functionality problems
+3. Top 5 UX/design problems
+4. Top 5 Acuity/scheduling problems
+5. Recommended scheduling architecture
+6. Highest-priority improvements
+7. Estimated complexity of the recommended Acuity redesign
+
+Again: DO NOT modify application code, database structure, UI, configuration, or behavior.
+
+This is an inspection and documentation task only.
