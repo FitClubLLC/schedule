@@ -1,0 +1,183 @@
+We are going to improve the FitClub scheduling experience in a series of small, controlled steps.
+
+IMPORTANT: Do NOT modify any code yet. This step is analysis and preparation only.
+
+The ultimate goal is to replace the current member-facing Acuity booking experience with a native FitClub booking flow while continuing to use Acuity as the scheduling engine/source of truth.
+
+The desired eventual experience is approximately:
+
+FitClub Dashboard
+→ Book a Session
+→ Choose Service
+→ Choose Location
+→ Choose Date
+→ Choose Time
+→ Review Booking
+→ Confirm Booking
+→ FitClub Confirmation
+
+The user should remain inside the FitClub application throughout the experience. Acuity should operate primarily behind the scenes through the existing backend/API integration.
+
+## Your task
+
+Thoroughly inspect the existing codebase and identify exactly what is currently involved in booking an appointment.
+
+DO NOT change files, dependencies, database schemas, APIs, styling, routes, or behavior.
+
+### 1. Trace the current booking flow
+
+Starting from the member-facing "Book" or scheduling action, trace the complete flow through:
+
+* Dashboard
+* Navigation
+* Booking page/component
+* Service/appointment selection
+* Acuity integration
+* Availability retrieval
+* Appointment creation
+* Database updates
+* Confirmation
+* Any redirects or external Acuity pages
+
+For each step, identify:
+
+* File path
+* Component/function name
+* What it does
+* What API endpoint it calls
+* What data it receives
+* What data it sends
+
+### 2. Identify the existing Acuity API functionality
+
+Find every existing backend endpoint/function related to Acuity scheduling.
+
+Pay particular attention to whether the application already has functionality for:
+
+* Getting appointment types
+* Getting calendars/providers
+* Getting availability
+* Creating appointments
+* Canceling appointments
+* Rescheduling appointments
+* Getting client/member information
+* Applying certificates/packages
+* Determining eligible appointment types
+* Handling Acuity errors
+
+For each one, give me the exact file path and function/route name.
+
+### 3. Identify reusable code
+
+Create a section called:
+
+"Existing functionality we should reuse"
+
+List everything already implemented that can support the native booking experience.
+
+Do NOT recommend rebuilding functionality that already exists.
+
+### 4. Identify the current Acuity handoff
+
+Find exactly where the application currently sends the user into Acuity's hosted scheduling experience.
+
+Explain:
+
+* What triggers the handoff
+* Which component does it
+* What information is passed to Acuity
+* Whether the user is redirected, shown an iframe, or otherwise embedded
+* Whether member information is passed through
+* Whether appointment type/provider/location information is already known before the handoff
+
+### 5. Identify member context
+
+Determine what member information is already available to the application when a logged-in member starts booking.
+
+Specifically identify whether we already know:
+
+* Member ID
+* Name
+* Email
+* Phone
+* Preferred location
+* Membership/package
+* Certificates/credits
+* Eligible appointment types
+* Previous appointment history
+* Assigned coach/trainer, if applicable
+
+Do not expose secrets or sensitive credentials.
+
+### 6. Identify the current UI components
+
+Find the components that currently handle:
+
+* Book button
+* Scheduling page
+* Service selection
+* Date selection
+* Time selection
+* Booking confirmation
+* Loading states
+* Error states
+* Empty availability states
+
+If some of these do not currently exist, explicitly say so.
+
+### 7. Recommend the smallest first implementation
+
+Based on the existing code, recommend the smallest safe first coding step toward a native booking flow.
+
+The recommendation should NOT involve rebuilding the entire booking system.
+
+For example, if appropriate, it might be:
+
+"Replace the current Acuity handoff with a native appointment-type selection screen while leaving the rest of the booking process unchanged."
+
+But determine the appropriate first step based on the actual code.
+
+### 8. Create a change plan
+
+Create:
+
+/docs/NATIVE_BOOKING_PLAN.md
+
+Include:
+
+* Current booking architecture
+* Current booking flow
+* Existing reusable APIs
+* Existing reusable UI
+* Current Acuity handoff
+* Member data already available
+* Recommended architecture
+* Proposed booking flow
+* Recommended first code change
+* Files that would need to change
+* Files that should NOT change
+
+### 9. Safety requirements
+
+Before making any future changes:
+
+* Do not expose Acuity API keys
+* Do not move secrets to the frontend
+* Keep Acuity credentials server-side
+* Do not change authentication
+* Do not change the database schema unless explicitly instructed
+* Do not remove the existing Acuity booking flow yet
+* Do not break mobile while modifying web
+* Do not modify unrelated features
+* Do not install unnecessary dependencies
+
+At the end, report:
+
+1. What you found
+2. The current booking flow
+3. The exact files involved
+4. The existing APIs we can reuse
+5. Your recommended first implementation step
+6. The exact files you would modify in that step
+
+Again: DO NOT modify the application yet.
