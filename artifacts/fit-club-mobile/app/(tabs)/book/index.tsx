@@ -4,7 +4,7 @@ import {
   TextInput, ActivityIndicator, ScrollView, RefreshControl,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth, useUser } from '@clerk/expo';
 import { useColors } from '@/hooks/useColors';
@@ -12,7 +12,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SvgIcon from '@/components/SvgIcon';
 import { useCertificate } from '@/hooks/useCertificate';
 import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
-import { friendlyError } from '@/lib/friendlyError';
 
 interface MemberCert {
   code: string;
@@ -38,48 +37,6 @@ const LOCATION_COLOR = '#D3AF37';
 const LOCATION_COLOR_MUTED = 'rgba(211,175,55,0.18)';
 const LOCATION_COLOR_BORDER = 'rgba(211,175,55,0.5)';
 
-function acuityUrl(
-  config: AcuityConfig,
-  locationId: string,
-  calendarId: string,
-  certificate?: string,
-  email?: string,
-) {
-  const cert = certificate?.trim();
-  // Pre-fill the member's email so Acuity records the appointment under the
-  // same address used in Clerk — prevents mismatches that hide bookings in the app.
-  const emailParam = email ? `&email=${encodeURIComponent(email)}` : '';
-  const base = `https://app.acuityscheduling.com/schedule.php?owner=${config.ownerId}&calendarID=${calendarId}${emailParam}`;
-  if (!cert) return base;
-  const withCert = `${base}&certificate=${encodeURIComponent(cert)}`;
-  const { workoutFor1, redLightTherapy } = config.appointmentTypes;
-  // Potomac (location 1): restrict to Workout for 1 only
-  if (locationId === '1') return `${withCert}&appointmentType=${workoutFor1}`;
-  // Kentlands (location 2): Workout for 1 + Red Light Therapy
-  return `${withCert}&appointmentType[]=${workoutFor1}&appointmentType[]=${redLightTherapy}`;
-}
-
-interface Appointment {
-  id: number;
-  type: string;
-  date: string;
-  time: string;
-  duration: number;
-  location?: string | null;
-  calendar?: string | null;
-}
-
-function formatBookingTime(isoStr: string): string {
-  return new Date(isoStr).toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit', hour12: true,
-  });
-}
-function formatBookingDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
-  });
-}
-
 export default function BookScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -89,9 +46,8 @@ export default function BookScreen() {
   const { certificate: certParam } = useLocalSearchParams<{ certificate?: string }>();
   const { code, applyCode, clearCode, status, info } = useCertificate();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  const [bookingInProgress, setBookingInProgress] = useState(false);
-  const [newBooking, setNewBooking] = useState<Appointment | null>(null);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -101,12 +57,11 @@ export default function BookScreen() {
         queryClient.refetchQueries({ queryKey: ['cert-check'] }),
       ]);
     } finally {
-      // Always clear the spinner — even if a refetch throws.
       setRefreshing(false);
     }
   }, [queryClient]);
 
-  // Auto-refresh session counts when returning from Acuity's browser booking page
+  // Auto-refresh certificates when returning from an external browser (Free Trial flow).
   useAppForegroundRefresh([['member-certificates']]);
 
   const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
@@ -131,8 +86,6 @@ export default function BookScreen() {
   const certsQuery = useQuery<MemberCert[]>({
     queryKey: ['member-certificates'],
     enabled: !!isSignedIn,
-    // Use the global staleTime: 0 so focusManager refetches this on app foreground,
-    // keeping the session count in sync after a booking or cancellation in Acuity.
     queryFn: async () => {
       const token = await getToken();
       if (!token) throw new Error('Not signed in');
@@ -154,37 +107,30 @@ export default function BookScreen() {
     }
   }, [certParam]);
 
-  const handleBook = async (locationId: string, calendarId: string, _name: string) => {
-    if (!acuityConfig || bookingInProgress) return;
-    const url = acuityUrl(acuityConfig, locationId, calendarId, status === 'valid' ? code : undefined, memberEmail);
+  // Navigate into the native booking flow for the selected location.
+  // Acuity is called behind the scenes via POST /api/booking/appointments —
+  // the member never sees Acuity's hosted scheduling UI.
+  const handleBook = (locationId: string, _calendarId: string, locationName: string) => {
+    if (!acuityConfig) return;
 
-    // Snapshot current appointments so we can detect a new booking after return
-    const beforeAppts = queryClient.getQueryData<Appointment[]>(['/api/appointments/upcoming']) ?? [];
-    const beforeIds = new Set(beforeAppts.map((a) => a.id));
+    // Default to Workout for 1 for both locations.
+    // Red Light Therapy (Kentlands-only) will be selectable once
+    // the service-selector step is added in a future iteration.
+    const appointmentTypeID = acuityConfig.appointmentTypes.workoutFor1;
+    const appointmentTypeName = 'Workout for 1';
 
-    setBookingInProgress(true);
-    try {
-      await WebBrowser.openBrowserAsync(url, {
-        dismissButtonStyle: 'close',
-        toolbarColor: '#000000',
-        controlsColor: '#D3AF37',
-      });
-    } finally {
-      setBookingInProgress(false);
-    }
-
-    // Browser closed — refresh data and check for a newly booked appointment
-    try {
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ['/api/appointments/upcoming'] }),
-        queryClient.refetchQueries({ queryKey: ['member-certificates'] }),
-      ]);
-      const afterAppts = queryClient.getQueryData<Appointment[]>(['/api/appointments/upcoming']) ?? [];
-      const detected = afterAppts.find((a) => !beforeIds.has(a.id));
-      if (detected) setNewBooking(detected);
-    } catch {
-      // Silently ignore — data will refresh on next foreground return
-    }
+    router.push({
+      pathname: '/(tabs)/book/select-date',
+      params: {
+        locationId,
+        locationName,
+        appointmentTypeID,
+        appointmentTypeName,
+        // Pass an empty string rather than undefined — Expo Router serialises
+        // params as strings, so the confirm screen checks `certificate.trim()`.
+        certificate: status === 'valid' ? code : '',
+      },
+    });
   };
 
   const certBannerBg =
@@ -220,7 +166,7 @@ export default function BookScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Book a Session</Text>
-        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
           Choose your preferred location to view availability and book.
         </Text>
       </View>
@@ -290,10 +236,6 @@ export default function BookScreen() {
                           {cert.productName}
                         </Text>
                         <Text style={[styles.packageValue, { color: colors.mutedForeground }]}>
-                          {/* Always use cert.remainingValue from the list endpoint —
-                              it's refreshed on every pull-to-refresh, cancel, and
-                              foreground resume. Session counts contain "session";
-                              dollar amounts are e.g. "45.00". */}
                           {cert.remainingValue.includes('session')
                             ? `${cert.remainingValue} remaining`
                             : `$${cert.remainingValue} remaining`}
@@ -353,8 +295,6 @@ export default function BookScreen() {
             <Text style={[styles.certBannerText, { color: '#22c55e' }]}>
               {info.productName}
               {(() => {
-                // Prefer the fresh list value (updated on every refetch) over the
-                // stale /check value so the banner stays in sync after bookings/cancels.
                 const matchedCert = memberCerts.find(c => c.code === code);
                 const rv = matchedCert?.remainingValue ?? info.remainingValue;
                 return rv && rv !== '0.00'
@@ -374,27 +314,6 @@ export default function BookScreen() {
           </View>
         )}
       </View>
-
-      {/* ── Booking confirmation banner ───────────────────────────── */}
-      {newBooking && (
-        <TouchableOpacity
-          onPress={() => setNewBooking(null)}
-          activeOpacity={0.85}
-          style={[styles.bookingBanner, { backgroundColor: 'rgba(34,197,94,0.12)', borderColor: 'rgba(34,197,94,0.45)' }]}
-        >
-          <View style={styles.bookingBannerLeft}>
-            <SvgIcon name="check" size={20} color="#22c55e" />
-            <View style={styles.bookingBannerText}>
-              <Text style={[styles.bookingBannerTitle, { color: '#22c55e' }]}>You're booked!</Text>
-              <Text style={[styles.bookingBannerDetail, { color: colors.mutedForeground }]}>
-                {formatBookingDate(newBooking.date)} at {formatBookingTime(newBooking.time)}
-                {newBooking.calendar ? ` · ${newBooking.calendar}` : ''}
-              </Text>
-            </View>
-          </View>
-          <SvgIcon name="x" size={16} color={colors.mutedForeground} />
-        </TouchableOpacity>
-      )}
 
       {/* ── Location cards ────────────────────────────────────────── */}
       <View style={styles.cards}>
@@ -432,10 +351,8 @@ export default function BookScreen() {
             </View>
 
             <View style={styles.btnRow}>
-              <View style={[styles.btn, { backgroundColor: bookingInProgress ? LOCATION_COLOR_MUTED : LOCATION_COLOR }]}>
-                {bookingInProgress
-                  ? <ActivityIndicator size="small" color={LOCATION_COLOR} />
-                  : <Text style={styles.btnText}>Book Now</Text>}
+              <View style={[styles.btn, { backgroundColor: LOCATION_COLOR }]}>
+                <Text style={styles.btnText}>Book Now</Text>
               </View>
               {status === 'valid' && (
                 <View style={styles.certBadge}>
@@ -633,34 +550,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#22c55e',
-  },
-  bookingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1.5,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 16,
-    gap: 12,
-  },
-  bookingBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  bookingBannerText: {
-    flex: 1,
-    gap: 2,
-  },
-  bookingBannerTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  bookingBannerDetail: {
-    fontSize: 13,
-    fontWeight: '500',
   },
 });
