@@ -20,6 +20,10 @@ function acuityAuth(): string {
   return `Basic ${token}`;
 }
 
+function nonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 async function getClerkUserEmail(userId: string): Promise<string | null> {
   try {
     const user = await clerkClient.users.getUser(userId);
@@ -325,8 +329,17 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       return;
     }
 
-    // Derive identity from Clerk — do not trust client-submitted values
-    const clerkUser = await clerkClient.users.getUser(req.userId);
+    // Use the verified Clerk session that authenticated this exact request rather
+    // than a mutable request property. The Admin API is authoritative, while the
+    // signed session claims provide a safe fallback if its user representation is
+    // temporarily missing a profile field.
+    const auth = getAuth(req);
+    const userId = auth.userId;
+    if (!userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const clerkUser = await clerkClient.users.getUser(userId);
     const email =
       clerkUser.emailAddresses.find((e: any) => e.id === clerkUser.primaryEmailAddressId)?.emailAddress ??
       clerkUser.emailAddresses[0]?.emailAddress;
@@ -334,17 +347,48 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       res.status(400).json({ error: "Authenticated user has no email address on file" });
       return;
     }
-    const firstName = clerkUser.firstName ?? "";
-    const lastName = clerkUser.lastName ?? "";
+    const sessionClaims = (auth.sessionClaims ?? {}) as Record<string, unknown>;
+    const clerkFirstName = nonEmptyString(clerkUser.firstName);
+    const clerkLastName = nonEmptyString(clerkUser.lastName);
+    const firstName = clerkFirstName ?? nonEmptyString(sessionClaims.first_name);
+    const lastName = clerkLastName ?? nonEmptyString(sessionClaims.last_name);
+
+    if (!firstName) {
+      req.log.error(
+        {
+          userId,
+          clerkUserId: clerkUser.id,
+          clerkFirstName: clerkUser.firstName ?? null,
+          sessionFirstName: sessionClaims.first_name ?? null,
+        },
+        "Acuity booking identity is missing firstName",
+      );
+      res.status(422).json({
+        error: "Your profile is missing a first name. Update it and try again.",
+      });
+      return;
+    }
+
+    req.log.info(
+      {
+        userId,
+        clerkUserId: clerkUser.id,
+        firstName,
+        lastName: lastName ?? null,
+        firstNameSource: clerkFirstName ? "clerk-user" : "session-claim",
+        lastNameSource: clerkLastName ? "clerk-user" : lastName ? "session-claim" : "missing",
+      },
+      "Acuity booking identity resolved",
+    );
 
     const payload: Record<string, unknown> = {
       appointmentTypeID: Number(appointmentTypeID),
       calendarID: Number(calendarId),
       datetime,
       firstName,
-      lastName,
       email,
     };
+    if (lastName) payload.lastName = lastName;
     if (phone) payload.phone = phone;
     if (notes) payload.notes = notes;
     if (certificate) payload.certificate = String(certificate);
