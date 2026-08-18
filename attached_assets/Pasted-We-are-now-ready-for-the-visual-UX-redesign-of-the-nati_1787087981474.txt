@@ -1,0 +1,634 @@
+We are now ready for the visual/UX redesign of the native FitClub booking flow.
+
+The booking architecture is complete and working.
+
+Current flow:
+
+Book
+→ Select Location
+→ Select Service (only when multiple eligible services exist)
+→ Select Date + Time
+→ Confirm
+→ Confirmed
+
+Commit c7d9a8e contains the current structural implementation.
+
+The goal is NOT to make the application flashy.
+
+The goal is to make booking feel like a polished, premium, native FitClub experience rather than a replacement for Acuity.
+
+## IMPORTANT
+
+This is a focused redesign of the booking experience.
+
+Do NOT redesign the entire application.
+
+Do NOT change:
+
+* Backend booking APIs
+* Acuity integration
+* Authentication
+* Certificate eligibility rules
+* Availability logic
+* Cancellation
+* Rescheduling
+* Free Trial flow
+* Appointment creation
+* Booking validation
+
+Preserve all existing functionality.
+
+Before modifying anything, inspect the existing FitClub design system and reuse its existing:
+
+* Colors
+* Typography
+* Buttons
+* Icons
+* Cards
+* Spacing tokens
+* Shell/navigation
+* Existing components
+
+Do not introduce a new design system.
+
+---
+
+# DESIGN DIRECTION
+
+The visual goal is:
+
+PREMIUM
+CALM
+ATHLETIC
+CONFIDENT
+MINIMAL
+NATIVE
+
+Think high-end fitness/wellness membership experience.
+
+Avoid:
+
+* Generic SaaS dashboard appearance
+* Generic calendar-app appearance
+* Acuity-like form layouts
+* Excessive borders
+* Excessive cards
+* Excessive gold
+* Huge headings
+* Unnecessary animations
+* Decorative UI that doesn't help the booking decision
+
+The existing dark FitClub aesthetic and gold accent should remain the foundation.
+
+Use the gold accent primarily for:
+
+* Selected states
+* Primary actions
+* Important emphasis
+
+Do not turn every element gold.
+
+---
+
+# 1. BOOK SCREEN
+
+Redesign the authenticated Book screen.
+
+The member's primary question should immediately be:
+
+"Where would you like to train?"
+
+Make Location selection the visual focus.
+
+## Location cards
+
+Create premium location cards for:
+
+POTOMAC
+
+and
+
+KENTLANDS
+
+Each card should clearly communicate:
+
+* Location name
+* City/neighborhood or address if already available in the application
+* Services available at that location
+* Clear indication that the card is selectable
+
+Do NOT invent addresses, descriptions, amenities, or marketing claims.
+
+Use information already available in the application.
+
+The entire card should be one interactive target.
+
+Do not nest buttons inside clickable cards.
+
+Use a subtle arrow/chevron or equivalent affordance to communicate navigation.
+
+Cards should feel substantial and intentional without becoming oversized.
+
+---
+
+# 2. PACKAGE / CERTIFICATE AREA
+
+Do not remove certificate functionality.
+
+Reframe it so it feels secondary to choosing where to book.
+
+Existing authenticated members should not feel like they are filling out a checkout form.
+
+If the member already has available certificates/packages, present them as an optional contextual section.
+
+Manual certificate entry should be secondary.
+
+Use language consistent with the existing application.
+
+Do not invent new business terminology.
+
+---
+
+# 3. BOOKING PROGRESS
+
+Add a subtle booking progress indicator to the booking sub-flow.
+
+Preferred desktop presentation:
+
+BOOK
+Location → Service → Date & Time → Confirm
+
+The current step should be visually emphasized.
+
+Completed steps can be visually de-emphasized but recognizable.
+
+Do not create a giant "STEP 2 OF 4" banner.
+
+The progress indicator should consume very little vertical space.
+
+On mobile, make it even more compact.
+
+Do not show a Service step when the member is not actually required to select a service.
+
+For example:
+
+Potomac:
+
+Location → Date & Time → Confirm
+
+Kentlands with only one eligible service:
+
+Location → Date & Time → Confirm
+
+Kentlands with multiple eligible services:
+
+Location → Service → Date & Time → Confirm
+
+The progress indicator must reflect the actual path.
+
+---
+
+# 4. SERVICE SELECTION
+
+When multiple services are eligible, show:
+
+CHOOSE YOUR SESSION
+
+Use the existing appointment type names.
+
+Do not invent descriptions.
+
+If a description or duration exists in the existing API/config, display it.
+
+Otherwise show only the information we actually know.
+
+Service cards should:
+
+* Be easy to scan
+* Have one clear selection state
+* Have generous touch targets
+* Use the FitClub visual language
+* Avoid nested buttons
+* Clearly communicate selected/unselected state
+
+The entire card should be selectable.
+
+Do not make the member click a tiny "Select" button.
+
+---
+
+# 5. DATE + TIME SCREEN
+
+This is the centerpiece of the redesign.
+
+Current implementation already combines date and time.
+
+Preserve that architecture.
+
+## Desktop
+
+Use a balanced two-column layout:
+
+LEFT:
+Calendar
+
+RIGHT:
+Available times
+
+The two panels should feel like one cohesive booking interface, not two unrelated cards.
+
+At the top:
+
+CHOOSE YOUR TIME
+
+Then a compact context:
+
+Kentlands
+Workout for 1
+
+Do not repeat information unnecessarily.
+
+## Calendar
+
+Improve visual clarity while preserving the existing calendar component/behavior.
+
+Clearly distinguish:
+
+* Available dates
+* Selected date
+* Today
+* Unavailable dates
+* Past dates
+
+The selected date should be unmistakable.
+
+Available dates should have a subtle visual cue.
+
+Do not make every available date gold.
+
+## Times
+
+Keep Morning / Afternoon / Evening grouping.
+
+Use generous touch targets.
+
+Selected time should be visually obvious.
+
+Unselected times should remain quiet.
+
+Avoid excessive pill styling if it makes the screen look like a filter interface.
+
+## Mobile
+
+The mobile version must receive the same UX treatment.
+
+Order:
+
+1. Header/context
+2. Calendar
+3. Available times
+4. Sticky bottom CTA
+
+The sticky CTA must not cover content.
+
+The member should always be able to see:
+
+the selected date
+the selected time
+and what pressing Continue will do.
+
+Example:
+
+Continue · Thu, Aug 20 at 2:30 PM
+
+If no time is selected:
+
+Select a time
+
+Do not invent copy if existing FitClub terminology is preferable.
+
+---
+
+# 6. PERSISTENT BOOKING CONTEXT
+
+Use a compact booking summary/context element throughout the booking flow.
+
+It should communicate the member's current selections without becoming a large card.
+
+Example:
+
+KENTLANDS
+Workout for 1
+Thu, Aug 20 · 2:30 PM
+
+Only display information that has actually been selected.
+
+Do not repeat the same information three times on one screen.
+
+---
+
+# 7. CONFIRM SCREEN
+
+Simplify the confirmation experience.
+
+The member should be able to answer immediately:
+
+"What am I booking?"
+
+Show:
+
+SERVICE
+Workout for 1
+
+LOCATION
+Kentlands
+
+DATE
+Thursday, August 20
+
+TIME
+2:30 PM
+
+Certificate/package information should appear only when relevant.
+
+REMOVE the redundant authenticated member "Your Details" card.
+
+The member is already signed in.
+
+Do not make the experience resemble an Acuity checkout.
+
+Primary CTA:
+
+CONFIRM BOOKING
+
+Make it prominent but not oversized.
+
+The cancellation policy should remain visible if it currently exists.
+
+Do not invent new policy language.
+
+---
+
+# 8. CONFIRMED SCREEN
+
+Preserve the existing success screen structure because it already tested well.
+
+Keep:
+
+* Success icon
+* Clear success headline
+* Appointment summary
+* View My Sessions
+* Book Another Session
+
+Improve spacing and hierarchy only.
+
+If the existing system has enough information to support it without backend changes, make the appointment details particularly easy to scan.
+
+Do NOT implement calendar export in this task.
+
+---
+
+# 9. BACK NAVIGATION
+
+Make navigation feel intentional.
+
+Use consistent back controls.
+
+Where practical, communicate the destination:
+
+Back to Location
+Back to Service
+Back to Date & Time
+
+Do not show unnecessary back controls on the confirmed screen.
+
+Do not break the existing explicit routing behavior.
+
+---
+
+# 10. RESPONSIVE DESIGN
+
+This is critical.
+
+Test the redesign at:
+
+1440px
+1024px
+768px
+390px
+375px
+
+Desktop should feel spacious but not empty.
+
+Mobile should feel deliberate, not like a desktop page squeezed into a phone.
+
+Pay particular attention to:
+
+* Sticky CTA
+* Calendar height
+* Time-slot scrolling
+* Touch targets
+* Text wrapping
+* Horizontal overflow
+* Bottom safe areas
+* Navigation/header spacing
+
+---
+
+# 11. ACCESSIBILITY
+
+As part of the redesign:
+
+* Maintain semantic buttons
+* No nested interactive elements
+* Maintain keyboard navigation
+* Visible focus states
+* Adequate contrast
+* Adequate touch targets
+* Proper calendar labels
+* Proper screen-reader announcements for availability/errors
+* aria-live where appropriate for dynamic certificate/availability messages
+
+Do not sacrifice accessibility for aesthetics.
+
+---
+
+# 12. ANIMATION
+
+Use very little animation.
+
+If existing animation infrastructure exists, use subtle transitions only for:
+
+* Selection
+* Screen/state changes
+* Loading
+
+No decorative animation.
+
+The experience should feel calm and fast.
+
+---
+
+# 13. MOBILE PARITY
+
+The mobile booking flow must receive the same design language as web.
+
+Do not simply copy desktop layouts.
+
+Mobile should use:
+
+* Appropriate mobile spacing
+* Full-width touch targets
+* Sticky CTA
+* Compact progress indicator
+* Scroll-friendly time groups
+
+The actual booking rules and terminology must remain identical between platforms.
+
+---
+
+# 14. DO NOT DO THESE THINGS
+
+Do NOT:
+
+* Change API contracts
+* Change backend logic
+* Change certificate rules
+* Add appointment types
+* Change location configuration
+* Modify Acuity
+* Redesign the dashboard
+* Redesign Sessions
+* Redesign Profile
+* Redesign navigation outside booking
+* Add calendar export
+* Add new marketing copy
+* Invent service descriptions
+* Add unnecessary illustrations
+* Add stock photography
+* Introduce a new color palette
+* Introduce a new font
+* Introduce a new component library
+
+---
+
+# 15. CODE QUALITY
+
+Prefer existing reusable components.
+
+If a reusable booking component makes sense, create it rather than duplicating markup between screens.
+
+However, do not over-engineer.
+
+Keep booking-specific components reasonably scoped.
+
+Maintain TypeScript strictness.
+
+Do not introduce new dependencies unless absolutely necessary.
+
+---
+
+# 16. TESTING
+
+Test all booking paths:
+
+### Potomac
+
+Book
+→ Location
+→ Date + Time
+→ Confirm
+→ Confirmed
+
+### Kentlands / one eligible service
+
+Book
+→ Location
+→ Date + Time
+→ Confirm
+→ Confirmed
+
+### Kentlands / multiple eligible services
+
+Book
+→ Location
+→ Service
+→ Date + Time
+→ Confirm
+→ Confirmed
+
+Test:
+
+* Back navigation
+* Date changes
+* Time changes
+* Slot invalidation
+* Certificate behavior
+* Loading states
+* Empty states
+* Error states
+* Successful booking state
+
+Verify that no booking API behavior changed.
+
+---
+
+# 17. VALIDATION
+
+Run:
+
+* Web typecheck
+* Mobile typecheck
+* Web build
+* Existing tests if available
+
+Do not fix unrelated pre-existing errors.
+
+---
+
+# 18. FINAL REPORT
+
+Report:
+
+### Files changed
+
+List every file.
+
+### Design changes
+
+Summarize each screen.
+
+### Shared components
+
+List any new/reused components.
+
+### Responsive behavior
+
+Explain desktop/tablet/mobile behavior.
+
+### Accessibility
+
+List improvements.
+
+### Testing
+
+Report all booking paths tested.
+
+### Build
+
+Report typecheck/build results.
+
+### Remaining issues
+
+Only list issues that genuinely remain.
+
+IMPORTANT:
+
+Do not redesign anything outside the booking experience.
+
+Do not make additional architectural changes.
+
+Do not change business rules.
+
+Commit the completed booking redesign.
