@@ -10,6 +10,10 @@ import Home from "@/pages/Home";
 import Dashboard from "@/pages/Dashboard";
 import Appointments from "@/pages/Appointments";
 import Book from "@/pages/Book";
+import SelectDate from "@/pages/book/SelectDate";
+import SelectTime from "@/pages/book/SelectTime";
+import Confirm from "@/pages/book/Confirm";
+import Confirmed from "@/pages/book/Confirmed";
 import Admin from "@/pages/Admin";
 
 const clerkPubKey = publishableKeyFromHost(
@@ -195,6 +199,22 @@ function ClerkProviderWithRoutes() {
           
           <Route path="/book">
             <ProtectedRoute component={Book} />
+          </Route>
+
+          <Route path="/book/select-date">
+            <ProtectedRoute component={SelectDate} />
+          </Route>
+
+          <Route path="/book/select-time">
+            <ProtectedRoute component={SelectTime} />
+          </Route>
+
+          <Route path="/book/confirm">
+            <ProtectedRoute component={Confirm} />
+          </Route>
+
+          <Route path="/book/confirmed">
+            <ProtectedRoute component={Confirmed} />
           </Route>
 
           <Route path="/admin">

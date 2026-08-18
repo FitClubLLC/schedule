@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Shell } from "@/components/layout/Shell";
 import { cn } from "@/lib/utils";
-import { MapPin, ExternalLink, CreditCard, Check, AlertCircle, X, Loader2, PlusCircle, ArrowLeft } from "lucide-react";
-import { useMemberCertificates, useCertificateCheck, useAcuityConfig, type AcuityConfig } from "@/hooks/useBookingApi";
+import { MapPin, ChevronRight, CreditCard, Check, AlertCircle, X, Loader2, PlusCircle, ArrowLeft, ExternalLink } from "lucide-react";
+import { useMemberCertificates, useCertificateCheck, useAcuityConfig } from "@/hooks/useBookingApi";
 
 const CERT_STORAGE_KEY = "fitclub_certificate";
 
@@ -14,23 +14,6 @@ const LOCATION_ACCENT = {
   cardHover: "border-primary/40 hover:border-primary bg-primary/5 hover:bg-primary/10",
   btn:       "bg-primary text-black hover:bg-primary/90",
 };
-
-function acuityUrl(
-  config: AcuityConfig,
-  calendarId: string,
-  locationId: string,
-  certificate?: string,
-) {
-  const cert = certificate?.trim();
-  const base = `https://app.acuityscheduling.com/schedule.php?owner=${config.ownerId}&calendarID=${calendarId}`;
-  if (!cert) return base;
-  const withCert = `${base}&certificate=${encodeURIComponent(cert)}`;
-  const { workoutFor1, redLightTherapy } = config.appointmentTypes;
-  // Potomac (location 1): restrict to Workout for 1 only
-  if (locationId === "1") return `${withCert}&appointmentType=${workoutFor1}`;
-  // Kentlands (location 2): Workout for 1 + Red Light Therapy
-  return `${withCert}&appointmentType[]=${workoutFor1}&appointmentType[]=${redLightTherapy}`;
-}
 
 function formatRemaining(value: string) {
   // If it starts with a digit it's a session count ("4 sessions"), otherwise dollar amount
@@ -245,34 +228,53 @@ export default function Book() {
           : (acuityConfig?.locations ?? []).map((loc) => {
               const a = LOCATION_ACCENT;
               return (
-                <a
+                <button
                   key={loc.id}
-                  href={acuityUrl(acuityConfig!, loc.calendarId, loc.id, activeCode)}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => {
+                    const params = new URLSearchParams({
+                      locationId: loc.id,
+                      locationName: loc.name,
+                      // Default to Workout for 1 — the single appointment type
+                      // offered in this first step of the native booking flow.
+                      appointmentTypeID:
+                        acuityConfig!.appointmentTypes.workoutFor1,
+                      appointmentTypeName: "Workout for 1",
+                      ...(activeCode ? { certificate: activeCode } : {}),
+                    });
+                    setLocation(`/book/select-date?${params.toString()}`);
+                  }}
                   className={cn(
-                    "group flex flex-col gap-4 rounded-2xl border-2 p-6 transition-all duration-200 no-underline",
+                    "group flex flex-col gap-4 rounded-2xl border-2 p-6 transition-all duration-200 text-left w-full",
                     a.cardHover,
                   )}
                 >
-                  <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", a.bgLight)}>
+                  <div
+                    className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center",
+                      a.bgLight,
+                    )}
+                  >
                     <MapPin className={cn("w-5 h-5", a.text)} />
                   </div>
 
                   <div className="flex-1">
-                    <h3 className={cn("text-2xl font-display font-bold", a.text)}>{loc.name}</h3>
+                    <h3 className={cn("text-2xl font-display font-bold", a.text)}>
+                      {loc.name}
+                    </h3>
                     <p className="text-sm text-muted-foreground mt-1">
                       View availability &amp; book a session
                     </p>
                   </div>
 
                   <div className="flex items-center gap-3 flex-wrap">
-                    <div className={cn(
-                      "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors",
-                      a.btn,
-                    )}>
+                    <div
+                      className={cn(
+                        "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors",
+                        a.btn,
+                      )}
+                    >
                       Book Now
-                      <ExternalLink className="w-3.5 h-3.5" />
+                      <ChevronRight className="w-3.5 h-3.5" />
                     </div>
                     {isValid && (
                       <span className="flex items-center gap-1 text-xs font-semibold text-green-500">
@@ -280,7 +282,7 @@ export default function Book() {
                       </span>
                     )}
                   </div>
-                </a>
+                </button>
               );
             })}
       </div>

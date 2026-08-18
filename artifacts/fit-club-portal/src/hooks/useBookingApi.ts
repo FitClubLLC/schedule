@@ -48,11 +48,14 @@ export interface BookingPayload {
   locationId: string;
   appointmentTypeID: number;
   datetime: string;
-  firstName: string;
-  lastName: string;
-  email: string;
+  // The backend derives identity from the Clerk session and ignores these
+  // client-submitted fields. They remain optional here for type compatibility.
+  firstName?: string;
+  lastName?: string;
+  email?: string;
   phone?: string;
   notes?: string;
+  certificate?: string;
 }
 
 export interface MemberCertificate {
