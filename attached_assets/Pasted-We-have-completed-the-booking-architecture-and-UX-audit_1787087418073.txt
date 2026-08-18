@@ -1,0 +1,314 @@
+We have completed the booking architecture and UX audit.
+
+Do NOT redesign the entire application.
+
+This task is specifically to restructure the native booking flow before visual polish.
+
+The target member journey is:
+
+BOOK
+→ LOCATION
+→ SERVICE (only when necessary)
+→ DATE + TIME
+→ CONFIRM
+→ CONFIRMED
+
+The major change is to combine the current SelectDate and SelectTime screens into a single Date + Time experience.
+
+## IMPORTANT
+
+Preserve all existing backend/API behavior.
+
+Do not modify:
+
+* Acuity authentication
+* Booking API
+* Certificate validation rules
+* Availability APIs
+* Cancellation
+* Rescheduling
+* Free Trial
+* Appointment creation logic
+
+Do not change business rules.
+
+## 1. Create a combined Date + Time experience
+
+Replace the conceptual two-screen flow:
+
+SelectDate
+→ SelectTime
+
+with:
+
+SelectDateTime
+
+The existing SelectDate and SelectTime logic should be reused rather than duplicated.
+
+The new screen should:
+
+1. Load available dates exactly as SelectDate currently does.
+2. Display the calendar.
+3. When a date is selected, fetch available times using the existing availability hook.
+4. Display available times for that selected date.
+5. Preserve the exact Acuity datetime value.
+6. Allow the member to change dates and automatically refresh the available times.
+7. Clear the selected time when the date changes.
+8. Clear the selected time if the previously selected slot is no longer available.
+9. Continue to Confirm with the selected datetime.
+
+Do not combine the backend API calls. They should remain separate internally.
+
+## 2. Desktop layout
+
+For desktop/tablet:
+
+Use a two-column layout.
+
+LEFT:
+Calendar
+
+RIGHT:
+Available times for selected date
+
+Before a date is selected, the right panel should show a simple instructional empty state:
+
+"Choose a date"
+"Select an available date to see appointment times."
+
+After selecting a date:
+
+"THURSDAY, AUGUST 20"
+
+Then group times into:
+
+MORNING
+AFTERNOON
+EVENING
+
+Only display groups that contain available slots.
+
+Do not invent times or availability.
+
+## 3. Mobile layout
+
+For mobile:
+
+Calendar first.
+
+Then available times below the calendar.
+
+After a date is selected, scroll/focus the user toward the available times if this can be done cleanly without causing accessibility problems.
+
+The primary Continue CTA should be sticky at the bottom of the viewport.
+
+The CTA should be disabled until a valid time is selected.
+
+Do not allow the calendar or time list to be obscured by the sticky CTA.
+
+## 4. Persistent booking context
+
+At the top of the Date + Time screen, show a compact booking context:
+
+LOCATION
+Kentlands
+
+SERVICE
+Workout for 1
+
+Use the actual selected values.
+
+Do not hardcode them.
+
+This context should be visually compact and should not dominate the screen.
+
+## 5. Date behavior
+
+Preserve all existing behavior:
+
+* Past dates disabled
+* Unavailable dates disabled
+* Available dates indicated
+* Month navigation
+* Loading state
+* Error state
+* No availability state
+
+Add a clear "Today" indicator if this can be done using the existing calendar component without replacing it.
+
+Do not redesign the calendar yet.
+
+## 6. Time behavior
+
+Group existing available slots into:
+
+Morning
+Before 12:00 PM
+
+Afternoon
+12:00 PM through 4:59 PM
+
+Evening
+5:00 PM onward
+
+Use the actual slot datetime returned by Acuity.
+
+Do not reconstruct datetimes from display strings.
+
+Preserve existing timezone behavior.
+
+## 7. Navigation
+
+Update routes so the new flow is:
+
+Book
+→ SelectService (when necessary)
+→ SelectDateTime
+→ Confirm
+→ Confirmed
+
+Back navigation must work correctly.
+
+If the member came through SelectService:
+
+SelectDateTime
+→ Back
+→ SelectService
+
+If the member came directly from Book:
+
+SelectDateTime
+→ Back
+→ Book
+
+Do not rely on browser history alone if it causes the wrong destination.
+
+Use an explicit route parameter if necessary.
+
+## 8. Remove old SelectDate / SelectTime duplication
+
+After the new screen is working:
+
+* Remove unused navigation paths
+* Remove duplicated code
+* Reuse shared booking utilities/hooks
+* Do not leave two competing implementations of date/time selection
+
+Do not delete files until all references have been updated and typechecking confirms they are unused.
+
+## 9. Confirm screen
+
+Do not redesign Confirm yet.
+
+Only update its incoming route/state so it receives the new SelectDateTime output correctly.
+
+Preserve:
+
+* appointmentTypeID
+* appointmentTypeName
+* locationId
+* locationName
+* datetime
+* certificate
+
+## 10. Fix the remaining hardcoded fallback
+
+In Confirmed.tsx:
+
+Remove any remaining fallback of:
+
+"Workout for 1"
+
+Replace it with the same neutral/authoritative resolution approach used elsewhere.
+
+An unknown appointment type must never be incorrectly labeled Workout for 1.
+
+Use "Appointment" as the neutral fallback if necessary.
+
+## 11. Do NOT implement yet
+
+Do not implement:
+
+* New colors
+* New typography
+* New card designs
+* New animations
+* New imagery
+* Major spacing redesign
+* Calendar redesign
+* Location redesign
+* Service card redesign
+* Stepper visual redesign
+* Calendar export
+* Email copy
+* Cancellation policy redesign
+
+Those will be handled separately after the structural flow is complete.
+
+## 12. Testing
+
+Test:
+
+### Potomac
+
+Location
+→ Date + Time
+→ Confirm
+
+### Kentlands / Workout
+
+Location
+→ Service if necessary
+→ Date + Time
+→ Confirm
+
+### Kentlands / Red Light Therapy
+
+Location
+→ Service
+→ Date + Time
+→ Confirm
+
+### Navigation
+
+* Back from Date + Time
+* Change date
+* Change time
+* Back from Confirm
+* Re-select time
+* Stale slot no longer available
+
+### Availability
+
+* Loading
+* Error
+* No dates
+* No times
+* Month navigation
+
+### Validation
+
+Run:
+
+* Web typecheck
+* Mobile typecheck
+* Web build
+* Existing tests if available
+
+Do not fix unrelated pre-existing errors.
+
+## Final report
+
+Report:
+
+* Files created
+* Files modified
+* Files removed, if any
+* New route structure
+* Date/time state architecture
+* Navigation behavior
+* Testing results
+* Typecheck/build results
+* Remaining issues
+
+Do not perform visual redesign beyond what is required to make the combined Date + Time screen functional and readable.
