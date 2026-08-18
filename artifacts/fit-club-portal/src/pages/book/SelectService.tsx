@@ -70,8 +70,9 @@ export default function SelectService() {
       appointmentTypeID:   String(type.id),
       appointmentTypeName: type.name,
       ...(params.certificate ? { certificate: params.certificate } : {}),
+      from: "select-service",
     });
-    setLocation(`/book/select-date?${searchParams.toString()}`);
+    setLocation(`/book/select-datetime?${searchParams.toString()}`);
   }
 
   function handleBack() {

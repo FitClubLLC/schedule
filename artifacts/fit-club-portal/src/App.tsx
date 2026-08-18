@@ -11,8 +11,7 @@ import Dashboard from "@/pages/Dashboard";
 import Appointments from "@/pages/Appointments";
 import Book from "@/pages/Book";
 import SelectService from "@/pages/book/SelectService";
-import SelectDate from "@/pages/book/SelectDate";
-import SelectTime from "@/pages/book/SelectTime";
+import SelectDateTime from "@/pages/book/SelectDateTime";
 import Confirm from "@/pages/book/Confirm";
 import Confirmed from "@/pages/book/Confirmed";
 import Admin from "@/pages/Admin";
@@ -206,12 +205,8 @@ function ClerkProviderWithRoutes() {
             <ProtectedRoute component={SelectService} />
           </Route>
 
-          <Route path="/book/select-date">
-            <ProtectedRoute component={SelectDate} />
-          </Route>
-
-          <Route path="/book/select-time">
-            <ProtectedRoute component={SelectTime} />
+          <Route path="/book/select-datetime">
+            <ProtectedRoute component={SelectDateTime} />
           </Route>
 
           <Route path="/book/confirm">

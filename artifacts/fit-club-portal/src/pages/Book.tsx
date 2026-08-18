@@ -262,8 +262,9 @@ export default function Book() {
                         appointmentTypeID: typeId,
                         ...(typeMeta ? { appointmentTypeName: typeMeta.name } : {}),
                         ...(activeCode ? { certificate: activeCode } : {}),
+                        from: "book",
                       });
-                      setLocation(`/book/select-date?${searchParams.toString()}`);
+                      setLocation(`/book/select-datetime?${searchParams.toString()}`);
                     } else {
                       // Multiple eligible services — show the service selector first.
                       const searchParams = new URLSearchParams({

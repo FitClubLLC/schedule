@@ -15,7 +15,7 @@ import { Calendar, Clock, MapPin, CheckCircle2 } from "lucide-react";
 function getParams() {
   const p = new URLSearchParams(window.location.search);
   return {
-    appointmentType: p.get("appointmentType") ?? "Workout for 1",
+    appointmentType: p.get("appointmentType") ?? "Appointment",
     dateDisplay: p.get("dateDisplay") ?? "",
     timeDisplay: p.get("timeDisplay") ?? "",
     locationName: p.get("locationName") ?? "",

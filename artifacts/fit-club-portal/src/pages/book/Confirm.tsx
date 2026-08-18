@@ -29,22 +29,24 @@ function getParams() {
     dateDisplay: p.get("dateDisplay") ?? "",
     datetime: p.get("datetime") ?? "",
     timeDisplay: p.get("timeDisplay") ?? "",
+    /** Passed through from SelectDateTime so back-navigation returns to the right screen. */
+    from: p.get("from") ?? "book",
   };
 }
 
-function buildSelectTimeUrl(params: ReturnType<typeof getParams>, resolvedTypeName: string) {
+function buildSelectDateTimeUrl(params: ReturnType<typeof getParams>, resolvedTypeName: string) {
   const q = new URLSearchParams({
-    locationId: params.locationId,
-    locationName: params.locationName,
-    appointmentTypeID: params.appointmentTypeID,
+    locationId:          params.locationId,
+    locationName:        params.locationName,
+    appointmentTypeID:   params.appointmentTypeID,
     appointmentTypeName: resolvedTypeName,
     ...(params.certificate ? { certificate: params.certificate } : {}),
-    date: params.date,
-    dateDisplay: params.dateDisplay,
-    // Pass the previously selected datetime so SelectTime can restore the selection.
-    ...(params.datetime ? { datetime: params.datetime } : {}),
+    // Restore the date and time selection when the member navigates back.
+    date:     params.date,
+    datetime: params.datetime,
+    from:     params.from,
   });
-  return `/book/select-time?${q}`;
+  return `/book/select-datetime?${q}`;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -113,7 +115,7 @@ export default function Confirm() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setLocation(buildSelectTimeUrl(params, appointmentTypeName))}
+          onClick={() => setLocation(buildSelectDateTimeUrl(params, appointmentTypeName))}
           className="gap-1.5 text-muted-foreground hover:text-foreground -ml-2"
         >
           <ArrowLeft className="w-4 h-4" />
