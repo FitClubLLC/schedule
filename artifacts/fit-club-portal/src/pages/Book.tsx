@@ -2,7 +2,16 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Shell } from "@/components/layout/Shell";
 import { cn } from "@/lib/utils";
-import { MapPin, ChevronRight, CreditCard, Check, AlertCircle, X, Loader2, PlusCircle, ArrowLeft, ExternalLink } from "lucide-react";
+import {
+  ChevronRight,
+  CreditCard,
+  Check,
+  AlertCircle,
+  X,
+  Loader2,
+  ArrowLeft,
+  ExternalLink,
+} from "lucide-react";
 import {
   useMemberCertificates,
   useCertificateCheck,
@@ -13,16 +22,7 @@ import { getEligibleTypeIds } from "@/lib/bookingEligibility";
 
 const CERT_STORAGE_KEY = "fitclub_certificate";
 
-const LOCATION_ACCENT = {
-  text:      "text-primary",
-  bgLight:   "bg-primary/10",
-  border:    "border-primary",
-  cardHover: "border-primary/40 hover:border-primary bg-primary/5 hover:bg-primary/10",
-  btn:       "bg-primary text-black hover:bg-primary/90",
-};
-
 function formatRemaining(value: string) {
-  // If it starts with a digit it's a session count ("4 sessions"), otherwise dollar amount
   return /^\d/.test(value) ? `${value} remaining` : `$${value} remaining`;
 }
 
@@ -30,15 +30,16 @@ export default function Book() {
   const [, setLocation] = useLocation();
   const { data: acuityConfig, isLoading: configLoading } = useAcuityConfig();
   const { data: memberCerts = [], isLoading: certsLoading } = useMemberCertificates();
+  const { data: appointmentTypes = [] } = useAppointmentTypes();
 
-  // Code state — persisted to localStorage
+  // ── Certificate state — persisted to localStorage ──────────────────────────
   const [inputCode, setInputCode] = useState(() =>
-    typeof window !== "undefined" ? (localStorage.getItem(CERT_STORAGE_KEY) ?? "") : ""
+    typeof window !== "undefined" ? (localStorage.getItem(CERT_STORAGE_KEY) ?? "") : "",
   );
   const [debouncedCode, setDebouncedCode] = useState(inputCode);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Read certificate param from URL on mount
+  // Read certificate param from URL on mount (e.g. when coming back from SelectService).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const cert = params.get("certificate");
@@ -48,20 +49,23 @@ export default function Book() {
     }
   }, []);
 
-  // Debounce validation
+  // Debounce validation so we don't fire a network request on every keystroke.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => setDebouncedCode(inputCode), 600);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [inputCode]);
 
   const { data: checkData, isLoading: checking, isError: checkError } =
     useCertificateCheck(debouncedCode);
 
-  const { data: appointmentTypes = [] } = useAppointmentTypes();
-
-  const isValid = !!checkData?.valid;
+  const isValid  = !!checkData?.valid;
   const activeCode = isValid ? debouncedCode : "";
+
+  const showValidBanner   = isValid && checkData;
+  const showInvalidBanner = !checking && checkError && debouncedCode.length > 0;
 
   function handleCodeChange(val: string) {
     const upper = val.toUpperCase();
@@ -83,11 +87,43 @@ export default function Book() {
     localStorage.setItem(CERT_STORAGE_KEY, code);
   }
 
-  const showValidBanner = isValid && checkData;
-  const showInvalidBanner = !checking && checkError && debouncedCode.length > 0;
+  function handleLocationSelect(loc: NonNullable<typeof acuityConfig>["locations"][number]) {
+    if (!acuityConfig) return;
+
+    const eligibleIds = getEligibleTypeIds(
+      loc.appointmentTypeIDs,
+      acuityConfig.appointmentTypes.workoutFor1,
+      memberCerts,
+      isValid ? (checkData ?? null) : null,
+    );
+
+    if (eligibleIds.length === 0) return;
+
+    if (eligibleIds.length === 1) {
+      const typeId   = eligibleIds[0];
+      const typeMeta = appointmentTypes.find((t) => String(t.id) === typeId);
+      const sp = new URLSearchParams({
+        locationId:   loc.id,
+        locationName: loc.name,
+        appointmentTypeID: typeId,
+        ...(typeMeta ? { appointmentTypeName: typeMeta.name } : {}),
+        ...(activeCode ? { certificate: activeCode } : {}),
+        from: "book",
+      });
+      setLocation(`/book/select-datetime?${sp.toString()}`);
+    } else {
+      const sp = new URLSearchParams({
+        locationId:   loc.id,
+        locationName: loc.name,
+        ...(activeCode ? { certificate: activeCode } : {}),
+      });
+      setLocation(`/book/select-service?${sp.toString()}`);
+    }
+  }
 
   return (
     <Shell>
+      {/* ── Back ──────────────────────────────────────────────────── */}
       <button
         onClick={() => setLocation("/dashboard")}
         className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
@@ -96,227 +132,213 @@ export default function Book() {
         Back to Dashboard
       </button>
 
-      <h1 className="text-3xl font-display font-bold text-foreground tracking-tight mb-1">
-        Book a Session
-      </h1>
-      <p className="text-muted-foreground mb-8">
-        Choose your preferred location to view availability and book.
-      </p>
-
-      {/* ── Free trial CTA ─────────────────────────────────────── */}
-      <a
-        href={
-          acuityConfig
-            ? `https://app.acuityscheduling.com/schedule.php?owner=${acuityConfig.ownerId}&appointmentType=${acuityConfig.appointmentTypes.freeTrial}`
-            : undefined
-        }
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-disabled={!acuityConfig}
-        className={cn(
-          "flex items-center justify-center gap-2 w-full max-w-2xl border-2 border-dashed border-primary rounded-xl py-3 px-4 text-primary font-semibold text-sm hover:bg-primary/5 transition-colors mb-6 no-underline",
-          !acuityConfig && "opacity-50 pointer-events-none",
-        )}
-      >
-        {configLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
-        Book a Free Trial
-        <ExternalLink className="w-3.5 h-3.5 ml-1" />
-      </a>
-
-      {/* ── Your packages ──────────────────────────────────────── */}
-      {(certsLoading || memberCerts.length > 0) && (
-        <div className="mb-6 max-w-2xl">
-          <p className="text-xs font-bold tracking-widest text-muted-foreground mb-2">YOUR PACKAGES</p>
-          {certsLoading ? (
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading packages…
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {memberCerts.map((cert) => {
-                const active = inputCode === cert.code && isValid;
-                return (
-                  <button
-                    key={cert.code}
-                    onClick={() => applyPackage(cert.code)}
-                    className={cn(
-                      "flex items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all",
-                      active
-                        ? "border-green-500/50 bg-green-500/10"
-                        : "border-border bg-card hover:border-primary/40 hover:bg-primary/5",
-                    )}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={cn(
-                        "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                        active ? "bg-green-500/15" : "bg-muted",
-                      )}>
-                        {active
-                          ? <Check className="w-4 h-4 text-green-500" />
-                          : <CreditCard className="w-4 h-4 text-primary" />}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm text-foreground truncate">{cert.productName}</p>
-                        <p className="text-xs text-muted-foreground">{formatRemaining(cert.remainingValue)}</p>
-                      </div>
-                    </div>
-                    <span className={cn(
-                      "text-xs font-bold shrink-0",
-                      active ? "text-green-500" : "text-primary",
-                    )}>
-                      {active ? "Applied ✓" : "Use"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Certificate code input ─────────────────────────────── */}
-      <div className="mb-8 max-w-2xl">
-        <p className="text-xs font-bold tracking-widest text-muted-foreground mb-2">
-          {memberCerts.length > 0 ? "OR ENTER A CODE MANUALLY" : "MEMBERSHIP / PACKAGE CODE"}
+      {/* ── Header ────────────────────────────────────────────────── */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-display font-bold text-foreground tracking-tight">
+          Where would you like to train?
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Choose a location to see availability.
         </p>
-
-        <div className={cn(
-          "flex items-center gap-2 rounded-xl border-2 px-3 py-2 transition-colors bg-card",
-          showValidBanner   ? "border-green-500/50"
-          : showInvalidBanner ? "border-red-500/40"
-          : inputCode       ? "border-primary/40"
-          : "border-border",
-        )}>
-          <CreditCard className={cn(
-            "w-4 h-4 shrink-0",
-            showValidBanner ? "text-green-500" : showInvalidBanner ? "text-red-400" : "text-muted-foreground",
-          )} />
-          <input
-            type="text"
-            value={inputCode}
-            onChange={(e) => handleCodeChange(e.target.value)}
-            placeholder="Enter certificate code"
-            className="flex-1 bg-transparent text-sm font-semibold tracking-widest text-foreground placeholder:text-muted-foreground placeholder:font-normal placeholder:tracking-normal outline-none"
-          />
-          {checking && <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />}
-          {!checking && inputCode && (
-            <button onClick={clearCode} className="text-muted-foreground hover:text-foreground transition-colors">
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        {showValidBanner && checkData && (
-          <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/40 text-green-600 text-xs font-semibold">
-            <Check className="w-3.5 h-3.5 shrink-0" />
-            {checkData.productName}
-            {checkData.remainingValue && checkData.remainingValue !== "0.00"
-              ? ` · ${formatRemaining(checkData.remainingValue)}`
-              : ""}
-            {" "}— will be applied to your booking
-          </div>
-        )}
-        {showInvalidBanner && (
-          <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/40 text-red-500 text-xs font-semibold">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-            Invalid or expired certificate code
-          </div>
-        )}
       </div>
 
-      {/* ── Location cards ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+      {/* ── Location cards — PRIMARY ───────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mb-10">
         {configLoading
-          ? Array.from({ length: 2 }).map((_, i) => (
+          ? [0, 1].map((i) => (
               <div
                 key={i}
-                className="rounded-2xl border-2 border-border bg-card p-6 h-44 animate-pulse"
+                className="rounded-xl border border-border bg-card p-6 h-28 animate-pulse"
               />
             ))
           : (acuityConfig?.locations ?? []).map((loc) => {
-              const a = LOCATION_ACCENT;
+              const serviceNames = loc.appointmentTypeIDs
+                .map((id) => appointmentTypes.find((t) => String(t.id) === id)?.name)
+                .filter((n): n is string => !!n);
+
               return (
                 <button
                   key={loc.id}
-                  onClick={() => {
-                    if (!acuityConfig) return;
-
-                    // Determine which services this member can book at this location.
-                    // loc.appointmentTypeIDs comes from the backend config — not hardcoded here.
-                    const eligibleIds = getEligibleTypeIds(
-                      loc.appointmentTypeIDs,
-                      acuityConfig.appointmentTypes.workoutFor1,
-                      memberCerts,
-                      isValid ? (checkData ?? null) : null,
-                    );
-
-                    if (eligibleIds.length === 0) return;
-
-                    if (eligibleIds.length === 1) {
-                      // Single eligible service — skip the service selector.
-                      const typeId = eligibleIds[0];
-                      const typeMeta = appointmentTypes.find((t) => String(t.id) === typeId);
-                      const searchParams = new URLSearchParams({
-                        locationId:   loc.id,
-                        locationName: loc.name,
-                        appointmentTypeID: typeId,
-                        ...(typeMeta ? { appointmentTypeName: typeMeta.name } : {}),
-                        ...(activeCode ? { certificate: activeCode } : {}),
-                        from: "book",
-                      });
-                      setLocation(`/book/select-datetime?${searchParams.toString()}`);
-                    } else {
-                      // Multiple eligible services — show the service selector first.
-                      const searchParams = new URLSearchParams({
-                        locationId:   loc.id,
-                        locationName: loc.name,
-                        ...(activeCode ? { certificate: activeCode } : {}),
-                      });
-                      setLocation(`/book/select-service?${searchParams.toString()}`);
-                    }
-                  }}
-                  className={cn(
-                    "group flex flex-col gap-4 rounded-2xl border-2 p-6 transition-all duration-200 text-left w-full",
-                    a.cardHover,
-                  )}
+                  onClick={() => handleLocationSelect(loc)}
+                  className="group flex items-center gap-4 rounded-xl border border-border bg-card px-6 py-5 text-left w-full transition-colors hover:border-primary/30 hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <div
-                    className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center",
-                      a.bgLight,
-                    )}
-                  >
-                    <MapPin className={cn("w-5 h-5", a.text)} />
-                  </div>
-
-                  <div className="flex-1">
-                    <h3 className={cn("text-2xl font-display font-bold", a.text)}>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xl font-display font-bold text-foreground tracking-tight leading-tight">
                       {loc.name}
                     </h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      View availability &amp; book a session
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div
-                      className={cn(
-                        "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors",
-                        a.btn,
-                      )}
-                    >
-                      Book Now
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </div>
+                    {serviceNames.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1.5 truncate">
+                        {serviceNames.join(" · ")}
+                      </p>
+                    )}
                     {isValid && (
-                      <span className="flex items-center gap-1 text-xs font-semibold text-green-500">
-                        <Check className="w-3 h-3" /> Code applied
-                      </span>
+                      <p className="flex items-center gap-1 text-xs text-green-500 font-semibold mt-1.5">
+                        <Check className="w-3 h-3 shrink-0" />
+                        Package applied
+                      </p>
                     )}
                   </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/35 group-hover:text-primary transition-colors shrink-0" />
                 </button>
               );
             })}
+      </div>
+
+      {/* ── Secondary: packages + cert ────────────────────────────── */}
+      <div className="max-w-2xl border-t border-border pt-8 space-y-6">
+        {/* Member packages */}
+        {(certsLoading || memberCerts.length > 0) && (
+          <div>
+            <p className="text-xs font-bold tracking-widest text-muted-foreground mb-3">
+              YOUR PACKAGES
+            </p>
+            {certsLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading packages…
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {memberCerts.map((cert) => {
+                  const active = inputCode === cert.code && isValid;
+                  return (
+                    <button
+                      key={cert.code}
+                      onClick={() => applyPackage(cert.code)}
+                      className={cn(
+                        "flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-all",
+                        active
+                          ? "border-green-500/40 bg-green-500/8"
+                          : "border-border bg-card hover:border-primary/30 hover:bg-white/[0.03]",
+                      )}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={cn(
+                            "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                            active ? "bg-green-500/15" : "bg-muted",
+                          )}
+                        >
+                          {active ? (
+                            <Check className="w-4 h-4 text-green-500" />
+                          ) : (
+                            <CreditCard className="w-4 h-4 text-primary" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-foreground truncate">
+                            {cert.productName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatRemaining(cert.remainingValue)}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={cn(
+                          "text-xs font-bold shrink-0",
+                          active ? "text-green-500" : "text-muted-foreground",
+                        )}
+                      >
+                        {active ? "Applied ✓" : "Use"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Manual certificate code entry */}
+        <div>
+          <p className="text-xs font-bold tracking-widest text-muted-foreground mb-3">
+            {memberCerts.length > 0 ? "OR ENTER A CODE MANUALLY" : "MEMBERSHIP / PACKAGE CODE"}
+          </p>
+
+          <div
+            className={cn(
+              "flex items-center gap-2 rounded-xl border px-3 py-2.5 transition-colors bg-card",
+              showValidBanner
+                ? "border-green-500/40"
+                : showInvalidBanner
+                ? "border-red-500/35"
+                : inputCode
+                ? "border-primary/35"
+                : "border-border",
+            )}
+          >
+            <CreditCard
+              className={cn(
+                "w-4 h-4 shrink-0",
+                showValidBanner
+                  ? "text-green-500"
+                  : showInvalidBanner
+                  ? "text-red-400"
+                  : "text-muted-foreground",
+              )}
+            />
+            <input
+              type="text"
+              value={inputCode}
+              onChange={(e) => handleCodeChange(e.target.value)}
+              placeholder="Enter certificate code"
+              aria-label="Membership or package certificate code"
+              className="flex-1 bg-transparent text-sm font-semibold tracking-widest text-foreground placeholder:text-muted-foreground placeholder:font-normal placeholder:tracking-normal outline-none"
+            />
+            {checking && (
+              <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+            )}
+            {!checking && inputCode && (
+              <button
+                onClick={clearCode}
+                aria-label="Clear certificate code"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {showValidBanner && checkData && (
+            <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/30 text-green-600 text-xs font-semibold">
+              <Check className="w-3.5 h-3.5 shrink-0" />
+              {checkData.productName}
+              {checkData.remainingValue && checkData.remainingValue !== "0.00"
+                ? ` · ${formatRemaining(checkData.remainingValue)}`
+                : ""}
+              {" "}— will be applied to your booking
+            </div>
+          )}
+          {showInvalidBanner && (
+            <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 text-xs font-semibold">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              Invalid or expired certificate code
+            </div>
+          )}
+        </div>
+
+        {/* Free Trial link */}
+        <p className="text-sm text-muted-foreground">
+          New to Fit Club?{" "}
+          <a
+            href={
+              acuityConfig
+                ? `https://app.acuityscheduling.com/schedule.php?owner=${acuityConfig.ownerId}&appointmentType=${acuityConfig.appointmentTypes.freeTrial}`
+                : undefined
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-disabled={!acuityConfig}
+            className={cn(
+              "font-semibold text-primary hover:underline underline-offset-4 inline-flex items-center gap-1",
+              !acuityConfig && "opacity-50 pointer-events-none",
+            )}
+          >
+            Book a free trial
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        </p>
       </div>
     </Shell>
   );

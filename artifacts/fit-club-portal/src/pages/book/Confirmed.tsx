@@ -16,10 +16,10 @@ function getParams() {
   const p = new URLSearchParams(window.location.search);
   return {
     appointmentType: p.get("appointmentType") ?? "Appointment",
-    dateDisplay: p.get("dateDisplay") ?? "",
-    timeDisplay: p.get("timeDisplay") ?? "",
-    locationName: p.get("locationName") ?? "",
-    calendar: p.get("calendar") ?? "",
+    dateDisplay:     p.get("dateDisplay")     ?? "",
+    timeDisplay:     p.get("timeDisplay")     ?? "",
+    locationName:    p.get("locationName")    ?? "",
+    calendar:        p.get("calendar")        ?? "",
   };
 }
 
@@ -27,65 +27,64 @@ function getParams() {
 
 export default function Confirmed() {
   const [, setLocation] = useLocation();
-  const params = getParams();
-  const queryClient = useQueryClient();
+  const params          = getParams();
+  const queryClient     = useQueryClient();
   const displayLocation = params.calendar || params.locationName;
 
-  // Invalidate appointment and certificate caches so the Sessions tab and
-  // Dashboard summary reflect the newly-booked session immediately.
+  // Invalidate appointment and certificate caches so Sessions and Dashboard
+  // reflect the newly-booked session immediately.
   useEffect(() => {
-    queryClient.invalidateQueries({
-      queryKey: getGetUpcomingAppointmentsQueryKey(),
-    });
-    queryClient.invalidateQueries({
-      queryKey: getGetPastAppointmentsQueryKey(),
-    });
-    queryClient.invalidateQueries({
-      queryKey: getGetAppointmentSummaryQueryKey(),
-    });
-    // Refresh member certificates so the remaining-session count is current.
-    queryClient.invalidateQueries({ queryKey: ["booking", "certificates"] });
+    queryClient.invalidateQueries({ queryKey: getGetUpcomingAppointmentsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetPastAppointmentsQueryKey()    });
+    queryClient.invalidateQueries({ queryKey: getGetAppointmentSummaryQueryKey()  });
+    queryClient.invalidateQueries({ queryKey: ["booking", "certificates"]         });
   }, []);
 
   return (
     <Shell>
-      <div className="max-w-md mx-auto text-center pt-8 pb-16">
+      <div className="max-w-sm mx-auto text-center pt-10 pb-16">
         {/* ── Success icon ─────────────────────────────────────────── */}
         <div className="flex justify-center mb-6">
-          <div className="w-20 h-20 rounded-full bg-green-500/10 border-2 border-green-500/30 flex items-center justify-center">
-            <CheckCircle2 className="w-10 h-10 text-green-500" />
+          <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/25 flex items-center justify-center">
+            <CheckCircle2 className="w-8 h-8 text-green-500" />
           </div>
         </div>
 
-        <h1 className="text-4xl font-display font-bold text-green-400 tracking-tight mb-2">
+        {/* ── Headline ─────────────────────────────────────────────── */}
+        <h1 className="text-3xl font-display font-bold text-green-400 tracking-tight">
           You're Booked!
         </h1>
-        <p className="text-muted-foreground mb-8">
-          Your session has been confirmed.
+        <p className="text-sm text-muted-foreground mt-2 mb-8">
+          A confirmation is on its way.
         </p>
 
-        {/* ── Summary card ─────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-border bg-card text-left overflow-hidden mb-8">
-          <div className="divide-y divide-border">
+        {/* ── Session summary ──────────────────────────────────────── */}
+        <div className="rounded-xl border border-border divide-y divide-border text-left mb-8">
+          {params.appointmentType && (
             <SummaryRow
-              icon={<Clock className="w-4 h-4" />}
+              icon={<Clock className="w-3.5 h-3.5" />}
               value={params.appointmentType}
             />
+          )}
+          {params.dateDisplay && (
             <SummaryRow
-              icon={<Calendar className="w-4 h-4" />}
-              value={
-                params.dateDisplay && params.timeDisplay
-                  ? `${params.dateDisplay} at ${params.timeDisplay}`
-                  : params.dateDisplay || params.timeDisplay
-              }
+              icon={<Calendar className="w-3.5 h-3.5" />}
+              value={params.dateDisplay}
             />
-            {displayLocation && (
-              <SummaryRow
-                icon={<MapPin className="w-4 h-4" />}
-                value={displayLocation}
-              />
-            )}
-          </div>
+          )}
+          {params.timeDisplay && (
+            <SummaryRow
+              icon={<Clock className="w-3.5 h-3.5 opacity-0" />}
+              value={params.timeDisplay}
+              muted
+            />
+          )}
+          {displayLocation && (
+            <SummaryRow
+              icon={<MapPin className="w-3.5 h-3.5" />}
+              value={displayLocation}
+            />
+          )}
         </div>
 
         {/* ── Actions ─────────────────────────────────────────────── */}
@@ -115,16 +114,20 @@ export default function Confirmed() {
 function SummaryRow({
   icon,
   value,
+  muted = false,
 }: {
   icon: React.ReactNode;
   value: string;
+  muted?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-4 px-6 py-4">
-      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+    <div className="flex items-center gap-3 px-5 py-3.5">
+      <span className={muted ? "text-transparent" : "text-muted-foreground shrink-0"}>
         {icon}
-      </div>
-      <p className="text-sm font-semibold text-left">{value}</p>
+      </span>
+      <p className={muted ? "text-sm text-muted-foreground" : "text-sm font-semibold text-foreground"}>
+        {value}
+      </p>
     </div>
   );
 }
