@@ -3,7 +3,13 @@ import { useLocation } from "wouter";
 import { Shell } from "@/components/layout/Shell";
 import { cn } from "@/lib/utils";
 import { MapPin, ChevronRight, CreditCard, Check, AlertCircle, X, Loader2, PlusCircle, ArrowLeft, ExternalLink } from "lucide-react";
-import { useMemberCertificates, useCertificateCheck, useAcuityConfig } from "@/hooks/useBookingApi";
+import {
+  useMemberCertificates,
+  useCertificateCheck,
+  useAcuityConfig,
+  useAppointmentTypes,
+} from "@/hooks/useBookingApi";
+import { getEligibleTypeIds } from "@/lib/bookingEligibility";
 
 const CERT_STORAGE_KEY = "fitclub_certificate";
 
@@ -51,6 +57,8 @@ export default function Book() {
 
   const { data: checkData, isLoading: checking, isError: checkError } =
     useCertificateCheck(debouncedCode);
+
+  const { data: appointmentTypes = [] } = useAppointmentTypes();
 
   const isValid = !!checkData?.valid;
   const activeCode = isValid ? debouncedCode : "";
@@ -231,17 +239,40 @@ export default function Book() {
                 <button
                   key={loc.id}
                   onClick={() => {
-                    const params = new URLSearchParams({
-                      locationId: loc.id,
-                      locationName: loc.name,
-                      // Default to Workout for 1 — the single appointment type
-                      // offered in this first step of the native booking flow.
-                      appointmentTypeID:
-                        acuityConfig!.appointmentTypes.workoutFor1,
-                      appointmentTypeName: "Workout for 1",
-                      ...(activeCode ? { certificate: activeCode } : {}),
-                    });
-                    setLocation(`/book/select-date?${params.toString()}`);
+                    if (!acuityConfig) return;
+
+                    // Determine which services this member can book at this location.
+                    // loc.appointmentTypeIDs comes from the backend config — not hardcoded here.
+                    const eligibleIds = getEligibleTypeIds(
+                      loc.appointmentTypeIDs,
+                      acuityConfig.appointmentTypes.workoutFor1,
+                      memberCerts,
+                      isValid ? (checkData ?? null) : null,
+                    );
+
+                    if (eligibleIds.length === 0) return;
+
+                    if (eligibleIds.length === 1) {
+                      // Single eligible service — skip the service selector.
+                      const typeId = eligibleIds[0];
+                      const typeMeta = appointmentTypes.find((t) => String(t.id) === typeId);
+                      const searchParams = new URLSearchParams({
+                        locationId:   loc.id,
+                        locationName: loc.name,
+                        appointmentTypeID: typeId,
+                        ...(typeMeta ? { appointmentTypeName: typeMeta.name } : {}),
+                        ...(activeCode ? { certificate: activeCode } : {}),
+                      });
+                      setLocation(`/book/select-date?${searchParams.toString()}`);
+                    } else {
+                      // Multiple eligible services — show the service selector first.
+                      const searchParams = new URLSearchParams({
+                        locationId:   loc.id,
+                        locationName: loc.name,
+                        ...(activeCode ? { certificate: activeCode } : {}),
+                      });
+                      setLocation(`/book/select-service?${searchParams.toString()}`);
+                    }
                   }}
                   className={cn(
                     "group flex flex-col gap-4 rounded-2xl border-2 p-6 transition-all duration-200 text-left w-full",

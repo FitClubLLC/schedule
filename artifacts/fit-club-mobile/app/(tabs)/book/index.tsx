@@ -10,13 +10,57 @@ import { useAuth, useUser } from '@clerk/expo';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SvgIcon from '@/components/SvgIcon';
-import { useCertificate } from '@/hooks/useCertificate';
+import { useCertificate, type CertInfo, type CertStatus } from '@/hooks/useCertificate';
 import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
 
 interface MemberCert {
   code: string;
   productName: string;
   remainingValue: string;
+  /** Acuity appointment type IDs this certificate is valid for. */
+  appointmentTypeIDs?: string[];
+  /** When true the certificate applies to all appointment types. */
+  appliesToAllProducts?: boolean;
+}
+
+interface AcuityAppointmentType {
+  id: number;
+  name: string;
+  duration: number;
+  price: string;
+  description?: string | null;
+  category?: string | null;
+}
+
+/**
+ * Returns the subset of locationTypeIds the member is eligible to book.
+ * Workout for 1 is always included (no certificate required).
+ * All other types require a certificate that explicitly covers them.
+ *
+ * Mirrors web portal's src/lib/bookingEligibility.ts — keep in sync if rules change.
+ */
+function getEligibleTypeIds(
+  locationTypeIds: string[],
+  workoutFor1Id: string,
+  memberCerts: MemberCert[],
+  certInfo: CertInfo | null,
+  certStatus: CertStatus,
+): string[] {
+  return locationTypeIds.filter((typeId) => {
+    // 1. Workout for 1 — always visible, no certificate required.
+    if (typeId === workoutFor1Id) return true;
+    // 2a. Member has an account certificate that covers this type.
+    if (memberCerts.some(
+      (c) => c.appliesToAllProducts === true || (c.appointmentTypeIDs ?? []).includes(typeId),
+    )) return true;
+    // 2b. Member entered a code manually and the check result covers this type.
+    if (
+      certStatus === 'valid' &&
+      certInfo &&
+      (certInfo.appliesToAllProducts || certInfo.productIDs.includes(typeId))
+    ) return true;
+    return false;
+  });
 }
 
 interface AcuityConfig {
@@ -30,6 +74,8 @@ interface AcuityConfig {
     id: string;
     name: string;
     calendarId: string;
+    /** Appointment type IDs bookable through the native flow at this location. */
+    appointmentTypeIDs: string[];
   }>;
 }
 
@@ -97,7 +143,25 @@ export default function BookScreen() {
     },
   });
 
+  // Fetch appointment type metadata (name, duration) for the service-selection step.
+  // Cached 10 min — shared queryKey with select-service.tsx, so hits are instant.
+  const typesQuery = useQuery<AcuityAppointmentType[]>({
+    queryKey: ['appointment-types'],
+    enabled: !!isSignedIn,
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      const token = await getToken();
+      if (!token) throw new Error('Not signed in');
+      const res = await fetch(`${baseUrl}/api/booking/appointment-types`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to fetch appointment types');
+      return res.json();
+    },
+  });
+
   const memberCerts: MemberCert[] = certsQuery.data ?? [];
+  const appointmentTypes: AcuityAppointmentType[] = typesQuery.data ?? [];
   const acuityConfig = configQuery.data;
 
   // Auto-apply certificate from deep link / navigation param.
@@ -112,27 +176,49 @@ export default function BookScreen() {
   // Navigate into the native booking flow for the selected location.
   // Acuity is called behind the scenes via POST /api/booking/appointments —
   // the member never sees Acuity's hosted scheduling UI.
-  const handleBook = (locationId: string, _calendarId: string, locationName: string) => {
+  const handleBook = (loc: AcuityConfig['locations'][number]) => {
     if (!acuityConfig) return;
 
-    // Default to Workout for 1 for both locations.
-    // Red Light Therapy (Kentlands-only) will be selectable once
-    // the service-selector step is added in a future iteration.
-    const appointmentTypeID = acuityConfig.appointmentTypes.workoutFor1;
-    const appointmentTypeName = 'Workout for 1';
+    // Determine which appointment types this member can book at this location.
+    // loc.appointmentTypeIDs comes from the backend config — not hardcoded here.
+    const eligibleIds = getEligibleTypeIds(
+      loc.appointmentTypeIDs,
+      acuityConfig.appointmentTypes.workoutFor1,
+      memberCerts,
+      info,
+      status,
+    );
 
-    router.push({
-      pathname: '/(tabs)/book/select-date',
-      params: {
-        locationId,
-        locationName,
-        appointmentTypeID,
-        appointmentTypeName,
-        // Pass an empty string rather than undefined — Expo Router serialises
-        // params as strings, so the confirm screen checks `certificate.trim()`.
-        certificate: status === 'valid' ? code : '',
-      },
-    });
+    if (eligibleIds.length === 0) return;
+
+    if (eligibleIds.length === 1) {
+      // Single eligible service — skip the service selector, go straight to dates.
+      const typeId = eligibleIds[0];
+      const typeMeta = appointmentTypes.find((t) => String(t.id) === typeId);
+      router.push({
+        pathname: '/(tabs)/book/select-date',
+        params: {
+          locationId:          loc.id,
+          locationName:        loc.name,
+          appointmentTypeID:   typeId,
+          appointmentTypeName: typeMeta?.name ?? '',
+          // Pass an empty string rather than undefined — Expo Router serialises
+          // params as strings, so the confirm screen checks certificate.trim().
+          certificate: status === 'valid' ? code : '',
+        },
+      });
+    } else {
+      // Multiple eligible services — show the service selector first.
+      router.push({
+        pathname: '/(tabs)/book/select-service',
+        params: {
+          locationId:   loc.id,
+          locationName: loc.name,
+          calendarId:   loc.calendarId,
+          certificate:  status === 'valid' ? code : '',
+        },
+      });
+    }
   };
 
   const certBannerBg =
@@ -331,7 +417,7 @@ export default function BookScreen() {
           : (acuityConfig?.locations ?? []).map((loc) => (
           <TouchableOpacity
             key={loc.id}
-            onPress={() => handleBook(loc.id, loc.calendarId, loc.name)}
+            onPress={() => handleBook(loc)}
             activeOpacity={0.75}
             style={[
               styles.card,

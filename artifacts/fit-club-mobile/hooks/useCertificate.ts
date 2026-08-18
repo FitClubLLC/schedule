@@ -14,6 +14,17 @@ export type CertStatus = 'idle' | 'checking' | 'valid' | 'invalid';
 export interface CertInfo {
   productName: string;
   remainingValue: string;
+  /**
+   * When true the certificate applies to all appointment types at any location.
+   * Mirrors the Acuity "appliesToAllProducts" field.
+   */
+  appliesToAllProducts: boolean;
+  /**
+   * Acuity appointment type IDs this certificate is valid for.
+   * Mirrors the backend "productIDs" field returned by /api/booking/certificates/check.
+   * Used by the booking UI to determine which services the member can book.
+   */
+  productIDs: string[];
 }
 
 export function useCertificate() {

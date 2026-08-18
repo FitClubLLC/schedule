@@ -12,6 +12,12 @@ export interface AcuityConfig {
     id: string;
     name: string;
     calendarId: string;
+    /**
+     * Appointment type IDs available through the native booking flow at this
+     * location. Sourced from backend config — do not duplicate this list in
+     * client code.
+     */
+    appointmentTypeIDs: string[];
   }>;
 }
 
@@ -62,6 +68,34 @@ export interface MemberCertificate {
   code: string;
   productName: string;
   remainingValue: string;
+  /**
+   * Acuity appointment type IDs this certificate is valid for.
+   * An empty array combined with appliesToAllProducts === false means the
+   * cert is not usable for any type through the native flow.
+   */
+  appointmentTypeIDs: string[];
+  /**
+   * When true the certificate applies to every appointment type regardless
+   * of appointmentTypeIDs.
+   */
+  appliesToAllProducts: boolean;
+}
+
+/**
+ * Return type of useCertificateCheck. The backend validates the certificate
+ * code and returns eligibility metadata used by the booking UI.
+ */
+export interface CertificateCheckResult {
+  valid: boolean;
+  productName: string;
+  remainingValue: string;
+  /**
+   * Appointment type IDs this certificate covers (mirrors Acuity's
+   * appointmentTypeIDs field, returned as "productIDs" by the check endpoint).
+   */
+  productIDs: string[];
+  /** When true the certificate covers all appointment types. */
+  appliesToAllProducts: boolean;
 }
 
 // ── Fetch helper ─────────────────────────────────────────────────────────────
@@ -167,7 +201,7 @@ export function useCertificateCheck(code: string) {
   return useQuery({
     queryKey: ["booking", "certificate-check", code],
     queryFn: () =>
-      apiFetch<{ valid: boolean; productName: string; remainingValue: string }>(
+      apiFetch<CertificateCheckResult>(
         `/api/booking/certificates/check?certificate=${encodeURIComponent(code)}`,
       ),
     enabled: code.trim().length > 0,
