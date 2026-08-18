@@ -21,3 +21,10 @@ uri = "file://fit-club-mobile.zip"
 type = "unspecified"
 title = "fit-club-mobile source code"
 description = "All mobile app source files — excludes node_modules, .expo, dist, android, and ios build folders."
+
+[[outputs]]
+id = "B6ZiK_w1OIZJvMuhrCsym"
+uri = "file://fitclub15-source.zip"
+type = "unspecified"
+title = "FitClub15 Source Code"
+description = "Full project source — mobile app, API server, and web portal. Excludes node_modules, build artifacts, and secrets."
