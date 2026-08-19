@@ -1,6 +1,12 @@
 import { Router, type IRouter } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
 import { getAcuityConfig } from "../config/acuity.js";
+import {
+  certificateBalanceState,
+  configuredAppointmentTypeIds,
+  formatCertificateRemaining,
+  validateLocationService,
+} from "../lib/booking-eligibility.js";
 
 const router: IRouter = Router();
 
@@ -9,16 +15,6 @@ const ACUITY_API_KEY = process.env.ACUITY_API_KEY;
 const ACUITY_BASE_URL = "https://acuityscheduling.com/api/v1";
 // Default to Eastern Time — the studio's timezone
 const TIMEZONE = process.env.BOOKING_TIMEZONE ?? "America/New_York";
-
-/** Resolves a locationId ("1" or "2") to the configured Acuity location. */
-function resolveLocation(locationId: string) {
-  return getAcuityConfig().locations.find((l) => l.id === locationId) ?? null;
-}
-
-/** Resolves a locationId ("1" or "2") to the actual Acuity calendarID. */
-function resolveCalendarId(locationId: string): string | null {
-  return resolveLocation(locationId)?.calendarId ?? null;
-}
 
 function acuityAuth(): string {
   const token = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
@@ -40,8 +36,100 @@ function validPhoneNumber(value: unknown): string | undefined {
 async function getClerkUserEmail(userId: string): Promise<string | null> {
   try {
     const user = await clerkClient.users.getUser(userId);
-    return user.emailAddresses[0]?.emailAddress ?? null;
+    return (
+      user.emailAddresses.find((email) => email.id === user.primaryEmailAddressId)?.emailAddress ??
+      user.emailAddresses[0]?.emailAddress ??
+      null
+    );
   } catch { return null; }
+}
+
+/**
+ * Acuity treats /certificates/check as the authority for a code's expiry,
+ * remaining balance, product compatibility, and optional client-email rule.
+ * A 4xx response means the code cannot be used for that appointment type.
+ */
+async function isCertificateValidForAppointmentType(
+  certificate: string,
+  appointmentTypeId: string,
+  email: string,
+): Promise<boolean> {
+  const query = new URLSearchParams({
+    certificate,
+    appointmentTypeID: appointmentTypeId,
+    email,
+  });
+  const response = await fetch(`${ACUITY_BASE_URL}/certificates/check?${query}`, {
+    headers: { Authorization: acuityAuth() },
+  });
+
+  if (!response.ok) {
+    if (response.status >= 400 && response.status < 500) return false;
+    throw new Error(`Acuity certificate validation failed with status ${response.status}`);
+  }
+
+  const body: any = await response.json().catch(() => null);
+  return typeof body?.valid === "boolean" ? body.valid : true;
+}
+
+interface CertificateEligibility {
+  eligibleTypeIds: string[];
+  productName: string;
+  remainingValue: string;
+}
+
+/**
+ * Resolves the currently usable appointment types for a certificate code.
+ * Raw certificate metadata is used only for display and an early empty-balance
+ * check; Acuity's validation endpoint remains the authoritative decision.
+ */
+async function getCertificateEligibility(
+  certificate: string,
+  email: string,
+  certificateMetadata?: any,
+): Promise<CertificateEligibility> {
+  const config = getAcuityConfig();
+  const trimmedCode = certificate.trim();
+  let metadata = certificateMetadata ?? null;
+
+  if (!metadata) {
+    const codeUrl = `${ACUITY_BASE_URL}/certificates?certificate=${encodeURIComponent(trimmedCode)}`;
+    const codeResponse = await fetch(codeUrl, { headers: { Authorization: acuityAuth() } });
+    if (codeResponse.ok) {
+      const codeData = await codeResponse.json();
+      const candidates = Array.isArray(codeData) ? codeData : [codeData];
+      metadata = candidates.find((item: any) => item?.certificate === trimmedCode) ??
+        candidates.find((item: any) => item?.name || item?.productName) ??
+        null;
+    } else if (codeResponse.status >= 500) {
+      throw new Error(`Acuity certificate lookup failed with status ${codeResponse.status}`);
+    }
+  }
+
+  if (metadata && certificateBalanceState(metadata) === "empty") {
+    return {
+      eligibleTypeIds: [],
+      productName: metadata.name ?? metadata.productName ?? "Package",
+      remainingValue: formatCertificateRemaining(metadata),
+    };
+  }
+
+  const appointmentTypeIds = configuredAppointmentTypeIds(config);
+  const checks = await Promise.all(
+    appointmentTypeIds.map(async (appointmentTypeId) => ({
+      appointmentTypeId,
+      valid: await isCertificateValidForAppointmentType(trimmedCode, appointmentTypeId, email),
+    })),
+  );
+  const eligibleTypeIds = checks
+    .filter((check) => check.valid)
+    .map((check) => check.appointmentTypeId);
+
+  return {
+    eligibleTypeIds,
+    productName: metadata?.name ?? metadata?.productName ?? "Package",
+    remainingValue: metadata ? formatCertificateRemaining(metadata) : "0",
+  };
 }
 
 function requireAuth(req: any, res: any, next: any) {
@@ -127,13 +215,16 @@ router.get("/booking/availability/dates", requireAuth, async (req: any, res): Pr
       res.status(400).json({ error: "Missing required params: locationId, appointmentTypeID, month" });
       return;
     }
-    const calendarId = resolveCalendarId(locationId);
-    if (!calendarId) {
-      res.status(400).json({
-        error: `Location ${locationId} is not yet configured. Please set LOCATION_${locationId}_CALENDAR_ID.`,
-      });
+    const locationValidation = validateLocationService(
+      getAcuityConfig(),
+      String(locationId),
+      String(appointmentTypeID),
+    );
+    if (!locationValidation.ok) {
+      res.status(locationValidation.status).json({ error: locationValidation.error });
       return;
     }
+    const calendarId = locationValidation.location.calendarId;
     const url =
       `${ACUITY_BASE_URL}/availability/dates` +
       `?appointmentTypeID=${encodeURIComponent(appointmentTypeID)}` +
@@ -168,11 +259,16 @@ router.get("/booking/availability/times", requireAuth, async (req: any, res): Pr
       res.status(400).json({ error: "Missing required params: locationId, appointmentTypeID, date" });
       return;
     }
-    const calendarId = resolveCalendarId(locationId);
-    if (!calendarId) {
-      res.status(400).json({ error: `Location ${locationId} is not yet configured` });
+    const locationValidation = validateLocationService(
+      getAcuityConfig(),
+      String(locationId),
+      String(appointmentTypeID),
+    );
+    if (!locationValidation.ok) {
+      res.status(locationValidation.status).json({ error: locationValidation.error });
       return;
     }
+    const calendarId = locationValidation.location.calendarId;
     const url =
       `${ACUITY_BASE_URL}/availability/times` +
       `?appointmentTypeID=${encodeURIComponent(appointmentTypeID)}` +
@@ -212,39 +308,21 @@ router.get("/booking/certificates", requireAuth, async (req: any, res): Promise<
       return;
     }
     const data = await response.json();
-    const certs = (Array.isArray(data) ? data : [])
-      .filter((c: any) => {
-        // Dollar-value certificates/packages
-        if (c.remainingValue !== null && c.remainingValue !== undefined) {
-          return parseFloat(c.remainingValue) > 0;
-        }
-        // Session-count subscriptions (remainingCounts map of typeID → count)
-        if (c.remainingCounts && typeof c.remainingCounts === "object") {
-          return Object.values(c.remainingCounts).some((v: any) => Number(v) > 0);
-        }
-        return false;
-      })
-      .map((c: any) => {
-        // Build a human-readable remaining label
-        let remaining: string;
-        if (c.remainingValue !== null && c.remainingValue !== undefined) {
-          remaining = c.remainingValue;
-        } else if (c.remainingCounts && typeof c.remainingCounts === "object") {
-          // remainingCounts maps each eligible appointment type to the same shared pool count.
-          // Summing would multiply by the number of types — take the max instead.
-          const total = Math.max(0, ...Object.values(c.remainingCounts).map((v: any) => Number(v)));
-          remaining = `${total} session${total !== 1 ? "s" : ""}`;
-        } else {
-          remaining = "0";
-        }
-        return {
-          code: c.certificate,
-          productName: c.name ?? c.productName ?? "Package",
-          remainingValue: remaining,
-          appointmentTypeIDs: c.appointmentTypeIDs ?? [],
-          appliesToAllProducts: c.appliesToAllProducts ?? false,
-        };
-      });
+    const rawCertificates = (Array.isArray(data) ? data : [])
+      .filter((certificate: any) => certificate?.certificate)
+      .filter((certificate: any) => certificateBalanceState(certificate) !== "empty");
+    const certs = (await Promise.all(rawCertificates.map(async (certificate: any) => {
+      const eligibility = await getCertificateEligibility(certificate.certificate, email, certificate);
+      if (eligibility.eligibleTypeIds.length === 0) return null;
+      return {
+        code: certificate.certificate,
+        productName: eligibility.productName,
+        remainingValue: eligibility.remainingValue,
+        appointmentTypeIDs: eligibility.eligibleTypeIds,
+        appliesToAllProducts:
+          eligibility.eligibleTypeIds.length === configuredAppointmentTypeIds(getAcuityConfig()).length,
+      };
+    }))).filter(Boolean);
     res.json(certs);
   } catch {
     req.log.error({ errorCode: "booking_certificates_error" }, "booking/certificates error");
@@ -264,59 +342,23 @@ router.get("/booking/certificates/check", requireAuth, async (req: any, res): Pr
     }
     const trimmedCode = certificate.trim();
 
-    // Look up by email first — this returns the member's actual remaining count,
-    // which Acuity decrements on booking and restores on cancellation.
-    // The code-based lookup can return package-level totals rather than per-member
-    // remaining, so it's only used as a fallback for gift certificates where the
-    // purchaser's email differs from the redeeming member's email.
-    let cert: any = null;
-    if (req.userId) {
-      const email = await getClerkUserEmail(req.userId);
-      if (email) {
-        const emailUrl = `${ACUITY_BASE_URL}/certificates?email=${encodeURIComponent(email)}`;
-        const emailRes = await fetch(emailUrl, { headers: { Authorization: acuityAuth() } });
-        if (emailRes.ok) {
-          const emailData = await emailRes.json();
-          cert = (Array.isArray(emailData) ? emailData : []).find(
-            (c: any) => c?.certificate === trimmedCode
-          ) ?? null;
-        }
-      }
+    const email = await getClerkUserEmail(req.userId);
+    if (!email) {
+      res.status(400).json({ error: "Could not resolve user email" });
+      return;
     }
-
-    // Fallback: code-based lookup (gift certificates purchased under a different email)
-    if (!cert) {
-      const codeUrl = `${ACUITY_BASE_URL}/certificates?certificate=${encodeURIComponent(trimmedCode)}`;
-      const codeRes = await fetch(codeUrl, { headers: { Authorization: acuityAuth() } });
-      if (codeRes.ok) {
-        const codeData = await codeRes.json();
-        const codeCerts = Array.isArray(codeData) ? codeData : [codeData];
-        cert = codeCerts.find((c: any) => c?.name || c?.productName) ?? null;
-      }
-    }
-
-    const productName = cert?.name ?? cert?.productName;
-    if (!cert || !productName) {
+    const eligibility = await getCertificateEligibility(trimmedCode, email);
+    if (eligibility.eligibleTypeIds.length === 0) {
       res.status(422).json({ error: "Invalid or expired certificate" });
       return;
     }
-    // Remaining — dollar value or session count
-    let remainingValue: string;
-    if (cert.remainingValue !== null && cert.remainingValue !== undefined) {
-      remainingValue = cert.remainingValue;
-    } else if (cert.remainingCounts && typeof cert.remainingCounts === "object") {
-      // Same shared-pool logic as /certificates — take max, not sum.
-      const total = Math.max(0, ...Object.values(cert.remainingCounts).map((v: any) => Number(v)));
-      remainingValue = `${total} session${total !== 1 ? "s" : ""}`;
-    } else {
-      remainingValue = "0";
-    }
     res.json({
       valid: true,
-      productName,
-      remainingValue,
-      appliesToAllProducts: cert.appliesToAllProducts ?? false,
-      productIDs: cert.appointmentTypeIDs ?? cert.productIDs ?? [],
+      productName: eligibility.productName,
+      remainingValue: eligibility.remainingValue,
+      appliesToAllProducts:
+        eligibility.eligibleTypeIds.length === configuredAppointmentTypeIds(getAcuityConfig()).length,
+      productIDs: eligibility.eligibleTypeIds,
     });
   } catch {
     req.log.error({ errorCode: "booking_certificate_check_error" }, "booking/certificates/check error");
@@ -347,26 +389,24 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       res.status(400).json({ error: "Missing required fields: locationId, appointmentTypeID, datetime" });
       return;
     }
-    const configuredLocation = resolveLocation(String(locationId));
-    if (!configuredLocation) {
-      res.status(400).json({ error: `Location ${locationId} is not configured` });
-      return;
-    }
     const requestedAppointmentTypeId = String(appointmentTypeID);
-    if (!configuredLocation.appointmentTypeIDs.includes(requestedAppointmentTypeId)) {
+    const locationValidation = validateLocationService(
+      getAcuityConfig(),
+      String(locationId),
+      requestedAppointmentTypeId,
+    );
+    if (!locationValidation.ok) {
       req.log.warn(
         {
           locationId: String(locationId),
           appointmentTypeID: requestedAppointmentTypeId,
         },
-        "Acuity booking service is not configured for location",
+        "Acuity booking location/service validation failed",
       );
-      res.status(422).json({
-        error: "That service is not available at the selected location.",
-      });
+      res.status(locationValidation.status).json({ error: locationValidation.error });
       return;
     }
-    const calendarId = configuredLocation.calendarId;
+    const calendarId = locationValidation.location.calendarId;
 
     // Use the verified Clerk session that authenticated this exact request rather
     // than a mutable request property. The Admin API is authoritative, while the
@@ -437,6 +477,21 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       return;
     }
 
+    const certificateCode = nonEmptyString(certificate);
+    if (certificateCode) {
+      const certificateEligibility = await getCertificateEligibility(
+        certificateCode,
+        email,
+      );
+      if (!certificateEligibility.eligibleTypeIds.includes(requestedAppointmentTypeId)) {
+        req.log.warn({ userId }, "Acuity booking certificate is no longer eligible");
+        res.status(422).json({
+          error: "That package is no longer valid for this service. Please choose another package.",
+        });
+        return;
+      }
+    }
+
     const termsFieldId = Number(getAcuityConfig().termsAcknowledgement.fieldId);
     if (!Number.isInteger(termsFieldId) || termsFieldId <= 0) {
       req.log.error({ userId }, "Acuity terms field configuration is invalid");
@@ -466,7 +521,7 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
     payload.phone = phone;
     payload.fields = [{ id: termsFieldId, value: "true" }];
     if (notes) payload.notes = notes;
-    if (certificate) payload.certificate = String(certificate);
+    if (certificateCode) payload.certificate = certificateCode;
 
     const response = await fetch(`${ACUITY_BASE_URL}/appointments`, {
       method: "POST",
