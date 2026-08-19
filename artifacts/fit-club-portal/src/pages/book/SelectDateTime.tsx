@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { format, startOfMonth, parseISO } from "date-fns";
+import { format, startOfMonth } from "date-fns";
 import { Shell } from "@/components/layout/Shell";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { useAvailableDates, useAvailableTimes, useAppointmentTypes } from "@/hoo
 import { ArrowLeft, ChevronRight, Clock, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BookingProgress } from "@/components/book/BookingProgress";
+import { formatStudioTime, studioHour } from "@/lib/studioTime";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ function parseDateParam(s: string): Date | undefined {
 }
 
 /**
- * Bucket slots into Morning / Afternoon / Evening using local clock hours.
+ * Bucket slots into Morning / Afternoon / Evening using the studio clock.
  * Only non-empty buckets are returned.
  */
 function groupSlots(slots: TimeSlot[]): SlotGroup[] {
@@ -48,7 +49,7 @@ function groupSlots(slots: TimeSlot[]): SlotGroup[] {
   const afternoon: TimeSlot[] = [];
   const evening: TimeSlot[]   = [];
   for (const slot of slots) {
-    const hour = parseISO(slot.time).getHours();
+    const hour = studioHour(slot.time);
     if (hour < 12) morning.push(slot);
     else if (hour < 17) afternoon.push(slot);
     else evening.push(slot);
@@ -208,7 +209,7 @@ export default function SelectDateTime() {
 
   function handleContinue() {
     if (!selectedDatetime || !selectedDate) return;
-    const timeDisplay = format(parseISO(selectedDatetime), "h:mm a");
+    const timeDisplay = formatStudioTime(selectedDatetime);
     const next = new URLSearchParams({
       locationId:          params.locationId,
       locationName:        params.locationName,
@@ -232,7 +233,7 @@ export default function SelectDateTime() {
   // Mobile CTA label
   const ctaLabel =
     selectedDatetime && selectedDate
-      ? `Continue · ${format(selectedDate, "EEE, MMM d")} at ${format(parseISO(selectedDatetime), "h:mm a")}`
+      ? `Continue · ${format(selectedDate, "EEE, MMM d")} at ${formatStudioTime(selectedDatetime)}`
       : "Select a time to continue";
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -394,7 +395,7 @@ export default function SelectDateTime() {
                                       : "bg-transparent border-border hover:border-primary/40 hover:bg-white/[0.04] text-foreground",
                                   )}
                                 >
-                                  {format(parseISO(slot.time), "h:mm a")}
+                                  {formatStudioTime(slot.time)}
                                 </button>
                               );
                             })}
