@@ -25,7 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import { useAppointmentActions } from "@/hooks/useAppointmentActions";
+import { useAppointmentActions, type TimeSlot } from "@/hooks/useAppointmentActions";
 import { formatStudioTime } from "@/lib/studioTime";
 
 function LocationBadge({ calendarName }: { calendarName?: string | null }) {
@@ -52,7 +52,7 @@ function LocationBadge({ calendarName }: { calendarName?: string | null }) {
 function RescheduleDialog({ appointment, onClose }: { appointment: Appointment; onClose: () => void }) {
   const { fetchAvailableTimes, rescheduleAppointment } = useAppointmentActions();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [slots, setSlots] = useState<{ time: string; datetime: string }[]>([]);
+  const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedDatetime, setSelectedDatetime] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
