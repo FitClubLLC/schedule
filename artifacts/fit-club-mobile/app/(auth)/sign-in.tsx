@@ -26,7 +26,7 @@ import {
   authenticateWithBiometrics,
 } from '@/hooks/useBiometrics';
 
-type Screen = 'login' | 'forgot-email' | 'forgot-code';
+type Screen = 'login' | 'forgot-email' | 'forgot-code' | 'client-trust';
 
 export default function SignInScreen() {
   // ── Clerk hooks ────────────────────────────────────────────────────────────
@@ -55,9 +55,11 @@ export default function SignInScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNew, setShowNew] = useState(false);
+  const [clientTrustCode, setClientTrustCode] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [biometricReady, setBiometricReady] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
 
@@ -129,7 +131,10 @@ export default function SignInScreen() {
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 20);
   const bottomPad = insets.bottom + (Platform.OS === 'web' ? 34 : 24);
 
-  const clearError = () => setError('');
+  const clearError = () => {
+    setError('');
+    setNotice('');
+  };
 
   const goBack = () => {
     clearError();
@@ -137,7 +142,84 @@ export default function SignInScreen() {
     setResetCode('');
     setNewPassword('');
     setConfirmPassword('');
+    setClientTrustCode('');
     setScreen('login');
+  };
+
+  const incompleteSignInMessage = (status: string) => {
+    switch (status) {
+      case 'needs_identifier':
+        return 'Enter your email address and password to continue.';
+      case 'needs_first_factor':
+        return 'Your sign-in needs another verification method. Please try again.';
+      case 'needs_new_password':
+        return 'Your account requires a new password. Use Forgot password to continue.';
+      case 'needs_protect_check':
+        return 'A security check is required before sign-in can continue. Please try again.';
+      case 'needs_second_factor':
+        return 'Two-factor authentication is enabled on this account. Please disable it in your account settings and try again.';
+      default:
+        return 'Your sign-in needs an additional security step. Please try again or contact Fit Club support.';
+    }
+  };
+
+  const finishSignIn = async () => {
+    if (!signIn || signIn.status !== 'complete') {
+      setError(incompleteSignInMessage(signIn?.status ?? 'unknown'));
+      return;
+    }
+
+    const finalized = await signIn.finalize();
+    if (finalized.error) {
+      setError(finalized.error.longMessage ?? finalized.error.message ?? 'Your sign-in was verified, but the session could not start. Please try again.');
+      return;
+    }
+
+    // Offer biometric setup if available and not yet saved.
+    const [available, saved] = await Promise.all([isBiometricAvailable(), hasSavedCreds()]);
+    if (available && !saved) {
+      Alert.alert(
+        'Enable Fingerprint Login',
+        'Sign in faster next time using your fingerprint or Face ID.',
+        [
+          { text: 'Not Now', style: 'cancel', onPress: () => router.replace('/(tabs)') },
+          {
+            text: 'Enable',
+            onPress: async () => {
+              await saveCreds(email.trim(), password);
+              setBiometricReady(true);
+              router.replace('/(tabs)');
+            },
+          },
+        ],
+      );
+    } else {
+      router.replace('/(tabs)');
+    }
+  };
+
+  const beginClientTrustVerification = async () => {
+    if (!signIn) {
+      setError('Authentication not ready — please try again.');
+      return;
+    }
+
+    const emailCodeFactor = signIn.supportedSecondFactors.find(
+      (factor) => factor.strategy === 'email_code',
+    );
+    if (!emailCodeFactor) {
+      setError('This sign-in requires device verification, but email verification is unavailable for this account.');
+      return;
+    }
+
+    const sent = await signIn.mfa.sendEmailCode();
+    if (sent.error) {
+      setError(sent.error.longMessage ?? sent.error.message ?? 'We could not send your verification code. Please try again.');
+      return;
+    }
+
+    setClientTrustCode('');
+    setScreen('client-trust');
   };
 
   // ── Sign in ────────────────────────────────────────────────────────────────
@@ -163,37 +245,11 @@ export default function SignInScreen() {
       }
 
       if (signIn.status === 'complete') {
-        const finalized = await signIn.finalize();
-        if (finalized.error) {
-          setError(finalized.error.longMessage ?? finalized.error.message ?? 'Sign in could not be completed. Please try again.');
-          return;
-        }
-
-        // Offer biometric setup if available and not yet saved.
-        const [available, saved] = await Promise.all([isBiometricAvailable(), hasSavedCreds()]);
-        if (available && !saved) {
-          Alert.alert(
-            'Enable Fingerprint Login',
-            'Sign in faster next time using your fingerprint or Face ID.',
-            [
-              { text: 'Not Now', style: 'cancel', onPress: () => router.replace('/(tabs)') },
-              {
-                text: 'Enable',
-                onPress: async () => {
-                  await saveCreds(email.trim(), password);
-                  setBiometricReady(true);
-                  router.replace('/(tabs)');
-                },
-              },
-            ],
-          );
-        } else {
-          router.replace('/(tabs)');
-        }
-      } else if (signIn.status === 'needs_second_factor') {
-        setError('Two-factor authentication is enabled on this account. Please disable it in your account settings and try again.');
+        await finishSignIn();
+      } else if (signIn.status === 'needs_client_trust') {
+        await beginClientTrustVerification();
       } else {
-        setError('Sign in could not be completed. Please try again.');
+        setError(incompleteSignInMessage(signIn.status));
       }
     } catch (err: any) {
       const code = err?.errors?.[0]?.code ?? '';
@@ -214,6 +270,57 @@ export default function SignInScreen() {
         err?.errors?.[0]?.longMessage ??
         err?.errors?.[0]?.message ??
         'Incorrect email or password.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClientTrustVerification = async () => {
+    if (!signIn || !clientTrustCode.trim() || loading) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setLoading(true);
+    clearError();
+    try {
+      const verified = await signIn.mfa.verifyEmailCode({ code: clientTrustCode.trim() });
+      if (verified.error) {
+        setError(verified.error.longMessage ?? verified.error.message ?? 'That verification code could not be confirmed. Please try again.');
+        return;
+      }
+
+      if (signIn.status === 'complete') {
+        await finishSignIn();
+      } else {
+        setError(incompleteSignInMessage(signIn.status));
+      }
+    } catch (err: any) {
+      setError(
+        err?.errors?.[0]?.longMessage ??
+        err?.errors?.[0]?.message ??
+        'That verification code could not be confirmed. Please try again.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendClientTrustCode = async () => {
+    if (!signIn || loading) return;
+    setLoading(true);
+    clearError();
+    try {
+      const sent = await signIn.mfa.sendEmailCode();
+      if (sent.error) {
+        setError(sent.error.longMessage ?? sent.error.message ?? 'We could not send a new verification code. Please try again.');
+        return;
+      }
+      setClientTrustCode('');
+      setNotice('A new verification code was sent to your email.');
+    } catch (err: any) {
+      setError(
+        err?.errors?.[0]?.longMessage ??
+        err?.errors?.[0]?.message ??
+        'We could not send a new verification code. Please try again.',
       );
     } finally {
       setLoading(false);
@@ -386,6 +493,58 @@ export default function SignInScreen() {
 
   // ── Shared layout wrapper ──────────────────────────────────────────────────
   const renderContent = () => {
+    if (screen === 'client-trust') {
+      return (
+        <>
+          <TouchableOpacity onPress={goBack} style={styles.backRow} hitSlop={12}>
+            <SvgIcon name="arrow-left" size={18} color={colors.mutedForeground} />
+            <Text style={[styles.backText, { color: colors.mutedForeground }]}>Back</Text>
+          </TouchableOpacity>
+
+          <Text style={[styles.title, { color: colors.primary }]}>VERIFY THIS DEVICE</Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+            We sent a verification code to your email to confirm this new device.
+          </Text>
+
+          <View style={styles.form}>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.input, borderColor: colors.border, color: colors.foreground }]}
+              placeholder="Verification code"
+              placeholderTextColor={colors.mutedForeground}
+              value={clientTrustCode}
+              onChangeText={(v) => { setClientTrustCode(v); clearError(); }}
+              keyboardType="number-pad"
+              autoCorrect={false}
+              autoFocus
+            />
+
+            {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
+            {!!notice && <Text style={[styles.errorText, { color: colors.primary }]}>{notice}</Text>}
+
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: colors.primary }, (!clientTrustCode.trim() || loading) && styles.buttonDisabled]}
+              onPress={handleClientTrustVerification}
+              disabled={!clientTrustCode.trim() || loading}
+              activeOpacity={0.8}
+            >
+              {loading
+                ? <ActivityIndicator color={colors.primaryForeground} />
+                : <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>VERIFY &amp; SIGN IN</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleResendClientTrustCode}
+              style={styles.resendRow}
+              disabled={loading}
+              hitSlop={8}
+            >
+              <Text style={[styles.forgotText, { color: colors.primary }]}>Send a new code</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      );
+    }
+
     if (screen === 'forgot-email') {
       return (
         <>
@@ -665,6 +824,7 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   forgotRow: { alignSelf: 'flex-end', marginTop: -2 },
+  resendRow: { alignSelf: 'center', marginTop: 8 },
   forgotText: { fontFamily: 'Inter_500Medium', fontSize: 13 },
   button: {
     borderRadius: 8,
