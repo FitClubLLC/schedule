@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linking, Platform, StyleSheet, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, useColorScheme, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
 import { BlurView } from 'expo-blur';
@@ -20,14 +20,14 @@ function NativeTabLayout() {
         <Label>Home</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="appointments">
-        <Icon sf={{ default: 'calendar', selected: 'calendar.fill' }} />
+        <Icon sf={{ default: 'calendar', selected: 'calendar.circle.fill' }} />
         <Label>Sessions</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="book">
         <Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} />
         <Label>Book</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="memberships" onPress={openMemberships}>
+      <NativeTabs.Trigger name="memberships">
         <Icon sf={{ default: 'creditcard', selected: 'creditcard.fill' }} />
         <Label>Memberships</Label>
       </NativeTabs.Trigger>
@@ -128,11 +128,14 @@ function ClassicTabLayout() {
             ) : (
               <SvgIcon name="credit-card" size={22} color={color} />
             ),
-          tabBarButton: (props) => (
-            <TouchableOpacity
+          tabBarButton: ({ href: _href, onPress: _defaultOnPress, ref: _ref, style, ...props }) => (
+            <Pressable
               {...props}
               onPress={openMemberships}
-              activeOpacity={0.7}
+              style={({ pressed }) => [
+                style,
+                pressed && { opacity: 0.7 },
+              ]}
             />
           ),
         }}
