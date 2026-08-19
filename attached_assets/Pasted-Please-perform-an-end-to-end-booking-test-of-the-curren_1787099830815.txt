@@ -1,0 +1,61 @@
+Please perform an end-to-end booking test of the current Fit Club booking flow in the preview/development environment.
+
+DO NOT modify any code, configuration, Clerk settings, secrets, Acuity credentials, or production deployment settings. This is a TEST ONLY.
+
+Test the booking flow using the currently authenticated test user.
+
+Use these test values if the booking form asks for them:
+- First name: Carrie
+- Last name: Van Bergen
+- Phone: (555) 555-5555
+
+Steps:
+
+1. Open the Fit Club portal preview.
+2. Go to Book a Session.
+3. Select an available location.
+4. Select an available date.
+5. Select an available time.
+6. Continue to Confirm Booking.
+7. Verify that the Confirm Booking page displays the required name/phone fields appropriately.
+8. Enter the test name and phone information if those fields are displayed.
+9. Click Confirm Booking ONCE.
+10. Follow the request all the way through the API to the Acuity appointment-creation request.
+11. Determine whether Acuity actually accepts the appointment.
+
+IMPORTANT:
+- Do not stop at checking whether the Confirm Booking button becomes enabled.
+- Do not mock or bypass the Acuity appointment-creation request.
+- Do not merely test the API with a fabricated response.
+- I specifically need to know whether the real booking request reaches Acuity successfully.
+
+Please inspect the server logs for this specific booking attempt.
+
+Before the Acuity request, verify that the resolved booking identity contains:
+- a non-empty firstName
+- a valid lastName if supplied
+- a valid phone number
+
+Do NOT print or expose the actual phone number, Clerk tokens, API keys, session tokens, authorization headers, or other credentials in the output.
+
+Report the result in this exact format:
+
+BOOKING TEST RESULT
+-------------------
+Portal flow: PASS/FAIL
+Name resolution: PASS/FAIL
+Phone resolution: PASS/FAIL
+API appointment request: SENT/NOT SENT
+Acuity response: SUCCESS/FAIL
+Appointment created: YES/NO
+
+If it fails, provide:
+1. HTTP status code
+2. Acuity error message
+3. The sanitized request fields that were present (field names only, and masked values where appropriate)
+4. The exact point in the flow where it failed
+5. Whether the failure is caused by our application or Acuity
+
+If the booking succeeds, provide the Acuity appointment ID if it is safe to report, along with confirmation that the appointment was actually created.
+
+Do not make any code changes. Do not publish anything.
