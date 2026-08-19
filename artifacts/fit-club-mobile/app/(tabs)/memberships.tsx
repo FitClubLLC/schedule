@@ -1,38 +1,56 @@
-/**
- * Memberships screen — fallback for when the tab-button interception in
- * _layout.tsx doesn't fire (e.g. NativeTabs unstable API on some iOS builds).
- *
- * Normally tapping Memberships opens Acuity directly via the tab-button
- * onPress handler and this screen is never rendered. If that fails, the
- * member lands here and sees a button to open Acuity manually.
- */
-import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { useState } from 'react';
+import { Alert, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { useQueryClient } from '@tanstack/react-query';
 import { useColors } from '@/hooks/useColors';
+import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
 
-// Same URL that _layout.tsx opens — kept in sync manually.
-// IMPORTANT: must include ?owner= so Acuity knows which account to load.
 const MEMBERSHIPS_URL = 'https://app.acuityscheduling.com/catalog.php?owner=36930698';
 
 export default function MembershipsScreen() {
   const colors = useColors();
+  const queryClient = useQueryClient();
+  const [openingCatalog, setOpeningCatalog] = useState(false);
 
-  // NOTE: do NOT auto-open on mount. With NativeTabs (iOS 26+), all tab
-  // screens are pre-mounted at startup, so a useEffect here would fire
-  // before the user taps anything and launch Safari unexpectedly.
+  useAppForegroundRefresh([['member-certificates']]);
+
+  const openMembershipCatalog = async () => {
+    setOpeningCatalog(true);
+    try {
+      if (Platform.OS === 'web') {
+        await Linking.openURL(MEMBERSHIPS_URL);
+      } else {
+        await WebBrowser.openBrowserAsync(MEMBERSHIPS_URL, {
+          dismissButtonStyle: 'close',
+          toolbarColor: colors.background,
+          controlsColor: colors.primary,
+        });
+      }
+    } catch {
+      Alert.alert(
+        'Unable to open memberships',
+        'Please try again in a moment.',
+      );
+    } finally {
+      setOpeningCatalog(false);
+      await queryClient.invalidateQueries({ queryKey: ['member-certificates'] });
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.foreground }]}>MEMBERSHIPS</Text>
       <Text style={[styles.body, { color: colors.mutedForeground }]}>
-        Browse and purchase memberships through Acuity Scheduling.
+        Purchase securely through Acuity. When you return, your package will refresh automatically.
       </Text>
       <TouchableOpacity
         style={[styles.button, { backgroundColor: colors.primary }]}
         activeOpacity={0.8}
-        onPress={() => Linking.openURL(MEMBERSHIPS_URL).catch(() => {})}
+        disabled={openingCatalog}
+        onPress={openMembershipCatalog}
       >
         <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
-          OPEN MEMBERSHIPS
+          {openingCatalog ? 'OPENING ACUITY…' : 'OPEN MEMBERSHIPS'}
         </Text>
       </TouchableOpacity>
     </View>
@@ -57,6 +75,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
+    maxWidth: 320,
   },
   button: {
     marginTop: 8,

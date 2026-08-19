@@ -1,10 +1,12 @@
 import { Link, useLocation } from "wouter";
 import { useClerk, useUser } from "@clerk/react";
-import { LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, ShoppingBag, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { isConfiguredAdmin } from "@/lib/adminAccess";
 import { Button } from "@/components/ui/button";
+
+const MEMBERSHIPS_URL = "https://app.acuityscheduling.com/catalog.php?owner=36930698";
 
 export function Navbar() {
   const [location] = useLocation();
@@ -54,6 +56,15 @@ export function Navbar() {
           </div>
           
           <div className="hidden md:flex md:items-center md:space-x-4">
+            <a
+              href={MEMBERSHIPS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              Memberships
+            </a>
             <div className="text-sm font-semibold text-foreground">
               {user?.firstName} {user?.lastName}
             </div>
@@ -97,6 +108,16 @@ export function Navbar() {
                 </Link>
               );
             })}
+              <a
+                href={MEMBERSHIPS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-semibold text-primary hover:bg-primary/10"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                Memberships
+              </a>
             <button
               onClick={() => {
                 setMobileMenuOpen(false);

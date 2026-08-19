@@ -126,7 +126,9 @@ export default function DashboardScreen() {
             activeOpacity={0.8}
             style={[styles.bookBtn, { backgroundColor: colors.primary }]}
           >
-            <Text style={styles.bookBtnText}>Book a Session</Text>
+            <Text style={[styles.bookBtnText, { color: colors.primaryForeground }]}>
+              Book a Session
+            </Text>
           </TouchableOpacity>
         </View>
 

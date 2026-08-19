@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linking, Platform, Pressable, StyleSheet, useColorScheme, View } from 'react-native';
+import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
 import { BlurView } from 'expo-blur';
@@ -8,9 +8,6 @@ import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const MEMBERSHIPS_URL = 'https://app.acuityscheduling.com/catalog.php?owner=36930698';
-function openMemberships() { Linking.openURL(MEMBERSHIPS_URL); }
 
 function NativeTabLayout() {
   return (
@@ -128,16 +125,6 @@ function ClassicTabLayout() {
             ) : (
               <SvgIcon name="credit-card" size={22} color={color} />
             ),
-          tabBarButton: ({ href: _href, onPress: _defaultOnPress, ref: _ref, style, ...props }) => (
-            <Pressable
-              {...props}
-              onPress={openMemberships}
-              style={({ pressed }) => [
-                style,
-                pressed && { opacity: 0.7 },
-              ]}
-            />
-          ),
         }}
       />
       <Tabs.Screen
