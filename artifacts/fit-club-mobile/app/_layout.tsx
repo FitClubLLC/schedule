@@ -151,7 +151,11 @@ function RootLayoutNav() {
 
   // Handle auth state transitions.
   useEffect(() => {
-    if (!isLoaded) return;
+    // Clerk can briefly expose an unresolved `isSignedIn` value while the
+    // active session is settling across an Expo Router navigation. Treat only
+    // an explicit false as signed out so a protected tab never jumps to login
+    // during that handoff.
+    if (!isLoaded || typeof isSignedIn !== 'boolean') return;
     const inAuthGroup = segments[0] === '(auth)';
     if (isSignedIn && inAuthGroup) {
       router.replace('/(tabs)');

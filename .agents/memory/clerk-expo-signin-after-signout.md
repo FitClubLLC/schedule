@@ -12,3 +12,5 @@ Before starting a new password attempt after sign-out, clear a lingering active 
 **Why:** A completed in-memory Clerk sign-in resource can survive sign-out and make the next attempt silently return no usable result. Future API factor methods plus `finalize()` create and activate the session through the SDK-supported path, while the client refresh obtains server-authoritative state first.
 
 **How to apply:** Gate Expo screens with `useAuth().isLoaded`, never `ClerkLoaded` or a sign-in-resource truthiness check. Do not fall back to a stale `clerk.client.signIn` resource. Surface every Future-method error before progressing UI, and retain the secure token cache and shared-query cleanup on sign-out.
+
+In the root route guard, wait for `isSignedIn` to be an explicit boolean before treating the member as signed out. During Expo Router navigation, Clerk can briefly leave that value unresolved even after loading; treating every falsy value as a sign-out can redirect an active member from a protected tab to login.
