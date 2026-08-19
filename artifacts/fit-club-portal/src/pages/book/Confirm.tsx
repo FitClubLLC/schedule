@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Shell } from "@/components/layout/Shell";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useCreateBooking, useAppointmentTypes } from "@/hooks/useBookingApi";
 import { useUser } from "@clerk/react";
 import { ArrowLeft, Check, AlertCircle, Loader2 } from "lucide-react";
@@ -49,6 +50,11 @@ export default function Confirm() {
   const [, setLocation] = useLocation();
   const params = getParams();
   const { user } = useUser();
+  const clerkFirstName = user?.firstName?.trim() ?? "";
+  const clerkLastName = user?.lastName?.trim() ?? "";
+  const needsName = !clerkFirstName;
+  const [bookingFirstName, setBookingFirstName] = useState("");
+  const [bookingLastName, setBookingLastName] = useState(clerkLastName);
 
   // Resolve appointment type name: URL param → API lookup → neutral fallback.
   const { data: appointmentTypes = [] } = useAppointmentTypes();
@@ -76,10 +82,8 @@ export default function Confirm() {
         locationId:        params.locationId,
         appointmentTypeID: Number(params.appointmentTypeID),
         datetime:          params.datetime,
-        // Included for type compatibility; the backend re-derives identity
-        // from the Clerk session and ignores these client-submitted values.
-        firstName: user?.firstName ?? "",
-        lastName:  user?.lastName  ?? "",
+        firstName: clerkFirstName || bookingFirstName.trim(),
+        lastName:  clerkLastName || bookingLastName.trim(),
         email:     user?.primaryEmailAddress?.emailAddress ?? "",
         ...(hasCertificate ? { certificate: params.certificate } : {}),
       });
@@ -173,6 +177,45 @@ export default function Confirm() {
           </div>
         )}
 
+        {/* ── Missing profile name ─────────────────────────────────── */}
+        {needsName && (
+          <div className="rounded-xl border border-border bg-muted/20 px-4 py-4 space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Add your name to complete booking</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Your first name is required for the studio reservation.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label htmlFor="booking-first-name" className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                  First Name <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="booking-first-name"
+                  value={bookingFirstName}
+                  onChange={(event) => setBookingFirstName(event.target.value)}
+                  autoComplete="given-name"
+                  placeholder="First name"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="booking-last-name" className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                  Last Name <span className="text-muted-foreground font-normal normal-case tracking-normal">(optional)</span>
+                </label>
+                <Input
+                  id="booking-last-name"
+                  value={bookingLastName}
+                  onChange={(event) => setBookingLastName(event.target.value)}
+                  autoComplete="family-name"
+                  placeholder="Last name"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Cancellation policy ──────────────────────────────────── */}
         <p className="text-xs text-muted-foreground text-center leading-relaxed px-2">
           Cancellations within 24 hours of the session may not receive a refund.
@@ -181,7 +224,7 @@ export default function Confirm() {
         {/* ── Confirm CTA ──────────────────────────────────────────── */}
         <Button
           className="w-full gap-2 py-6 text-sm font-bold"
-          disabled={isPending}
+          disabled={isPending || (!clerkFirstName && !bookingFirstName.trim())}
           onClick={handleConfirm}
         >
           {isPending ? (

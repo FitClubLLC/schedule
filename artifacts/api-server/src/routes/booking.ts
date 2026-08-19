@@ -312,13 +312,23 @@ router.get("/booking/certificates/check", requireAuth, async (req: any, res): Pr
 });
 
 // ── POST /api/booking/appointments ───────────────────────────────────────────
-// Body: { locationId, appointmentTypeID, datetime, phone?, notes?, certificate? }
-// firstName, lastName, and email are derived from the authenticated Clerk user —
-// never trusted from the request body — to prevent booking under another user's identity.
+// Body: { locationId, appointmentTypeID, datetime, firstName?, lastName?, phone?, notes?, certificate? }
+// The authenticated Clerk user remains authoritative when it has a name; the
+// booking form supplies a fallback for Production users whose Clerk profile
+// does not collect names.
 router.post("/booking/appointments", requireAuth, async (req: any, res): Promise<void> => {
   if (!requireAcuity(req, res)) return;
   try {
-    const { locationId, appointmentTypeID, datetime, phone, notes, certificate } = req.body ?? {};
+    const {
+      locationId,
+      appointmentTypeID,
+      datetime,
+      firstName: bookingFirstName,
+      lastName: bookingLastName,
+      phone,
+      notes,
+      certificate,
+    } = req.body ?? {};
     if (!locationId || !appointmentTypeID || !datetime) {
       res.status(400).json({ error: "Missing required fields: locationId, appointmentTypeID, datetime" });
       return;
@@ -350,21 +360,24 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
     const sessionClaims = (auth.sessionClaims ?? {}) as Record<string, unknown>;
     const clerkFirstName = nonEmptyString(clerkUser.firstName);
     const clerkLastName = nonEmptyString(clerkUser.lastName);
-    const firstName = clerkFirstName ?? nonEmptyString(sessionClaims.first_name);
-    const lastName = clerkLastName ?? nonEmptyString(sessionClaims.last_name);
+    const sessionFirstName = nonEmptyString(sessionClaims.first_name);
+    const sessionLastName = nonEmptyString(sessionClaims.last_name);
+    const formFirstName = nonEmptyString(bookingFirstName);
+    const formLastName = nonEmptyString(bookingLastName);
+    const trustedFirstName = clerkFirstName ?? sessionFirstName;
+    const trustedLastName = clerkLastName ?? sessionLastName;
+    const firstName = trustedFirstName ?? formFirstName;
+    const lastName = trustedLastName ?? formLastName;
 
     if (!firstName) {
       req.log.error(
         {
           userId,
-          clerkUserId: clerkUser.id,
-          clerkFirstName: clerkUser.firstName ?? null,
-          sessionFirstName: sessionClaims.first_name ?? null,
         },
         "Acuity booking identity is missing firstName",
       );
       res.status(422).json({
-        error: "Your profile is missing a first name. Update it and try again.",
+        error: "A first name is required to complete booking.",
       });
       return;
     }
@@ -372,11 +385,10 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
     req.log.info(
       {
         userId,
-        clerkUserId: clerkUser.id,
         firstName,
         lastName: lastName ?? null,
-        firstNameSource: clerkFirstName ? "clerk-user" : "session-claim",
-        lastNameSource: clerkLastName ? "clerk-user" : lastName ? "session-claim" : "missing",
+        firstNameSource: trustedFirstName ? "clerk" : "booking-form",
+        lastNameSource: trustedLastName ? "clerk" : formLastName ? "booking-form" : "missing",
       },
       "Acuity booking identity resolved",
     );

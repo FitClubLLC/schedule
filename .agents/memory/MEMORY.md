@@ -1,2 +1,3 @@
 - [Clerk expo sign-in after sign-out](clerk-expo-signin-after-signout.md) — signIn.create() silently no-ops after signOut(); fix requires client.fetch() on mount + strategy:'password'.
 - [ClerkLoaded/ClerkLoading in Expo Go](clerk-expo-clerkloaded.md) — web re-exports that hang forever in Expo Go; use useAuth().isLoaded inside the nav component instead.
+- [Production Clerk name fallback](production-clerk-name-fallback.md) — Production Clerk does not collect profile names; booking must request a first name locally while preferring verified Clerk data.

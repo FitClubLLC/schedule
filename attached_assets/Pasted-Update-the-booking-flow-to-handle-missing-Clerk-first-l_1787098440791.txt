@@ -1,0 +1,61 @@
+Update the booking flow to handle missing Clerk first/last names without requiring a Clerk plan upgrade.
+
+Current situation:
+- POST /api/booking/appointments already resolves the authenticated Clerk user.
+- It tries Clerk user data and signed session claims for firstName/lastName.
+- If firstName cannot be resolved, it currently returns:
+  "Your profile is missing a first name. Update it and try again."
+- Production Clerk does not currently collect/store first_name or last_name.
+- Therefore live users can authenticate successfully but may have no name in Clerk.
+- Acuity requires a non-empty firstName.
+
+Implement the following:
+
+1. On the booking Confirm screen, detect when the authenticated user's first name and/or last name are unavailable.
+
+2. If the name is missing, display a small form on the Confirm Booking page asking for:
+   - First Name (required)
+   - Last Name (optional, but preferred)
+
+   Use the existing Fit Club visual design and styling. Do not redesign the page.
+
+3. Do not show this form when a valid first name is already available from the authenticated Clerk user/session.
+
+4. The Confirm Booking button should remain usable only when the required first name is present.
+
+5. Update the POST /api/booking/appointments request payload to accept the booking firstName and lastName from the authenticated booking flow.
+
+6. On the server:
+   - Continue resolving the authenticated Clerk user exactly as it does now.
+   - Prefer the trusted Clerk firstName/lastName when available.
+   - If Clerk has no firstName, use the firstName supplied by the booking form.
+   - Normalize/trim the values.
+   - Reject the request locally with HTTP 422 if the final firstName is still empty.
+   - Never send an empty firstName to Acuity.
+
+7. Keep the existing Acuity appointment creation logic unchanged apart from supplying the resolved name.
+
+8. Do NOT modify Clerk configuration.
+9. Do NOT modify Clerk secrets.
+10. Do NOT modify Acuity credentials.
+11. Do NOT change CORS.
+12. Do NOT remove the existing Clerk/session fallback logic.
+
+13. Add structured logging immediately before the Acuity request showing:
+   - userId
+   - resolved firstName
+   - resolved lastName
+   - source of firstName (Clerk or booking form)
+   - source of lastName (Clerk or booking form)
+   Do not log email addresses, tokens, credentials, or authorization headers.
+
+14. Preserve the current membership/certificate, appointment type, calendar, date/time, and availability logic.
+
+15. Make the smallest possible code change.
+
+After making the change:
+- run the relevant build/typecheck
+- verify the frontend compiles
+- verify the API compiles/builds
+- report exactly which files were changed
+- do not publish automatically; stop after the code/build verification so I can review it.
