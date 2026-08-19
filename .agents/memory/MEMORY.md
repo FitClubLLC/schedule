@@ -5,3 +5,4 @@
 - [Booking log privacy](booking-log-privacy.md) — booking diagnostics use IDs, sources, statuses, and fixed codes only; never log member data or raw Acuity payloads.
 - [Expo path preview routing](expo-path-preview-routing.md) — Expo’s root-relative dev bundle needs a dev-only `/mobile/` rewrite while the direct Expo origin stays unchanged.
 - [Expo Clerk key precedence](expo-clerk-key-precedence.md) — mobile dev explicitly derives its Expo publishable key from `CLERK_PUBLISHABLE_KEY`, not a separately stored Expo key.
+- [Current Acuity booking path](current-acuity-booking-path.md) — current web/mobile clients use native multi-step booking plus the API; older Acuity-handoff docs are stale.
