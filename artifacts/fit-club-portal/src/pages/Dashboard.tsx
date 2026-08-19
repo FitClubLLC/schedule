@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { AppointmentCard } from "@/components/AppointmentCard";
+import { formatStudioDate, formatStudioTime } from "@/lib/studioTime";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -246,7 +247,11 @@ export default function Dashboard() {
                   {summary.nextAppointment.type}
                 </div>
                 <div className="text-sm text-primary-foreground/80 mt-1">
-                  {new Date(summary.nextAppointment.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at {new Date(summary.nextAppointment.time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                  {formatStudioDate(summary.nextAppointment.date, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  })} at {formatStudioTime(summary.nextAppointment.time)}
                 </div>
               </div>
             ) : (

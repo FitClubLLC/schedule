@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { useAppointmentActions } from "@/hooks/useAppointmentActions";
+import { formatStudioTime } from "@/lib/studioTime";
 
 function LocationBadge({ calendarName }: { calendarName?: string | null }) {
   if (!calendarName) return null;
@@ -194,7 +195,7 @@ export function AppointmentCard({
               {format(dateObj, "d")}
             </span>
             <span className="text-sm text-muted-foreground mt-1">
-              {format(timeObj, "h:mm a")}
+              {formatStudioTime(appointment.time)}
             </span>
           </div>
 
@@ -264,7 +265,7 @@ export function AppointmentCard({
                       <AlertDialogTitle>Cancel this appointment?</AlertDialogTitle>
                       <AlertDialogDescription>
                         This will cancel your <strong>{appointment.type}</strong> on{" "}
-                        <strong>{format(dateObj, "MMMM d")} at {format(timeObj, "h:mm a")}</strong>.
+                         <strong>{format(dateObj, "MMMM d")} at {formatStudioTime(appointment.time)}</strong>.
                         This action cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>

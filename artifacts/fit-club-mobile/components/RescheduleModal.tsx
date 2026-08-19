@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
 import { useAppointmentActions, TimeSlot } from '@/hooks/useAppointmentActions';
+import { formatStudioTime } from '@/lib/studioTime';
 
 // Build an array of the next `count` dates starting from today.
 function buildDateRange(count = 14): Date[] {
@@ -34,14 +35,6 @@ function toYMD(date: Date): string {
 
 function formatDayLabel(date: Date): string {
   return date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-}
-
-function formatTimeLabel(isoStr: string): string {
-  return new Date(isoStr).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
 }
 
 interface Props {
@@ -212,7 +205,7 @@ export default function RescheduleModal({
                         activeOpacity={0.8}
                       >
                         <Text style={[styles.slotText, { color: isSelected ? colors.primaryForeground : colors.foreground }]}>
-                          {formatTimeLabel(slot.time)}
+                        {formatStudioTime(slot.time)}
                         </Text>
                       </TouchableOpacity>
                     );

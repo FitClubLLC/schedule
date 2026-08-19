@@ -5,12 +5,19 @@ import {
   GetPastAppointmentsResponse,
   GetAppointmentSummaryResponse,
 } from "@workspace/api-zod";
+import {
+  appointmentStudioDate,
+  EASTERN_TIME_ZONE,
+  partitionAppointmentsByEasternTime,
+  studioDateKey,
+} from "../lib/appointment-time.js";
 
 const router: IRouter = Router();
 
 const ACUITY_USER_ID = process.env.ACUITY_USER_ID;
 const ACUITY_API_KEY = process.env.ACUITY_API_KEY;
 const ACUITY_BASE_URL = "https://acuityscheduling.com/api/v1";
+const STUDIO_TIME_ZONE = process.env.BOOKING_TIMEZONE ?? EASTERN_TIME_ZONE;
 
 function acuityAuthHeader(): string {
   const token = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString(
@@ -54,10 +61,8 @@ router.get(
       return;
     }
 
-    // Use local (Eastern) date — toISOString() returns UTC which rolls to
-    // tomorrow after ~8 pm ET, causing today's appointments to disappear.
-    const _now = new Date();
-    const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+    const now = new Date();
+    const today = studioDateKey(now, STUDIO_TIME_ZONE);
     const url = `${ACUITY_BASE_URL}/appointments?email=${encodeURIComponent(email)}&minDate=${today}&direction=ASC&max=50`;
 
     const response = await fetch(url, {
@@ -77,7 +82,12 @@ router.get(
 
     const raw = await response.json();
     const appointments = mapAcuityAppointments(raw);
-    res.json(GetUpcomingAppointmentsResponse.parse(appointments));
+    const { upcoming } = partitionAppointmentsByEasternTime(
+      appointments,
+      now,
+      STUDIO_TIME_ZONE,
+    );
+    res.json(GetUpcomingAppointmentsResponse.parse(upcoming));
   },
 );
 
@@ -97,7 +107,8 @@ router.get(
       return;
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const today = studioDateKey(now, STUDIO_TIME_ZONE);
     const url = `${ACUITY_BASE_URL}/appointments?email=${encodeURIComponent(email)}&maxDate=${today}&direction=DESC&max=50`;
 
     const response = await fetch(url, {
@@ -117,7 +128,12 @@ router.get(
 
     const raw = await response.json();
     const appointments = mapAcuityAppointments(raw);
-    res.json(GetPastAppointmentsResponse.parse(appointments));
+    const { past } = partitionAppointmentsByEasternTime(
+      appointments,
+      now,
+      STUDIO_TIME_ZONE,
+    );
+    res.json(GetPastAppointmentsResponse.parse(past));
   },
 );
 
@@ -137,7 +153,8 @@ router.get(
       return;
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const today = studioDateKey(now, STUDIO_TIME_ZONE);
 
     const [upcomingRes, pastRes] = await Promise.all([
       fetch(
@@ -160,8 +177,16 @@ router.get(
       pastRes.json(),
     ]);
 
-    const upcoming = mapAcuityAppointments(upcomingRaw);
-    const past = mapAcuityAppointments(pastRaw);
+    const upcoming = partitionAppointmentsByEasternTime(
+      mapAcuityAppointments(upcomingRaw),
+      now,
+      STUDIO_TIME_ZONE,
+    ).upcoming;
+    const past = partitionAppointmentsByEasternTime(
+      mapAcuityAppointments(pastRaw),
+      now,
+      STUDIO_TIME_ZONE,
+    ).past;
 
     const summary = {
       upcomingCount: upcoming.length,
@@ -312,10 +337,9 @@ function mapAcuityAppointments(raw: any[]): any[] {
     lastName: appt.lastName ?? "",
     email: appt.email ?? "",
     phone: appt.phone ?? null,
-    // appt.date is a human-readable string from Acuity ("August 10, 2026").
-    // Extract YYYY-MM-DD from the ISO datetime instead so the client can safely
-    // parse it with new Date(date + 'T00:00:00').
-    date: appt.datetime ? appt.datetime.split('T')[0] : (appt.date ?? ""),
+    // `datetime` may be expressed in UTC. Convert it to the studio calendar
+    // date so display and "today" grouping agree with classification.
+    date: appointmentStudioDate(appt.datetime, appt.date ?? "", STUDIO_TIME_ZONE),
     time: appt.datetime ?? appt.time ?? "",
     endTime: appt.endTime ?? "",
     duration: Number(appt.duration ?? 0),

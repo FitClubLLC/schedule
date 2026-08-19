@@ -20,6 +20,7 @@ import * as Haptics from 'expo-haptics';
 import AppointmentCard from '@/components/AppointmentCard';
 import { useSessionReminders } from '@/hooks/useSessionReminders';
 import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
+import { formatStudioTime, formatStudioTodayPart, studioDateKey } from '@/lib/studioTime';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -52,10 +53,8 @@ export default function DashboardScreen() {
   const summaryError = summaryQuery.isError;
   const upcomingError = upcomingQuery.isError;
 
-  // Build today's date string in local time — toISOString() always converts to
-  // UTC, which rolls over to tomorrow after ~7 pm Eastern (UTC-4/-5).
   const _now = new Date();
-  const todayYMD = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
+  const todayYMD = studioDateKey(_now);
   const todaysSessions = upcoming.filter((a) => a.date === todayYMD);
 
   const onRefresh = () => {
@@ -183,13 +182,13 @@ export default function DashboardScreen() {
             <View style={[styles.todayAccent, { backgroundColor: colors.primary }]} />
             <View style={styles.todayDateCol}>
               <Text style={[styles.todayDayNum, { color: colors.primary }]}>
-                {new Date().getDate()}
+                {formatStudioTodayPart(_now, { day: 'numeric' })}
               </Text>
               <Text style={[styles.todayDayName, { color: colors.mutedForeground }]}>
-                {new Date().toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
+                {formatStudioTodayPart(_now, { weekday: 'short' }).toUpperCase()}
               </Text>
               <Text style={[styles.todayMonth, { color: colors.mutedForeground }]}>
-                {new Date().toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
+                {formatStudioTodayPart(_now, { month: 'short' }).toUpperCase()}
               </Text>
             </View>
 
@@ -205,7 +204,7 @@ export default function DashboardScreen() {
                 todaysSessions.map((appt) => (
                   <View key={appt.id} style={styles.todayRow}>
                     <Text style={[styles.todayTime, { color: colors.primary }]}>
-                      {new Date(appt.time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                      {formatStudioTime(appt.time)}
                     </Text>
                     <Text style={[styles.todayType, { color: colors.foreground }]} numberOfLines={1}>
                       {appt.type}

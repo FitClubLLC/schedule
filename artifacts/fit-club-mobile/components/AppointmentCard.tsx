@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
+import { formatStudioTime } from '@/lib/studioTime';
 
 // Two accent colours — index 0 = location 1 (POTOMAC), index 1 = location 2 (KENTLANDS)
 const LOC_ACCENT = ['#D3AF37', '#4A9EFF'];
@@ -54,14 +55,6 @@ interface Appointment {
   calendarID?: number | null;
 }
 
-function formatTime(isoStr: string): string {
-  return new Date(isoStr).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-}
-
 export default function AppointmentCard({
   appointment,
   highlighted = false,
@@ -110,7 +103,7 @@ export default function AppointmentCard({
           <View style={styles.metaRow}>
             <SvgIcon name="clock" size={12} color={colors.mutedForeground} />
             <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-              {formatTime(appointment.time)} · {appointment.duration} min
+              {formatStudioTime(appointment.time)} · {appointment.duration} min
             </Text>
           </View>
 
