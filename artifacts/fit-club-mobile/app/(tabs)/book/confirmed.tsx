@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,6 +16,10 @@ import {
 } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon, { SvgIconName } from '@/components/SvgIcon';
+import {
+  getCompleteBookingConfirmation,
+  type BookingConfirmationRouteParams,
+} from '@/lib/bookingNavigation';
 
 export default function ConfirmedScreen() {
   const colors = useColors();
@@ -22,30 +27,54 @@ export default function ConfirmedScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const {
-    appointmentType,
-    dateDisplay,
-    timeDisplay,
-    locationName,
-    calendar,
-  } = useLocalSearchParams<{
+  const routeParams = useLocalSearchParams<{
     appointmentId: string;
     appointmentType: string;
     dateDisplay: string;
     timeDisplay: string;
     locationName: string;
     calendar: string;
-  }>();
+  }>() as BookingConfirmationRouteParams;
+  const confirmation = getCompleteBookingConfirmation(routeParams);
+  const hasConfirmation = confirmation !== null;
 
-  // Invalidate appointment caches so Sessions and Dashboard reflect the new booking immediately.
+  // A confirmation route without a complete successful appointment result can
+  // only be stale or malformed navigation state. Return to the entry flow
+  // without ever presenting a false success screen.
   useEffect(() => {
+    if (hasConfirmation) return;
+    router.replace('/(tabs)/book');
+  }, [hasConfirmation, router]);
+
+  // Invalidate appointment caches so Sessions and Dashboard reflect the new
+  // booking immediately. Invalid routes must not trigger this refresh.
+  useEffect(() => {
+    if (!hasConfirmation) return;
     queryClient.invalidateQueries({ queryKey: getGetUpcomingAppointmentsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetPastAppointmentsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetAppointmentSummaryQueryKey() });
     queryClient.invalidateQueries({ queryKey: ['member-certificates'] });
-  }, []);
+  }, [hasConfirmation, queryClient]);
 
-  const displayLocation = calendar || locationName;
+  if (!confirmation) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.background,
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom + 24,
+          },
+        ]}
+      >
+        <ActivityIndicator
+          color={colors.primary}
+          accessibilityLabel="Returning to booking"
+        />
+      </View>
+    );
+  }
 
   return (
     <View
@@ -82,13 +111,13 @@ export default function ConfirmedScreen() {
       <View
         style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
       >
-        <DetailRow icon="info"     value={appointmentType}  colors={colors} />
+        <DetailRow icon="info"     value={confirmation.appointmentType} colors={colors} />
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <DetailRow icon="map-pin"  value={displayLocation}  colors={colors} />
+        <DetailRow icon="map-pin"  value={confirmation.locationName} colors={colors} />
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <DetailRow icon="calendar" value={dateDisplay}       colors={colors} />
+        <DetailRow icon="calendar" value={confirmation.dateDisplay} colors={colors} />
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <DetailRow icon="clock"    value={timeDisplay}       colors={colors} />
+        <DetailRow icon="clock"    value={confirmation.timeDisplay} colors={colors} />
       </View>
 
       {/* ── Actions ─────────────────────────────────────────────── */}
@@ -106,7 +135,7 @@ export default function ConfirmedScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => router.navigate('/(tabs)/book')}
+          onPress={() => router.replace('/(tabs)/book')}
           activeOpacity={0.8}
           accessibilityRole="button"
           style={[styles.secondaryBtn, { borderColor: colors.border }]}

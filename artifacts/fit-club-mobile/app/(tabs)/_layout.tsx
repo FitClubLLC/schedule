@@ -8,6 +8,7 @@ import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BOOK_TAB_OPTIONS } from '@/lib/bookingNavigation';
 
 function NativeTabLayout() {
   return (
@@ -106,6 +107,7 @@ function ClassicTabLayout() {
         options={{
           title: 'Book',
           tabBarLabel: 'Book',
+          ...BOOK_TAB_OPTIONS,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="plus.circle" tintColor={color} size={24} />
