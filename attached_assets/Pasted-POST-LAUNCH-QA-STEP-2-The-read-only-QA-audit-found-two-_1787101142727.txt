@@ -1,0 +1,89 @@
+POST-LAUNCH QA — STEP 2
+
+The read-only QA audit found two confirmed issues. Fix ONLY these two issues. Do not make unrelated booking-flow changes and do not publish yet.
+
+ISSUE 1 — Mobile missing first name
+
+The web Confirm screen correctly collects a required first name when neither Clerk user data nor signed session claims provide one.
+
+The mobile Confirm screen currently does not.
+
+Implement mobile parity with the web behavior:
+
+- On mobile Confirm, resolve the authenticated user's first name using the same trusted sources already used by the API.
+- If a usable first name exists, do not show an unnecessary name field.
+- If no usable first name exists, show a compact required First Name field.
+- Last Name should remain optional.
+- Confirm Booking must remain disabled until a usable first name exists.
+- Send the entered first/last name in the booking request when the form is being used.
+- Preserve the existing API fallback order:
+  Clerk user → signed session claims → booking form.
+- Do not weaken server-side validation.
+- Do not log names, emails, phone numbers, tokens, credentials, or authorization headers.
+- Keep the existing phone and Terms & Conditions behavior unchanged.
+
+Also verify that the mobile TypeScript types/request contract support the name fields correctly.
+
+ISSUE 2 — Server-side location/service compatibility
+
+The booking API currently validates the selected location/calendar but does NOT independently verify that the submitted appointmentTypeID belongs to that location.
+
+Fix this server-side.
+
+Use the existing Acuity location configuration as the source of truth:
+
+- Potomac: appointmentTypeIDs configured for Potomac
+- Kentlands: appointmentTypeIDs configured for Kentlands
+
+Before calling Acuity from POST /api/booking/appointments:
+
+1. Resolve the requested location.
+2. Resolve the requested appointmentTypeID.
+3. Verify that the appointmentTypeID is included in that location's configured appointmentTypeIDs.
+4. If it is not compatible, reject the request locally.
+5. Return a clear 4xx error.
+6. Do NOT call Acuity for an incompatible location/service combination.
+
+Do not hardcode appointment type IDs into the route. Use the existing location configuration.
+
+The normal valid combinations must continue to work:
+
+- Potomac + Workout for 1 → allowed
+- Kentlands + Workout for 1 → allowed
+- Kentlands + Red Light Therapy → allowed when client eligibility permits it
+- Potomac + Red Light Therapy → rejected server-side
+- Any other appointmentTypeID not configured for the selected location → rejected server-side
+
+Important:
+This server-side check is defense-in-depth. Keep the existing client-side certificate eligibility filtering exactly as it is.
+
+TESTING REQUIREMENTS
+
+After implementing the changes:
+
+1. Run the relevant web/mobile/API builds or typechecks.
+2. Test the mobile Confirm screen with a test Clerk user that has no first name:
+   - field appears
+   - empty field disables Confirm
+   - entering a first name enables Confirm when phone + terms are also valid
+3. Test the API location/service guard without creating an appointment:
+   - valid Potomac + Workout request passes the compatibility check
+   - invalid Potomac + RLT request is rejected locally
+   - confirm Acuity is NOT called for the invalid request
+4. Confirm no credentials or sensitive values appear in logs.
+5. Do NOT publish.
+6. Do NOT create, cancel, or reschedule any real appointment.
+
+At the end report exactly:
+
+POST-LAUNCH QA — STEP 2
+------------------------
+Mobile missing-name fix:
+Server location/service guard:
+Tests performed:
+Build/typecheck results:
+Files changed:
+Production publish: NOT PERFORMED
+Real appointments created: NONE
+
+If anything unexpected is discovered, STOP and report it rather than making additional changes.

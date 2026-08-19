@@ -25,6 +25,21 @@ function usablePhoneNumber(value: unknown): string {
   return digitCount >= 7 && digitCount <= 15 ? phone : '';
 }
 
+function usableName(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+interface BookingRequest {
+  locationId: string;
+  appointmentTypeID: string;
+  datetime: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  termsAccepted: boolean;
+  certificate?: string;
+}
+
 export default function ConfirmScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -60,10 +75,23 @@ export default function ConfirmScreen() {
 
   const [submitting, setSubmitting]   = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [bookingFirstName, setBookingFirstName] = useState('');
+  const [bookingLastName, setBookingLastName] = useState('');
   const [bookingPhone, setBookingPhone] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   const hasCertificate = !!(certificate?.trim());
+  const clerkFirstName = usableName(user?.firstName);
+  const clerkLastName = usableName(user?.lastName);
+  const sessionFirstName = usableName(
+    (sessionClaims as Record<string, unknown> | null | undefined)?.first_name,
+  );
+  const sessionLastName = usableName(
+    (sessionClaims as Record<string, unknown> | null | undefined)?.last_name,
+  );
+  const trustedFirstName = clerkFirstName || sessionFirstName;
+  const trustedLastName = clerkLastName || sessionLastName;
+  const needsName = !trustedFirstName;
   const clerkPhone = usablePhoneNumber(user?.primaryPhoneNumber?.phoneNumber);
   const sessionPhone = usablePhoneNumber(
     (sessionClaims as Record<string, unknown> | null | undefined)?.phone_number,
@@ -81,10 +109,12 @@ export default function ConfirmScreen() {
       const token = await getToken();
       if (!token) throw new Error('Not signed in');
 
-      const body: Record<string, unknown> = {
+      const body: BookingRequest = {
         locationId,
         appointmentTypeID,
         datetime,
+        firstName: trustedFirstName || bookingFirstName.trim(),
+        lastName: trustedLastName || bookingLastName.trim(),
         phone: trustedPhone || bookingPhone.trim(),
         termsAccepted,
       };
@@ -208,6 +238,62 @@ export default function ConfirmScreen() {
           </View>
         ) : null}
 
+        {needsName ? (
+          <View
+            style={[
+              styles.nameCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.nameTitle, { color: colors.foreground }]}>
+              Add your name to complete booking
+            </Text>
+            <Text style={[styles.nameHint, { color: colors.mutedForeground }]}>
+              Your first name is required for the studio reservation.
+            </Text>
+            <Text style={[styles.nameLabel, { color: colors.mutedForeground }]}>
+              FIRST NAME *
+            </Text>
+            <TextInput
+              value={bookingFirstName}
+              onChangeText={setBookingFirstName}
+              placeholder="First name"
+              placeholderTextColor={colors.mutedForeground}
+              autoComplete="given-name"
+              textContentType="givenName"
+              style={[
+                styles.nameInput,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  color: colors.foreground,
+                },
+              ]}
+              accessibilityLabel="First Name"
+            />
+            <Text style={[styles.nameLabel, { color: colors.mutedForeground }]}>
+              LAST NAME <Text style={styles.optionalLabel}>(OPTIONAL)</Text>
+            </Text>
+            <TextInput
+              value={bookingLastName}
+              onChangeText={setBookingLastName}
+              placeholder="Last name"
+              placeholderTextColor={colors.mutedForeground}
+              autoComplete="family-name"
+              textContentType="familyName"
+              style={[
+                styles.nameInput,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  color: colors.foreground,
+                },
+              ]}
+              accessibilityLabel="Last Name"
+            />
+          </View>
+        ) : null}
+
         {needsPhone ? (
           <View
             style={[
@@ -292,7 +378,12 @@ export default function ConfirmScreen() {
       >
         <TouchableOpacity
           onPress={handleConfirm}
-          disabled={submitting || (needsPhone && !hasBookingPhone) || !termsAccepted}
+          disabled={
+            submitting ||
+            (!trustedFirstName && !bookingFirstName.trim()) ||
+            (needsPhone && !hasBookingPhone) ||
+            !termsAccepted
+          }
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel="Confirm Booking"
@@ -300,7 +391,13 @@ export default function ConfirmScreen() {
             styles.confirmBtn,
             {
               backgroundColor: colors.primary,
-              opacity: submitting || (needsPhone && !hasBookingPhone) || !termsAccepted ? 0.6 : 1,
+              opacity:
+                submitting ||
+                (!trustedFirstName && !bookingFirstName.trim()) ||
+                (needsPhone && !hasBookingPhone) ||
+                !termsAccepted
+                  ? 0.6
+                  : 1,
             },
           ]}
         >
@@ -444,6 +541,39 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     gap: 8,
+  },
+  nameCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 16,
+    gap: 8,
+  },
+  nameTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+  },
+  nameHint: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  nameLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    letterSpacing: 0.8,
+    marginTop: 6,
+  },
+  optionalLabel: {
+    fontFamily: 'Inter_400Regular',
+    letterSpacing: 0,
+  },
+  nameInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
   },
   phoneTitle: {
     fontFamily: 'Inter_600SemiBold',

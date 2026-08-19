@@ -10,9 +10,14 @@ const ACUITY_BASE_URL = "https://acuityscheduling.com/api/v1";
 // Default to Eastern Time — the studio's timezone
 const TIMEZONE = process.env.BOOKING_TIMEZONE ?? "America/New_York";
 
+/** Resolves a locationId ("1" or "2") to the configured Acuity location. */
+function resolveLocation(locationId: string) {
+  return getAcuityConfig().locations.find((l) => l.id === locationId) ?? null;
+}
+
 /** Resolves a locationId ("1" or "2") to the actual Acuity calendarID. */
 function resolveCalendarId(locationId: string): string | null {
-  return getAcuityConfig().locations.find((l) => l.id === locationId)?.calendarId ?? null;
+  return resolveLocation(locationId)?.calendarId ?? null;
 }
 
 function acuityAuth(): string {
@@ -342,11 +347,26 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       res.status(400).json({ error: "Missing required fields: locationId, appointmentTypeID, datetime" });
       return;
     }
-    const calendarId = resolveCalendarId(String(locationId));
-    if (!calendarId) {
+    const configuredLocation = resolveLocation(String(locationId));
+    if (!configuredLocation) {
       res.status(400).json({ error: `Location ${locationId} is not configured` });
       return;
     }
+    const requestedAppointmentTypeId = String(appointmentTypeID);
+    if (!configuredLocation.appointmentTypeIDs.includes(requestedAppointmentTypeId)) {
+      req.log.warn(
+        {
+          locationId: String(locationId),
+          appointmentTypeID: requestedAppointmentTypeId,
+        },
+        "Acuity booking service is not configured for location",
+      );
+      res.status(422).json({
+        error: "That service is not available at the selected location.",
+      });
+      return;
+    }
+    const calendarId = configuredLocation.calendarId;
 
     // Use the verified Clerk session that authenticated this exact request rather
     // than a mutable request property. The Admin API is authoritative, while the
