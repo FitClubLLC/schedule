@@ -1,0 +1,63 @@
+We have now successfully deployed and verified the native booking flow in production.
+
+I want to begin post-launch QA, one step at a time.
+
+For this first step, perform a READ-ONLY audit of the production booking implementation and report findings. Do NOT modify code, configuration, Clerk settings, Acuity settings, environment variables, secrets, or deployment settings. Do NOT publish anything. Do NOT create, submit, or cancel any real appointments.
+
+Audit the current production booking flow and its source code for these scenarios:
+
+1. Potomac + Workout for 1
+2. Kentlands + Workout for 1
+3. Kentlands + Red Light Therapy
+4. Certificate eligibility/filtering
+5. Required Terms & Conditions acknowledgement
+6. Missing-name fallback
+7. Missing-phone fallback
+8. Back navigation through the booking flow
+9. Cancellation/rescheduling regression
+10. Web vs mobile booking-flow parity
+11. Production API error handling
+12. Free Trial behavior
+
+For each scenario, report:
+
+- PASS / FAIL / NEEDS LIVE TEST
+- What the code currently does
+- The relevant route/component/API involved
+- Whether the behavior has already been proven by a previous live test
+- If it requires a live appointment to verify, say so explicitly rather than creating one
+
+Pay particular attention to these known requirements:
+
+- Workout for 1: Acuity ID 83398355
+- Red Light Therapy: Acuity ID 96690076
+- Free Trial: Acuity ID 83397899 and remains external Acuity UI
+- Potomac should only expose services configured for Potomac.
+- Kentlands should expose services according to location configuration and certificate eligibility.
+- RLT requires a certificate that covers RLT.
+- Terms & Conditions must be acknowledged before the booking request is sent.
+- A first name must be resolved before Acuity is called.
+- A valid phone number must be resolved before Acuity is called.
+- Acuity credentials must remain server-side.
+- The client must never receive Acuity credentials.
+- Existing cancellation and rescheduling functionality must remain unaffected.
+
+Also inspect for any obvious regressions introduced by the booking redesign.
+
+IMPORTANT:
+This is an audit only.
+Do not make fixes.
+Do not publish.
+Do not create real appointments.
+Do not cancel or modify any existing appointments.
+
+At the end, provide:
+
+POST-LAUNCH QA — STEP 1
+------------------------
+Overall status:
+Issues found:
+Live tests still needed:
+Recommended next step:
+
+If you find an issue, explain it clearly but STOP there. We will decide what to fix before making any changes.
