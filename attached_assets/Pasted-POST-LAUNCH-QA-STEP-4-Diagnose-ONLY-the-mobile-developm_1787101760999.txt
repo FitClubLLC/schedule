@@ -1,0 +1,72 @@
+POST-LAUNCH QA — STEP 4
+
+Diagnose ONLY the mobile development/test environment blockers found in Step 2.
+
+Do NOT modify the booking logic.
+Do NOT modify the API booking behavior.
+Do NOT change Clerk configuration.
+Do NOT change production configuration.
+Do NOT publish.
+Do NOT create, cancel, or reschedule appointments.
+
+We need to determine why mobile QA cannot currently run.
+
+Known blockers:
+
+1. The development mobile preview at /mobile/ renders a blank white page.
+2. Authenticated development mobile requests to /api/booking/config return HTTP 401.
+3. The mobile static build cannot start because the mockup-sandbox process occupies Metro port 8081.
+
+Investigate these three issues separately.
+
+For #1:
+- Determine whether the blank /mobile/ screen is caused by a runtime JavaScript error, routing problem, Expo/web configuration problem, asset-loading problem, or something else.
+- Inspect browser/device console output and relevant startup logs.
+- Do not redesign or rewrite the mobile booking screen.
+- If the issue is unrelated to booking, identify the exact cause but do not fix it yet unless the fix is trivial and isolated.
+
+For #2:
+- Determine why the development mobile preview receives 401 from /api/booking/config.
+- Verify which API base URL the mobile preview is using.
+- Determine whether the request is actually carrying the expected Clerk authentication state.
+- Do NOT expose or print tokens, cookies, authorization headers, secrets, or credentials.
+- Do not change authentication configuration.
+- Do not weaken the API's authentication requirements.
+- We only need the root cause.
+
+For #3:
+- Determine which process owns port 8081.
+- Determine whether the mockup-sandbox process is required for anything currently being tested.
+- Do not kill or reconfigure unrelated processes unless absolutely necessary.
+- Do not change hard-coded ports yet.
+- We only need to identify the cleanest safe way to run Expo/mobile QA.
+
+Important:
+This is diagnosis only. Do not make code changes unless absolutely necessary to produce diagnostic evidence, and if a change would be needed, STOP and report it instead.
+
+At the end report:
+
+POST-LAUNCH QA — STEP 4
+------------------------
+Mobile /mobile blank screen:
+- Root cause:
+- Evidence:
+- Fix needed: YES/NO
+
+Development /api/booking/config 401:
+- Root cause:
+- Evidence:
+- Fix needed: YES/NO
+
+Metro port 8081:
+- Process using port:
+- Why it is using the port:
+- Safe way to run mobile QA:
+- Fix needed: YES/NO
+
+Booking code modified: NO
+Production configuration modified: NO
+Production publish: NOT PERFORMED
+Real appointments created: NONE
+
+If these are separate unrelated infrastructure issues, say so explicitly.
