@@ -225,7 +225,7 @@ router.get("/booking/availability/dates", requireAuth, async (req: any, res): Pr
       res.status(locationValidation.status).json({ error: locationValidation.error });
       return;
     }
-    const calendarId = locationValidation.location.calendarId;
+    const calendarId = locationValidation.service.calendarId;
     const url =
       `${ACUITY_BASE_URL}/availability/dates` +
       `?appointmentTypeID=${encodeURIComponent(appointmentTypeID)}` +
@@ -269,7 +269,7 @@ router.get("/booking/availability/times", requireAuth, async (req: any, res): Pr
       res.status(locationValidation.status).json({ error: locationValidation.error });
       return;
     }
-    const calendarId = locationValidation.location.calendarId;
+    const calendarId = locationValidation.service.calendarId;
     const url =
       `${ACUITY_BASE_URL}/availability/times` +
       `?appointmentTypeID=${encodeURIComponent(appointmentTypeID)}` +
@@ -407,7 +407,7 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       res.status(locationValidation.status).json({ error: locationValidation.error });
       return;
     }
-    const calendarId = locationValidation.location.calendarId;
+    const calendarId = locationValidation.service.calendarId;
 
     // Use the verified Clerk session that authenticated this exact request rather
     // than a mutable request property. The Admin API is authoritative, while the

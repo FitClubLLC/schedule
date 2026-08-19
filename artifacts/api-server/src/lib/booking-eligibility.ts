@@ -1,4 +1,4 @@
-import type { AcuityConfig, AcuityLocation } from "../config/acuity.js";
+import type { AcuityConfig, AcuityLocation, AcuityService } from "../config/acuity.js";
 
 export type CertificateBalanceState = "positive" | "empty" | "unknown";
 
@@ -8,7 +8,7 @@ export interface AcuityCertificateBalance {
 }
 
 export type LocationServiceValidation =
-  | { ok: true; location: AcuityLocation }
+  | { ok: true; location: AcuityLocation; service: AcuityService }
   | { ok: false; status: 400 | 422; error: string };
 
 function positiveNumber(value: unknown): boolean {
@@ -52,12 +52,26 @@ export function formatCertificateRemaining(certificate: AcuityCertificateBalance
   return "0";
 }
 
+/**
+ * Returns all native appointment type IDs across all locations.
+ * Used for certificate eligibility checks — Free Trial (external) is excluded.
+ */
 export function configuredAppointmentTypeIds(config: AcuityConfig): string[] {
-  return [...new Set(config.locations.flatMap((location) => location.appointmentTypeIDs))];
+  return [
+    ...new Set(
+      config.locations.flatMap((location) =>
+        location.services
+          .filter((service) => service.bookingMode === "native")
+          .map((service) => service.appointmentTypeID),
+      ),
+    ),
+  ];
 }
 
 /**
  * Applies the location/service rule shared by availability and final booking.
+ * Only native services are accepted — external (Free Trial) must never reach
+ * native availability or appointment creation.
  * Client filtering improves the experience, but this guard remains authoritative.
  */
 export function validateLocationService(
@@ -74,7 +88,12 @@ export function validateLocationService(
     };
   }
 
-  if (!location.appointmentTypeIDs.includes(appointmentTypeId)) {
+  const service = location.services.find(
+    (candidate) =>
+      candidate.appointmentTypeID === appointmentTypeId &&
+      candidate.bookingMode === "native",
+  );
+  if (!service) {
     return {
       ok: false,
       status: 422,
@@ -82,5 +101,5 @@ export function validateLocationService(
     };
   }
 
-  return { ok: true, location };
+  return { ok: true, location, service };
 }

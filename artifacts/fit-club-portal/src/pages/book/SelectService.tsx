@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { Shell } from "@/components/layout/Shell";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, ChevronRight, Clock, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, ChevronRight, Clock, Loader2, AlertCircle, ExternalLink } from "lucide-react";
 import {
   useAcuityConfig,
   useMemberCertificates,
@@ -23,6 +23,18 @@ function getParams() {
   };
 }
 
+type LocationService = NonNullable<ReturnType<typeof useAcuityConfig>["data"]>["locations"][number]["services"][number];
+
+interface ServiceOption {
+  key: string;
+  id: number;
+  name: string;
+  description?: string | null | undefined;
+  duration?: number;
+  bookingMode: "native" | "external";
+  calendarId: string;
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function SelectService() {
@@ -36,7 +48,7 @@ export default function SelectService() {
   const { data: certCheck                                   } = useCertificateCheck(params.certificate);
   const { data: appointmentTypes = [], isLoading: typesLoading } = useAppointmentTypes();
 
-  const isLoading = configLoading || certsLoading || typesLoading;
+  const isLoading = configLoading || certsLoading;
 
   // ── Eligibility ──────────────────────────────────────────────────────────
   const locationConfig = acuityConfig?.locations.find((l) => l.id === params.locationId);
@@ -52,17 +64,59 @@ export default function SelectService() {
       : [];
 
   // Enrich eligible IDs with full metadata from the appointment-types endpoint.
-  const eligibleTypes: AppointmentType[] = eligibleTypeIds
-    .map((id) => appointmentTypes.find((t) => String(t.id) === id))
-    .filter((t): t is AppointmentType => !!t);
+  const externalServices: LocationService[] =
+    locationConfig?.services.filter((service) => service.bookingMode === "external") ?? [];
+
+  const eligibleTypes: ServiceOption[] = eligibleTypeIds.reduce<ServiceOption[]>((acc, id) => {
+    const configured = locationConfig?.services.find(
+      (service) => service.appointmentTypeID === id && service.bookingMode === "native",
+    );
+    if (!configured) return acc;
+    const metadata = appointmentTypes.find((t) => String(t.id) === id);
+    acc.push({
+      key: configured.key,
+      id: Number(id),
+      name: metadata?.name ?? configured.name,
+      description: metadata?.description ?? null,
+      duration: metadata?.duration,
+      bookingMode: configured.bookingMode,
+      calendarId: configured.calendarId,
+    });
+    return acc;
+  }, []);
+
+  const serviceOptions: ServiceOption[] = [
+    ...externalServices.map((service) => ({
+      key: service.key,
+      id: Number(service.appointmentTypeID),
+      name: service.name,
+      description: "Opens Acuity to schedule your free trial.",
+      bookingMode: service.bookingMode,
+      calendarId: service.calendarId,
+    })),
+    ...eligibleTypes,
+  ];
+
+  function hostedUrl(service: ServiceOption): string {
+    const query = new URLSearchParams({
+      owner: acuityConfig?.ownerId ?? "",
+      appointmentType: String(service.id),
+      calendarID: service.calendarId,
+    });
+    return `https://app.acuityscheduling.com/schedule.php?${query.toString()}`;
+  }
 
   // ── Navigation ───────────────────────────────────────────────────────────
-  function handleSelect(type: AppointmentType) {
+  function handleSelect(service: ServiceOption) {
+    if (service.bookingMode === "external") {
+      window.open(hostedUrl(service), "_blank", "noopener,noreferrer");
+      return;
+    }
     const sp = new URLSearchParams({
       locationId:          params.locationId,
       locationName:        params.locationName,
-      appointmentTypeID:   String(type.id),
-      appointmentTypeName: type.name,
+      appointmentTypeID:   String(service.id),
+      appointmentTypeName: service.name,
       ...(params.certificate ? { certificate: params.certificate } : {}),
       from: "select-service",
     });
@@ -111,7 +165,7 @@ export default function SelectService() {
           <Loader2 className="w-4 h-4 animate-spin" />
           Loading services…
         </div>
-      ) : eligibleTypes.length === 0 ? (
+      ) : serviceOptions.length === 0 ? (
         <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-5 max-w-lg">
           <AlertCircle className="w-4 h-4 shrink-0 text-muted-foreground mt-0.5" />
           <p className="text-sm text-muted-foreground">
@@ -121,10 +175,10 @@ export default function SelectService() {
         </div>
       ) : (
         <div className="flex flex-col gap-3 max-w-lg">
-          {eligibleTypes.map((type) => (
+          {serviceOptions.map((service) => (
             <button
-              key={type.id}
-              onClick={() => handleSelect(type)}
+              key={service.key}
+              onClick={() => handleSelect(service)}
               className={cn(
                 "group flex items-center gap-4 rounded-xl border border-border bg-card",
                 "px-6 py-5 text-left w-full transition-colors",
@@ -134,17 +188,21 @@ export default function SelectService() {
             >
               <div className="flex-1 min-w-0 space-y-1">
                 <h3 className="text-lg font-display font-bold text-foreground leading-tight">
-                  {type.name}
+                {service.name}
                 </h3>
-                {type.description && (
+                {service.description && (
                   <p className="text-sm text-muted-foreground line-clamp-2">
-                    {type.description}
+                    {service.description}
                   </p>
                 )}
-                {type.duration ? (
+                {service.duration ? (
                   <p className="flex items-center gap-1 text-xs text-muted-foreground pt-0.5">
-                    <Clock className="w-3 h-3 shrink-0" />
-                    {type.duration} min
+                    {service.bookingMode === "external" ? (
+                      <ExternalLink className="w-3 h-3 shrink-0" />
+                    ) : (
+                      <Clock className="w-3 h-3 shrink-0" />
+                    )}
+                    {service.bookingMode === "external" ? "External booking" : `${service.duration} min`}
                   </p>
                 ) : null}
               </div>

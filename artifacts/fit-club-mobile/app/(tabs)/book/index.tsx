@@ -12,7 +12,7 @@ import { customFetch } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SvgIcon from '@/components/SvgIcon';
-import { useCertificate, type CertInfo, type CertStatus } from '@/hooks/useCertificate';
+import { useCertificate } from '@/hooks/useCertificate';
 import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
 
 interface MemberCert {
@@ -34,32 +34,13 @@ interface AcuityAppointmentType {
   category?: string | null;
 }
 
-/**
- * Returns the subset of locationTypeIds the member is eligible to book.
- * Workout for 1 is always included (no certificate required).
- * All other types require a certificate that explicitly covers them.
- *
- * Mirrors web portal's src/lib/bookingEligibility.ts — keep in sync if rules change.
- */
-function getEligibleTypeIds(
-  locationTypeIds: string[],
-  workoutFor1Id: string,
-  memberCerts: MemberCert[],
-  certInfo: CertInfo | null,
-  certStatus: CertStatus,
-): string[] {
-  return locationTypeIds.filter((typeId) => {
-    if (typeId === workoutFor1Id) return true;
-    if (memberCerts.some(
-      (c) => c.appliesToAllProducts === true || (c.appointmentTypeIDs ?? []).includes(typeId),
-    )) return true;
-    if (
-      certStatus === 'valid' &&
-      certInfo &&
-      (certInfo.appliesToAllProducts || certInfo.productIDs.includes(typeId))
-    ) return true;
-    return false;
-  });
+interface AcuityService {
+  key: string;
+  appointmentTypeID: string;
+  name: string;
+  bookingMode: 'native' | 'external';
+  calendarId: string;
+  requiresCertificate: boolean;
 }
 
 interface AcuityConfig {
@@ -73,6 +54,7 @@ interface AcuityConfig {
     id: string;
     name: string;
     calendarId: string;
+    services: AcuityService[];
     appointmentTypeIDs: string[];
   }>;
 }
@@ -148,41 +130,17 @@ export default function BookScreen() {
   const handleBook = (loc: AcuityConfig['locations'][number]) => {
     if (!acuityConfig) return;
 
-    const eligibleIds = getEligibleTypeIds(
-      loc.appointmentTypeIDs,
-      acuityConfig.appointmentTypes.workoutFor1,
-      memberCerts,
-      info,
-      status,
-    );
-
-    if (eligibleIds.length === 0) return;
-
-    if (eligibleIds.length === 1) {
-      const typeId = eligibleIds[0];
-      const typeMeta = appointmentTypes.find((t) => String(t.id) === typeId);
-      router.push({
-        pathname: '/(tabs)/book/select-datetime',
-        params: {
-          locationId:          loc.id,
-          locationName:        loc.name,
-          appointmentTypeID:   typeId,
-          appointmentTypeName: typeMeta?.name ?? '',
-          certificate: status === 'valid' ? code : '',
-          from: 'book',
-        },
-      });
-    } else {
-      router.push({
-        pathname: '/(tabs)/book/select-service',
-        params: {
-          locationId:   loc.id,
-          locationName: loc.name,
-          calendarId:   loc.calendarId,
-          certificate:  status === 'valid' ? code : '',
-        },
-      });
-    }
+    // All locations expose at least Free Trial (external) + Workout for 1 (native),
+    // so always route through the service selector. SelectService handles
+    // external vs native branching and per-member eligibility filtering.
+    router.push({
+      pathname: '/(tabs)/book/select-service',
+      params: {
+        locationId:   loc.id,
+        locationName: loc.name,
+        certificate:  status === 'valid' ? code : '',
+      },
+    });
   };
 
   const certBannerBg =
@@ -235,9 +193,10 @@ export default function BookScreen() {
               </View>
             ))
           : (acuityConfig?.locations ?? []).map((loc) => {
-              const serviceNames = loc.appointmentTypeIDs
-                .map((id) => appointmentTypes.find((t) => String(t.id) === id)?.name)
-                .filter((n): n is string => !!n);
+              const serviceNames = loc.services.map((s) => {
+                const meta = appointmentTypes.find((t) => String(t.id) === s.appointmentTypeID);
+                return meta?.name ?? s.name;
+              });
 
               return (
                 <TouchableOpacity

@@ -18,6 +18,14 @@ export interface AcuityConfig {
      * client code.
      */
     appointmentTypeIDs: string[];
+    services: Array<{
+      key: string;
+      appointmentTypeID: string;
+      name: string;
+      bookingMode: "native" | "external";
+      calendarId: string;
+      requiresCertificate: boolean;
+    }>;
   }>;
   termsAcknowledgement: {
     formId: string;

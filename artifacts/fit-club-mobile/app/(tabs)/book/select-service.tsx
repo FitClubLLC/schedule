@@ -1,14 +1,16 @@
 /**
  * SelectService — mobile service-selection step.
  *
- * Shown when the chosen location supports more than one appointment type AND
- * the member holds a certificate eligible for at least one non-base service.
+ * Shown for every location. Services are sourced from the API config:
+ *   - External services (Free Trial) open the Acuity hosted scheduler.
+ *   - Native services (Workout for 1, Red Light Therapy) continue through
+ *     the native availability → confirm flow.
  *
- * Eligibility logic mirrors the web portal's bookingEligibility.ts exactly:
+ * Eligibility logic for native services mirrors the web portal exactly:
  *   - Workout for 1 is always shown (no certificate required).
- *   - All other types require a certificate that covers them.
+ *   - All other native types require a certificate that covers them.
  *
- * On selection → navigates to SelectDateTime with all required booking params.
+ * External services are always shown regardless of certificate status.
  */
 
 import React, { useCallback } from 'react';
@@ -19,7 +21,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
+  Linking,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@clerk/expo';
@@ -31,10 +35,20 @@ import { BookingProgress } from '@/components/book/BookingProgress';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface AcuityService {
+  key: string;
+  appointmentTypeID: string;
+  name: string;
+  bookingMode: 'native' | 'external';
+  calendarId: string;
+  requiresCertificate: boolean;
+}
+
 interface AcuityLocation {
   id: string;
   name: string;
   calendarId: string;
+  services: AcuityService[];
   appointmentTypeIDs: string[];
 }
 
@@ -69,33 +83,32 @@ interface AcuityAppointmentType {
   category?: string | null;
 }
 
-// ── Eligibility ───────────────────────────────────────────────────────────────
+// ── Eligibility — native services only ───────────────────────────────────────
+// External services are shown unconditionally; this filter applies only to
+// the native subset.
 
-function getEligibleTypeIds(
-  locationTypeIds: string[],
+function isNativeServiceEligible(
+  typeId: string,
   workoutFor1Id: string,
   memberCerts: MemberCert[],
   certCheck: CertCheckResult | null,
   certCode: string,
-): string[] {
-  return locationTypeIds.filter((typeId) => {
-    if (typeId === workoutFor1Id) return true;
-    if (
-      memberCerts.some(
-        (c) => c.appliesToAllProducts === true || (c.appointmentTypeIDs ?? []).includes(typeId),
-      )
-    ) return true;
-    if (
-      certCode &&
-      certCheck &&
-      certCheck.valid &&
-      (certCheck.appliesToAllProducts || certCheck.productIDs.includes(typeId))
-    ) return true;
-    return false;
-  });
+): boolean {
+  if (typeId === workoutFor1Id) return true;
+  if (
+    memberCerts.some(
+      (c) => c.appliesToAllProducts === true || (c.appointmentTypeIDs ?? []).includes(typeId),
+    )
+  ) return true;
+  if (
+    certCode &&
+    certCheck?.valid &&
+    (certCheck.appliesToAllProducts || certCheck.productIDs.includes(typeId))
+  ) return true;
+  return false;
 }
 
-const STEPS_WITH_SERVICE = ['Location', 'Service', 'Date & Time', 'Confirm'];
+const STEPS = ['Location', 'Service', 'Date & Time', 'Confirm'];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -103,7 +116,7 @@ export default function SelectServiceScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
 
   const {
     locationId = '',
@@ -112,12 +125,10 @@ export default function SelectServiceScreen() {
   } = useLocalSearchParams<{
     locationId: string;
     locationName: string;
-    calendarId: string;
     certificate: string;
   }>();
 
   const certCode = (certificate as string).trim();
-  const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
   const bookingAuthReady = isLoaded && isSignedIn === true;
 
   // ── Queries (shared queryKeys with index.tsx — instant cache hits) ─────────
@@ -145,16 +156,11 @@ export default function SelectServiceScreen() {
     queryKey: ['cert-check', certCode],
     enabled: !!certCode && bookingAuthReady,
     retry: false,
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error('Not signed in');
-      const res = await fetch(
-        `${baseUrl}/api/booking/certificates/check?certificate=${encodeURIComponent(certCode)}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (!res.ok) throw new Error('Invalid certificate');
-      return res.json();
-    },
+    queryFn: () =>
+      customFetch<CertCheckResult>(
+        `/api/booking/certificates/check?certificate=${encodeURIComponent(certCode)}`,
+        { method: 'GET', responseType: 'json' },
+      ),
   });
 
   const typesQuery = useQuery<AcuityAppointmentType[]>({
@@ -171,45 +177,68 @@ export default function SelectServiceScreen() {
 
   const isLoading = configQuery.isLoading || certsQuery.isLoading || typesQuery.isLoading;
 
-  const acuityConfig   = configQuery.data;
-  const memberCerts    = certsQuery.data   ?? [];
-  const certCheck      = certCheckQuery.data ?? null;
-  const appointmentTypes = typesQuery.data ?? [];
+  const acuityConfig     = configQuery.data;
+  const memberCerts      = certsQuery.data   ?? [];
+  const certCheck        = certCheckQuery.data ?? null;
+  const appointmentTypes = typesQuery.data   ?? [];
 
   const locationCfg = acuityConfig?.locations.find((l) => l.id === locationId);
 
-  const eligibleIds =
-    acuityConfig && locationCfg
-      ? getEligibleTypeIds(
-          locationCfg.appointmentTypeIDs,
-          acuityConfig.appointmentTypes.workoutFor1,
-          memberCerts,
-          certCheck,
-          certCode,
-        )
-      : [];
+  // Build the visible service list in two passes:
+  //   1. External services — always shown first.
+  //   2. Native services — filtered by certificate eligibility.
+  const visibleServices: Array<AcuityService & { meta?: AcuityAppointmentType }> = [];
 
-  const eligibleTypes: AcuityAppointmentType[] = eligibleIds
-    .map((id) => appointmentTypes.find((t) => String(t.id) === id))
-    .filter((t): t is AcuityAppointmentType => !!t);
+  if (locationCfg && acuityConfig) {
+    for (const service of locationCfg.services) {
+      if (service.bookingMode === 'external') {
+        visibleServices.push({ ...service, meta: undefined });
+      } else {
+        if (
+          isNativeServiceEligible(
+            service.appointmentTypeID,
+            acuityConfig.appointmentTypes.workoutFor1,
+            memberCerts,
+            certCheck,
+            certCode,
+          )
+        ) {
+          const meta = appointmentTypes.find((t) => String(t.id) === service.appointmentTypeID);
+          visibleServices.push({ ...service, meta });
+        }
+      }
+    }
+  }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleSelect = useCallback(
-    (type: AcuityAppointmentType) => {
+    (service: AcuityService & { meta?: AcuityAppointmentType }) => {
+      if (service.bookingMode === 'external') {
+        // Build the Acuity hosted scheduler URL with owner + type + calendar.
+        const query = new URLSearchParams({
+          owner:           acuityConfig?.ownerId ?? '',
+          appointmentType: service.appointmentTypeID,
+          calendarID:      service.calendarId,
+        });
+        const url = `https://app.acuityscheduling.com/schedule.php?${query.toString()}`;
+        WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url));
+        return;
+      }
+
       router.push({
         pathname: '/(tabs)/book/select-datetime',
         params: {
           locationId:          locationId as string,
           locationName:        locationName as string,
-          appointmentTypeID:   String(type.id),
-          appointmentTypeName: type.name,
+          appointmentTypeID:   service.appointmentTypeID,
+          appointmentTypeName: service.meta?.name ?? service.name,
           certificate:         certCode,
           from:                'select-service',
         },
       });
     },
-    [router, locationId, locationName, certCode],
+    [router, locationId, locationName, certCode, acuityConfig],
   );
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -236,7 +265,7 @@ export default function SelectServiceScreen() {
       </TouchableOpacity>
 
       {/* Progress */}
-      <BookingProgress steps={STEPS_WITH_SERVICE} currentStep="Service" />
+      <BookingProgress steps={STEPS} currentStep="Service" />
 
       {/* Header */}
       <View style={styles.header}>
@@ -249,7 +278,7 @@ export default function SelectServiceScreen() {
       {/* Content */}
       {isLoading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
-      ) : eligibleTypes.length === 0 ? (
+      ) : visibleServices.length === 0 ? (
         <View
           style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
@@ -260,45 +289,64 @@ export default function SelectServiceScreen() {
         </View>
       ) : (
         <View style={styles.cards}>
-          {eligibleTypes.map((type) => (
-            <TouchableOpacity
-              key={type.id}
-              onPress={() => handleSelect(type)}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel={type.name}
-              style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <View style={styles.cardBody}>
-                <Text style={[styles.typeName, { color: colors.foreground }]}>
-                  {type.name}
-                </Text>
+          {visibleServices.map((service) => {
+            const displayName = service.meta?.name ?? service.name;
+            const description = service.meta?.description ?? null;
+            const duration    = service.meta?.duration;
+            const isExternal  = service.bookingMode === 'external';
 
-                {!!type.description && (
-                  <Text
-                    style={[styles.typeDesc, { color: colors.mutedForeground }]}
-                    numberOfLines={2}
-                  >
-                    {type.description}
+            return (
+              <TouchableOpacity
+                key={service.key}
+                onPress={() => handleSelect(service)}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel={displayName}
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  isExternal && styles.cardExternal,
+                ]}
+              >
+                <View style={styles.cardBody}>
+                  <Text style={[styles.typeName, { color: colors.foreground }]}>
+                    {displayName}
                   </Text>
-                )}
 
-                {!!type.duration && (
-                  <View style={styles.durationRow}>
-                    <SvgIcon name="clock" size={12} color={colors.mutedForeground} />
-                    <Text style={[styles.durationText, { color: colors.mutedForeground }]}>
-                      {type.duration} min
+                  {!!description && (
+                    <Text
+                      style={[styles.typeDesc, { color: colors.mutedForeground }]}
+                      numberOfLines={2}
+                    >
+                      {description}
                     </Text>
-                  </View>
-                )}
-              </View>
+                  )}
 
-              <SvgIcon name="chevron-right" size={18} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          ))}
+                  {isExternal ? (
+                    <View style={styles.durationRow}>
+                      <SvgIcon name="external-link" size={12} color={colors.mutedForeground} />
+                      <Text style={[styles.durationText, { color: colors.mutedForeground }]}>
+                        External booking
+                      </Text>
+                    </View>
+                  ) : !!duration ? (
+                    <View style={styles.durationRow}>
+                      <SvgIcon name="clock" size={12} color={colors.mutedForeground} />
+                      <Text style={[styles.durationText, { color: colors.mutedForeground }]}>
+                        {duration} min
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <SvgIcon
+                  name={isExternal ? 'external-link' : 'chevron-right'}
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
     </ScrollView>
@@ -308,13 +356,13 @@ export default function SelectServiceScreen() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container:   { paddingHorizontal: 20 },
-  backBtn:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 20 },
-  backText:    { fontFamily: 'Inter_500Medium', fontSize: 14 },
-  header:      { marginBottom: 24 },
-  title:       { fontFamily: 'BarlowCondensed_800ExtraBold', fontSize: 32, letterSpacing: 2, marginBottom: 4 },
-  subtitle:    { fontFamily: 'Inter_400Regular', fontSize: 14 },
-  cards:       { gap: 12 },
+  container:     { paddingHorizontal: 20 },
+  backBtn:       { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 20 },
+  backText:      { fontFamily: 'Inter_500Medium', fontSize: 14 },
+  header:        { marginBottom: 24 },
+  title:         { fontFamily: 'BarlowCondensed_800ExtraBold', fontSize: 32, letterSpacing: 2, marginBottom: 4 },
+  subtitle:      { fontFamily: 'Inter_400Regular', fontSize: 14 },
+  cards:         { gap: 12 },
   card: {
     borderWidth: 1.5,
     borderRadius: 16,
@@ -324,11 +372,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  cardBody:     { flex: 1, gap: 5 },
-  typeName:     { fontFamily: 'BarlowCondensed_700Bold', fontSize: 20, letterSpacing: 0.3, lineHeight: 24 },
-  typeDesc:     { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 18 },
-  durationRow:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  durationText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: '#A6A6A6' },
+  cardExternal:  { opacity: 0.92 },
+  cardBody:      { flex: 1, gap: 5 },
+  typeName:      { fontFamily: 'BarlowCondensed_700Bold', fontSize: 20, letterSpacing: 0.3, lineHeight: 24 },
+  typeDesc:      { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 18 },
+  durationRow:   { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  durationText:  { fontFamily: 'Inter_400Regular', fontSize: 13 },
   emptyCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -337,5 +386,5 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
   },
-  emptyText: { fontFamily: 'Inter_400Regular', flex: 1, fontSize: 14, lineHeight: 20 },
+  emptyText:    { fontFamily: 'Inter_400Regular', flex: 1, fontSize: 14, lineHeight: 20 },
 });

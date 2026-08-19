@@ -1,7 +1,12 @@
 import type { MemberCertificate, CertificateCheckResult } from "@/hooks/useBookingApi";
 
 /**
- * Returns the subset of locationTypeIds the signed-in member is eligible to book.
+ * Returns the subset of locationNativeTypeIds the signed-in member is eligible
+ * to book through the native flow.
+ *
+ * This function operates only on native appointment type IDs (external services
+ * such as Free Trial are shown unconditionally by the UI and must not be passed
+ * to this filter).
  *
  * Eligibility rules (applied in order):
  *
@@ -24,12 +29,12 @@ import type { MemberCertificate, CertificateCheckResult } from "@/hooks/useBooki
  * data. Keep them in sync if the business rules change.
  */
 export function getEligibleTypeIds(
-  locationTypeIds: string[],
+  locationNativeTypeIds: string[],
   workoutFor1Id: string,
   memberCerts: MemberCertificate[],
   certCheck?: Pick<CertificateCheckResult, "productIDs" | "appliesToAllProducts"> | null,
 ): string[] {
-  return locationTypeIds.filter((typeId) => {
+  return locationNativeTypeIds.filter((typeId) => {
     // 1. Workout for 1 — always visible, no certificate required.
     if (typeId === workoutFor1Id) return true;
 

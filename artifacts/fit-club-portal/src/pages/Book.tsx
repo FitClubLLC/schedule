@@ -90,35 +90,15 @@ export default function Book() {
   function handleLocationSelect(loc: NonNullable<typeof acuityConfig>["locations"][number]) {
     if (!acuityConfig) return;
 
-    const eligibleIds = getEligibleTypeIds(
-      loc.appointmentTypeIDs,
-      acuityConfig.appointmentTypes.workoutFor1,
-      memberCerts,
-      isValid ? (checkData ?? null) : null,
-    );
-
-    if (eligibleIds.length === 0) return;
-
-    if (eligibleIds.length === 1) {
-      const typeId   = eligibleIds[0];
-      const typeMeta = appointmentTypes.find((t) => String(t.id) === typeId);
-      const sp = new URLSearchParams({
-        locationId:   loc.id,
-        locationName: loc.name,
-        appointmentTypeID: typeId,
-        ...(typeMeta ? { appointmentTypeName: typeMeta.name } : {}),
-        ...(activeCode ? { certificate: activeCode } : {}),
-        from: "book",
-      });
-      setLocation(`/book/select-datetime?${sp.toString()}`);
-    } else {
-      const sp = new URLSearchParams({
-        locationId:   loc.id,
-        locationName: loc.name,
-        ...(activeCode ? { certificate: activeCode } : {}),
-      });
-      setLocation(`/book/select-service?${sp.toString()}`);
-    }
+    // All locations expose at least Free Trial (external) + Workout for 1 (native),
+    // so always route through the service selector. The selector handles external
+    // vs native branching and per-member eligibility filtering.
+    const sp = new URLSearchParams({
+      locationId:   loc.id,
+      locationName: loc.name,
+      ...(activeCode ? { certificate: activeCode } : {}),
+    });
+    setLocation(`/book/select-service?${sp.toString()}`);
   }
 
   return (
@@ -152,9 +132,11 @@ export default function Book() {
               />
             ))
           : (acuityConfig?.locations ?? []).map((loc) => {
-              const serviceNames = loc.appointmentTypeIDs
-                .map((id) => appointmentTypes.find((t) => String(t.id) === id)?.name)
-                .filter((n): n is string => !!n);
+              // Show names for all services (external + native) on the card.
+              const serviceNames = loc.services.map((s) => {
+                const meta = appointmentTypes.find((t) => String(t.id) === s.appointmentTypeID);
+                return meta?.name ?? s.name;
+              });
 
               return (
                 <button
