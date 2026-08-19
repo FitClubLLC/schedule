@@ -10,3 +10,5 @@ When that proxy rewrites the upstream `Host` to localhost, it must not forward t
 **Why:** A path preview can successfully return Expo HTML while its JavaScript resolves outside that path and receives another artifact’s HTML instead.
 
 **How to apply:** Keep production build and serve commands unchanged. For the development proxy's localhost-bound Metro request, remove the forwarded `Origin` header alongside the host rewrite; the browser is still same-origin with the public proxy and does not need Metro CORS. Verify both that `/mobile/` renders after settling and that its emitted entry bundle is served as JavaScript under the `/mobile/` prefix; preserve direct Expo status/origin access.
+
+For cross-artifact QA, verify the loaded script rather than inferring the artifact from a mobile viewport or a `/book/...` route. The Expo app loads an `expo-router/.../entry.bundle`; a page loading `/@vite/client` or `/src/main.tsx` is the portal Vite client and must be fixed or tested through the portal workflow instead.

@@ -32,6 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
 import { BookingProgress } from '@/components/book/BookingProgress';
+import { formatStudioTime, studioHour } from '@/lib/studioTime';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -70,15 +71,11 @@ function formatDateCompact(date: Date): string {
 }
 
 function formatTimeLabel(isoStr: string): string {
-  return new Date(isoStr).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
+  return formatStudioTime(isoStr);
 }
 
 function getHour(isoStr: string): number {
-  return new Date(isoStr).getHours();
+  return studioHour(isoStr);
 }
 
 interface TimeSlot {

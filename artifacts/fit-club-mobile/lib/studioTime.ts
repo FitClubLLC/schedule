@@ -25,6 +25,16 @@ export function formatStudioTime(value: string): string {
   }).format(new Date(value));
 }
 
+export function studioHour(value: string): number {
+  const hour = new Intl.DateTimeFormat('en-US', {
+    timeZone: STUDIO_TIME_ZONE,
+    hour: 'numeric',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(value)).find((part) => part.type === 'hour')?.value;
+
+  return Number(hour);
+}
+
 export function formatStudioTodayPart(
   date: Date,
   options: Intl.DateTimeFormatOptions,
