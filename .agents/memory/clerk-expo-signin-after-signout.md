@@ -9,11 +9,11 @@ In `@clerk/expo` v4, after `signOut()`, `clerk.client.signIn` retains its previo
 
 Additionally, `signIn.create()` called without `strategy: 'password'` silently no-ops on accounts that have multiple auth strategies attached (e.g. Google OAuth + password reset), because Clerk can't determine which path to use.
 
-## The fix (applied in sign-in.tsx)
+## Required sign-in pattern
 
 1. **`strategy: 'password'` is required** on every `signIn.create()` call for password-based accounts. Without it, Clerk silently returns nothing on multi-strategy accounts.
 
-2. **On mount, reload the Clerk client** via `(clerk as any).client?.fetch?.()`. This resets the `SignIn` resource's internal status from `'complete'` back to `null`, making subsequent `create()` calls work correctly.
+2. **Reload the Clerk client before a new attempt** via `(clerk as any).client?.fetch?.()`. This resets the `SignIn` resource's internal status from `'complete'` back to `null`, making subsequent `create()` calls work correctly.
 
 3. **Block sign-in until cleanup confirms** — `isClerkReady` state starts `false`, is set `true` only after the mount-time cleanup resolves. `signInReady = isLoaded && !!hookSignIn && isClerkReady` gates the button and both sign-in handlers.
 

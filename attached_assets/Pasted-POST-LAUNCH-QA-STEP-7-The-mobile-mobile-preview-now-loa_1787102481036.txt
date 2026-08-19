@@ -1,0 +1,72 @@
+POST-LAUNCH QA — STEP 7
+
+The mobile /mobile/ preview now loads correctly, but Step 6 could not complete Clerk sign-in.
+
+Diagnose ONLY the mobile development Clerk authentication problem.
+
+Do NOT publish.
+Do NOT create, cancel, or reschedule appointments.
+Do NOT weaken API authentication.
+Do NOT change production Clerk configuration.
+Do NOT change production environment variables.
+Do NOT modify booking business logic.
+
+Known result:
+
+- /mobile/ preview loads successfully.
+- The Fit Club Member Login screen renders.
+- Attempting to sign in returns to the Member Login screen.
+- Clerk could not be confirmed as signed in.
+- /api/booking/config was therefore never requested.
+- No fatal browser errors were observed.
+- Some navigation assets showed net::ERR_ABORTED.
+
+Investigate the authentication flow and determine exactly where sign-in is failing.
+
+Check:
+
+1. Which Clerk publishable-key/environment the mobile development app is using.
+2. Whether it is using the Development Clerk instance or Production Clerk instance.
+3. Whether the mobile Expo origin/domain is configured/allowed for that Clerk instance.
+4. Whether the sign-in request reaches Clerk successfully.
+5. Whether Clerk creates a session after successful credentials are entered.
+6. Whether the session is lost during navigation from the login screen to the authenticated shell.
+7. Whether the issue is caused by:
+   - Clerk configuration,
+   - origin/domain configuration,
+   - environment-variable mismatch,
+   - Expo/web storage/cookie behavior,
+   - redirect/navigation handling,
+   - or something else.
+8. Compare the working direct Expo development origin with the /mobile/ proxied origin if useful.
+
+Use only safe diagnostics.
+
+DO NOT print or expose:
+- Clerk secret keys
+- publishable key values
+- session tokens
+- cookies
+- authorization headers
+- JWTs
+- credentials
+- email addresses
+
+It is okay to report environment TYPE (Development vs Production), whether a key is present, HTTP status codes, and non-sensitive Clerk state such as signed-in/signed-out.
+
+Do not change anything unless absolutely necessary to establish the diagnosis. If a configuration or code change would be required, STOP and report it rather than making the change.
+
+At the end report:
+
+POST-LAUNCH QA — STEP 7
+------------------------
+Clerk environment:
+Sign-in request:
+Session creation:
+Session persistence:
+Failure point:
+Root cause:
+Fix required:
+Production changed: NO
+Production publish: NOT PERFORMED
+Real appointments created: NONE
