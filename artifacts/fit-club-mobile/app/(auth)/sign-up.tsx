@@ -48,22 +48,39 @@ export default function SignUpScreen() {
 
   // ── Sign up: create account + send verification code ──────────────────────
   const handleSignUp = async () => {
-    if (!email || !password || busy) return;
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+
+    if (!email || !password || !trimmedFirstName || !trimmedLastName || busy) {
+      if (!trimmedFirstName || !trimmedLastName) {
+        setError('Enter your first and last name to create your member account.');
+      }
+      return;
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     clearError();
     try {
-      // v4 API: signUp.password() only accepts emailAddress + password.
-      // firstName/lastName are not supported at this stage.
-      const result = await (signUp as any).password({
+      // The typed v4 password flow accepts profile fields alongside credentials.
+      // Sending names here ensures Clerk stores them on the completed user.
+      const result = await signUp.password({
         emailAddress: email.trim(),
         password,
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
       });
-      if (result?.error) {
+      if (result.error) {
         setError(result.error.longMessage ?? result.error.message ?? 'Could not create account. Please try again.');
         return;
       }
-      await (signUp as any).verifications.sendEmailCode();
+
+      const verification = await signUp.verifications.sendEmailCode();
+      if (verification.error) {
+        setError(verification.error.longMessage ?? verification.error.message ?? 'Could not send a verification code. Please try again.');
+        return;
+      }
+
       setStep('verify');
     } catch (err: any) {
       setError(
@@ -84,11 +101,19 @@ export default function SignUpScreen() {
     setLoading(true);
     clearError();
     try {
-      await (signUp as any).verifications.verifyEmailCode({ code: verifyCode });
-      if ((signUp as any).status === 'complete') {
+      const verification = await signUp.verifications.verifyEmailCode({ code: verifyCode.trim() });
+      if (verification.error) {
+        setError(verification.error.longMessage ?? verification.error.message ?? 'Invalid verification code.');
+        return;
+      }
+
+      if (signUp.status === 'complete') {
         // Don't navigate manually — finalize() updates isSignedIn, which
         // triggers RootLayoutNav's useEffect to redirect to /(tabs) automatically.
-        await (signUp as any).finalize();
+        const finalized = await signUp.finalize();
+        if (finalized.error) {
+          setError(finalized.error.longMessage ?? finalized.error.message ?? 'Your account was verified, but the session could not start. Please sign in.');
+        }
       } else {
         setError('Verification could not be completed. Please try again.');
       }
@@ -110,7 +135,10 @@ export default function SignUpScreen() {
     setLoading(true);
     clearError();
     try {
-      await (signUp as any).verifications.sendEmailCode();
+      const verification = await signUp.verifications.sendEmailCode();
+      if (verification.error) {
+        setError(verification.error.longMessage ?? verification.error.message ?? 'Could not resend code.');
+      }
     } catch (err: any) {
       setError(err?.errors?.[0]?.message ?? err?.message ?? 'Could not resend code.');
     } finally {
@@ -194,7 +222,7 @@ export default function SignUpScreen() {
               placeholder="First name"
               placeholderTextColor={colors.mutedForeground}
               value={firstName}
-              onChangeText={setFirstName}
+              onChangeText={(value) => { setFirstName(value); clearError(); }}
               autoCapitalize="words"
             />
             <TextInput
@@ -202,7 +230,7 @@ export default function SignUpScreen() {
               placeholder="Last name"
               placeholderTextColor={colors.mutedForeground}
               value={lastName}
-              onChangeText={setLastName}
+              onChangeText={(value) => { setLastName(value); clearError(); }}
               autoCapitalize="words"
             />
           </View>
@@ -237,9 +265,9 @@ export default function SignUpScreen() {
           {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
 
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || !password || busy) && styles.buttonDisabled]}
+            style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || !password || !firstName.trim() || !lastName.trim() || busy) && styles.buttonDisabled]}
             onPress={handleSignUp}
-            disabled={!email || !password || busy}
+            disabled={!email || !password || !firstName.trim() || !lastName.trim() || busy}
             activeOpacity={0.8}
           >
             {busy

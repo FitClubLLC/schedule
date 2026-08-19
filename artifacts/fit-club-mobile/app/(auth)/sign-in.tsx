@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -33,7 +33,7 @@ export default function SignInScreen() {
   // useSignIn().isLoaded never reliably becomes true after sign-out in
   // @clerk/expo ^4.  useAuth().isLoaded is the correct gate.
   const { isLoaded } = useAuth();
-  const { signIn: hookSignIn, setActive } = useSignIn();
+  const { signIn } = useSignIn();
   const clerk = useClerk();
 
   // ── UI hooks ───────────────────────────────────────────────────────────────
@@ -62,19 +62,9 @@ export default function SignInScreen() {
   const [biometricLoading, setBiometricLoading] = useState(false);
 
   // ── Derived values — after all state is declared ───────────────────────────
-  // clerk.client?.signIn is used as a fallback because hookSignIn can be
-  // undefined while @clerk/expo reinitialises after sign-out.
-  const signIn = hookSignIn ?? (clerk as any).client?.signIn;
-  // Button is active as soon as Clerk's auth layer is ready.
-  // We do NOT gate on !!hookSignIn — it stays undefined in @clerk/expo ^4
-  // after sign-out, which would permanently disable the button.
+  // useAuth().isLoaded is the Expo-safe readiness gate. Do not gate on the
+  // signIn resource itself: Clerk can rehydrate that resource after sign-out.
   const signInReady = isLoaded;
-
-  // ── Refs ───────────────────────────────────────────────────────────────────
-  // Captures the exact signIn instance used in handleSendCode so that
-  // handleResetPassword calls attemptFirstFactor on the same object —
-  // preventing a stale-reference mismatch if hookSignIn changes between renders.
-  const signInRef = useRef<any>(null);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   /**
@@ -87,13 +77,45 @@ export default function SignInScreen() {
   const evictGhostSessions = async () => {
     try {
       const client = (clerk as any).client;
-      const ghosts: any[] = client?.activeSessions ?? [];
+      const ghosts: Array<{ id: string }> = client?.activeSessions ?? [];
       if (ghosts.length > 0) {
         await clerk.signOut();
       }
     } catch {
       // Non-fatal — proceed with sign-in attempt regardless.
     }
+  };
+
+  /**
+   * Reload the server-authoritative Clerk client before starting a new attempt.
+   * This clears the completed sign-in resource that can survive signOut() in
+   * memory, while the timeout prevents a stalled network request from freezing
+   * the form indefinitely.
+   */
+  const refreshClerkClient = async (): Promise<boolean> => {
+    const client = (clerk as any).client;
+    if (!client?.fetch) {
+      setError('Authentication is not ready yet. Please try again.');
+      return false;
+    }
+
+    try {
+      await Promise.race([
+        client.fetch(),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Clerk refresh timed out')), 2000);
+        }),
+      ]);
+      return true;
+    } catch {
+      setError('Could not refresh your sign-in session. Check your connection and try again.');
+      return false;
+    }
+  };
+
+  const prepareSignInAttempt = async (): Promise<boolean> => {
+    await evictGhostSessions();
+    return refreshClerkClient();
   };
 
   // Check on mount whether biometric sign-in is available and credentials are saved.
@@ -125,28 +147,28 @@ export default function SignInScreen() {
     setLoading(true);
     clearError();
     try {
-      await evictGhostSessions();
-
-      const freshSignIn = (clerk as any).client?.signIn ?? hookSignIn;
-      if (!freshSignIn) {
+      if (!await prepareSignInAttempt()) return;
+      if (!signIn) {
         setError('Authentication not ready — please try again.');
         return;
       }
 
-      // strategy:'password' is required; without it Clerk silently no-ops on
-      // accounts that have multiple auth methods (e.g. OAuth + password).
-      const result = await freshSignIn.create({
-        strategy: 'password',
-        identifier: email.trim(),
+      const result = await signIn.password({
+        emailAddress: email.trim(),
         password,
       });
-      // Treat createdSessionId as the canonical success signal — status can be
-      // undefined in some @clerk/expo versions even when sign-in succeeded.
-      const succeeded = result.status === 'complete' || !!result.createdSessionId;
-      if (succeeded) {
-        // Use clerk.setActive (from useClerk) — setActive from useSignIn() is
-        // undefined after sign-out and cannot be relied on here.
-        await (clerk as any).setActive({ session: result.createdSessionId });
+      if (result.error) {
+        setError(result.error.longMessage ?? result.error.message ?? 'Incorrect email or password.');
+        return;
+      }
+
+      if (signIn.status === 'complete') {
+        const finalized = await signIn.finalize();
+        if (finalized.error) {
+          setError(finalized.error.longMessage ?? finalized.error.message ?? 'Sign in could not be completed. Please try again.');
+          return;
+        }
+
         // Offer biometric setup if available and not yet saved.
         const [available, saved] = await Promise.all([isBiometricAvailable(), hasSavedCreds()]);
         if (available && !saved) {
@@ -168,7 +190,7 @@ export default function SignInScreen() {
         } else {
           router.replace('/(tabs)');
         }
-      } else if (result.status === 'needs_second_factor') {
+      } else if (signIn.status === 'needs_second_factor') {
         setError('Two-factor authentication is enabled on this account. Please disable it in your account settings and try again.');
       } else {
         setError('Sign in could not be completed. Please try again.');
@@ -180,9 +202,9 @@ export default function SignInScreen() {
       // out. Activate that session and go straight to the app.
       if (code === 'session_exists' || code === 'single_session_mode') {
         try {
-          const ghosts: any[] = (clerk as any).client?.activeSessions ?? [];
-          if (ghosts.length > 0) {
-            await (clerk as any).setActive({ session: ghosts[0].id });
+          const sessionId = signIn?.existingSession?.sessionId ?? (clerk as any).client?.activeSessions?.[0]?.id;
+          if (sessionId) {
+            await clerk.setActive({ session: sessionId });
           }
         } catch { /* ignore — router.replace below will handle it */ }
         router.replace('/(tabs)');
@@ -208,20 +230,27 @@ export default function SignInScreen() {
       const creds = await authenticateWithBiometrics();
       if (!creds) return; // cancelled or failed — do nothing, let user try password
 
-      await evictGhostSessions();
-      const freshSignIn = (clerk as any).client?.signIn ?? hookSignIn;
-      if (!freshSignIn) {
+      if (!await prepareSignInAttempt()) return;
+      if (!signIn) {
         setError('Authentication not ready — please try again.');
         return;
       }
-      const result = await freshSignIn.create({
-        strategy: 'password',
-        identifier: creds.email,
+
+      const result = await signIn.password({
+        emailAddress: creds.email,
         password: creds.password,
       });
-      const succeeded = result.status === 'complete' || !!result.createdSessionId;
-      if (succeeded) {
-        await (clerk as any).setActive({ session: result.createdSessionId });
+      if (result.error) {
+        setError(result.error.longMessage ?? result.error.message ?? 'Biometric sign in failed. Please use your password.');
+        return;
+      }
+
+      if (signIn.status === 'complete') {
+        const finalized = await signIn.finalize();
+        if (finalized.error) {
+          setError(finalized.error.longMessage ?? finalized.error.message ?? 'Biometric sign in failed. Please use your password.');
+          return;
+        }
         router.replace('/(tabs)');
       } else {
         setError('Biometric sign in failed. Please use your password.');
@@ -265,46 +294,30 @@ export default function SignInScreen() {
     clearError();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      // Evict ghost sessions before starting a reset — session_exists is the
-      // most common failure here, for the same reason as regular sign-in.
-      await evictGhostSessions();
+      if (!await prepareSignInAttempt()) return;
+      if (!signIn) { setError('Still loading — please try again in a moment.'); return; }
 
-      const si = (clerk as any).client?.signIn ?? hookSignIn;
-      if (!si) { setError('Still loading — please try again in a moment.'); return; }
-
-      // create() returns the live attempt object — store IT, not the source ref.
-      // This is the exact instance we must pass to attemptFirstFactor.
-      const attempt = await si.create({
-        strategy: 'reset_password_email_code',
+      const started = await signIn.create({
         identifier: resetEmail.trim(),
       });
-      signInRef.current = attempt;
+      if (started.error) {
+        setError(started.error.longMessage ?? started.error.message ?? 'Could not start password reset. Please try again.');
+        return;
+      }
+
+      const sent = await signIn.resetPasswordEmailCode.sendCode();
+      if (sent.error) {
+        setError(sent.error.longMessage ?? sent.error.message ?? 'Could not send reset code. Check the email address and try again.');
+        return;
+      }
+
       setScreen('forgot-code');
     } catch (err: any) {
       if (__DEV__) console.log('[ForgotPassword] create error:', err?.errors?.[0]?.code ?? err?.message);
       const code = err?.errors?.[0]?.code ?? '';
       if (code === 'session_exists' || code === 'single_session_mode') {
-        // Ghost session survived eviction — sign out completely and retry once.
-        try {
-          await clerk.signOut();
-          const si2 = (clerk as any).client?.signIn ?? hookSignIn;
-          if (si2) {
-            const attempt = await si2.create({
-              strategy: 'reset_password_email_code',
-              identifier: resetEmail.trim(),
-            });
-            signInRef.current = attempt;
-            setScreen('forgot-code');
-            return;
-          }
-        } catch (retryErr: any) {
-          setError(
-            retryErr?.errors?.[0]?.longMessage ??
-            retryErr?.errors?.[0]?.message ??
-            'Could not send reset code. Please try again.',
-          );
-          return;
-        }
+        setError('You are already signed in. Return to the app or sign out before resetting your password.');
+        return;
       }
       setError(
         err?.errors?.[0]?.longMessage ??
@@ -322,10 +335,7 @@ export default function SignInScreen() {
     if (newPassword !== confirmPassword) { setError("Passwords don't match."); return; }
     if (newPassword.length < 8) { setError('Password must be at least 8 characters.'); return; }
 
-    // Use ONLY the stored attempt — never re-fetch from clerk.client.
-    // Re-fetching could return a different object and lose the session context.
-    const si = signInRef.current;
-    if (!si) {
+    if (!signIn) {
       setError('Reset session lost — go back and request a new code.');
       return;
     }
@@ -334,16 +344,31 @@ export default function SignInScreen() {
     clearError();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      const result = await si.attemptFirstFactor({
-        strategy: 'reset_password_email_code',
+      const verified = await signIn.resetPasswordEmailCode.verifyCode({
         code: resetCode.trim(),
+      });
+      if (verified.error) {
+        setError(verified.error.longMessage ?? verified.error.message ?? 'Invalid or expired code.');
+        return;
+      }
+
+      const completed = await signIn.resetPasswordEmailCode.submitPassword({
         password: newPassword,
       });
-      if (result.status === 'complete') {
-        await (clerk as any).setActive({ session: result.createdSessionId });
+      if (completed.error) {
+        setError(completed.error.longMessage ?? completed.error.message ?? 'Could not update your password. Please try again.');
+        return;
+      }
+
+      if (signIn.status === 'complete') {
+        const finalized = await signIn.finalize();
+        if (finalized.error) {
+          setError(finalized.error.longMessage ?? finalized.error.message ?? 'Password updated, but your session could not start. Please sign in.');
+          return;
+        }
         router.replace('/(tabs)');
       } else {
-        setError(`Unexpected status: ${result.status}. Please try again.`);
+        setError(`Unexpected status: ${signIn.status}. Please try again.`);
       }
     } catch (err: any) {
       if (__DEV__) console.log('[ForgotPassword] attemptFirstFactor error:', err?.errors?.[0]?.code ?? err?.message);
