@@ -3,14 +3,14 @@
  *
  * Shown for every location. Services are sourced from the API config:
  *   - External services (Free Trial) open the Acuity hosted scheduler.
- *   - Native services (Workout for 1, Red Light Therapy) continue through
- *     the native availability → confirm flow.
+ *   - Native services (Workout for 1, Red Light Therapy) are always shown.
  *
- * Eligibility logic for native services mirrors the web portal exactly:
- *   - Workout for 1 is always shown (no certificate required).
- *   - All other native types require a certificate that covers them.
- *
- * External services are always shown regardless of certificate status.
+ * All native services are presented regardless of certificate status.
+ * Certificate/package eligibility is enforced server-side at appointment
+ * creation (POST /booking/appointments → 422), so members see every option
+ * and receive a clear error only when they are actually ineligible.
+ * Red Light Therapy is Kentlands-only (calendar 14464905); Potomac never
+ * includes it in its service list.
  */
 
 import React, { useCallback } from 'react';
@@ -58,22 +58,6 @@ interface AcuityConfig {
   locations: AcuityLocation[];
 }
 
-interface MemberCert {
-  code: string;
-  productName: string;
-  remainingValue: string;
-  appointmentTypeIDs?: string[];
-  appliesToAllProducts?: boolean;
-}
-
-interface CertCheckResult {
-  valid: boolean;
-  productName: string;
-  remainingValue: string;
-  productIDs: string[];
-  appliesToAllProducts: boolean;
-}
-
 interface AcuityAppointmentType {
   id: number;
   name: string;
@@ -83,30 +67,11 @@ interface AcuityAppointmentType {
   category?: string | null;
 }
 
-// ── Eligibility — native services only ───────────────────────────────────────
-// External services are shown unconditionally; this filter applies only to
-// the native subset.
-
-function isNativeServiceEligible(
-  typeId: string,
-  workoutFor1Id: string,
-  memberCerts: MemberCert[],
-  certCheck: CertCheckResult | null,
-  certCode: string,
-): boolean {
-  if (typeId === workoutFor1Id) return true;
-  if (
-    memberCerts.some(
-      (c) => c.appliesToAllProducts === true || (c.appointmentTypeIDs ?? []).includes(typeId),
-    )
-  ) return true;
-  if (
-    certCode &&
-    certCheck?.valid &&
-    (certCheck.appliesToAllProducts || certCheck.productIDs.includes(typeId))
-  ) return true;
-  return false;
-}
+// No client-side eligibility gate for native services.
+// All native services are shown; certificate/package validation is authoritative
+// on the server (POST /booking/appointments → 422 if ineligible). This lets
+// members see Red Light Therapy even without a qualifying package — they can
+// tap it and the server will surface the eligibility error at confirm time.
 
 const STEPS = ['Location', 'Service', 'Date & Time', 'Confirm'];
 
@@ -143,26 +108,6 @@ export default function SelectServiceScreen() {
     }),
   });
 
-  const certsQuery = useQuery<MemberCert[]>({
-    queryKey: ['member-certificates'],
-    enabled: bookingAuthReady,
-    queryFn: () => customFetch<MemberCert[]>('/api/booking/certificates', {
-      method: 'GET',
-      responseType: 'json',
-    }),
-  });
-
-  const certCheckQuery = useQuery<CertCheckResult>({
-    queryKey: ['cert-check', certCode],
-    enabled: !!certCode && bookingAuthReady,
-    retry: false,
-    queryFn: () =>
-      customFetch<CertCheckResult>(
-        `/api/booking/certificates/check?certificate=${encodeURIComponent(certCode)}`,
-        { method: 'GET', responseType: 'json' },
-      ),
-  });
-
   const typesQuery = useQuery<AcuityAppointmentType[]>({
     queryKey: ['appointment-types'],
     enabled: bookingAuthReady,
@@ -175,38 +120,27 @@ export default function SelectServiceScreen() {
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
-  const isLoading = configQuery.isLoading || certsQuery.isLoading || typesQuery.isLoading;
+  const isLoading = configQuery.isLoading || typesQuery.isLoading;
 
   const acuityConfig     = configQuery.data;
-  const memberCerts      = certsQuery.data   ?? [];
-  const certCheck        = certCheckQuery.data ?? null;
   const appointmentTypes = typesQuery.data   ?? [];
 
   const locationCfg = acuityConfig?.locations.find((l) => l.id === locationId);
 
-  // Build the visible service list in two passes:
-  //   1. External services — always shown first.
-  //   2. Native services — filtered by certificate eligibility.
+  // Build the visible service list: all services in config order.
+  // External services (Free Trial) open the Acuity hosted scheduler.
+  // Native services are always shown — the server enforces eligibility at
+  // appointment-creation time (POST /booking/appointments → 422) so members
+  // see every option and receive a clear error only if they are ineligible.
   const visibleServices: Array<AcuityService & { meta?: AcuityAppointmentType }> = [];
 
-  if (locationCfg && acuityConfig) {
+  if (locationCfg) {
     for (const service of locationCfg.services) {
-      if (service.bookingMode === 'external') {
-        visibleServices.push({ ...service, meta: undefined });
-      } else {
-        if (
-          isNativeServiceEligible(
-            service.appointmentTypeID,
-            acuityConfig.appointmentTypes.workoutFor1,
-            memberCerts,
-            certCheck,
-            certCode,
-          )
-        ) {
-          const meta = appointmentTypes.find((t) => String(t.id) === service.appointmentTypeID);
-          visibleServices.push({ ...service, meta });
-        }
-      }
+      const meta =
+        service.bookingMode === 'native'
+          ? appointmentTypes.find((t) => String(t.id) === service.appointmentTypeID)
+          : undefined;
+      visibleServices.push({ ...service, meta });
     }
   }
 
