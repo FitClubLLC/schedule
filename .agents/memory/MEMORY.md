@@ -7,6 +7,7 @@
 - [Expo Clerk key precedence](expo-clerk-key-precedence.md) — mobile dev explicitly derives its Expo publishable key from `CLERK_PUBLISHABLE_KEY`, not a separately stored Expo key.
 - [Current Acuity booking path](current-acuity-booking-path.md) — current web/mobile clients use native multi-step booking plus the API; older Acuity-handoff docs are stale.
 - [Acuity booking eligibility authority](acuity-booking-eligibility.md) — validate certificate codes with Acuity per service and member; share location/service checks across availability and submission.
+- [Acuity-Square payment boundary](acuity-square-payment-boundary.md) — preserve Acuity scheduling/packages with its existing Square payment flow; never add or reference Stripe.
 - [Appointment time classification](appointment-time-classification.md) — partition Acuity appointment lists by real instants in Eastern Time, not UTC or server-local calendar dates.
 - [Admin account deletion safeguards](admin-account-deletion-safeguards.md) — authorize by Clerk primary email and block self/configured-admin account deletion before Clerk mutations.
 - [Orval React Query catalog typing](orval-react-query-catalog-typing.md) — catalog versions hide v5 from Orval; generation post-step widens caller options without changing hook runtime.
