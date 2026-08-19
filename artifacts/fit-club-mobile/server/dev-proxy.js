@@ -70,6 +70,7 @@ function startMetro() {
 const server = http.createServer((req, res) => {
   const { isPreviewRequest, path } = toUpstreamPath(req.url || '/');
   const headers = { ...req.headers, host: `localhost:${metroPort}` };
+  delete headers.origin;
   delete headers['accept-encoding'];
 
   const upstream = http.request(
