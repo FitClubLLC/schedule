@@ -51,9 +51,9 @@ export function getCompleteBookingConfirmation(
 }
 
 /**
- * Android's classic tab navigator preserves each tab's nested stack by
- * default. Book must return to its entry screen after a member leaves it.
+ * Keep the Book tab on the navigator's default nested-stack behavior.
+ * A blur-time pop caused Android Expo Go to remain in a pending Book query
+ * after returning from another tab. The confirmation route guard remains the
+ * safety boundary for stale or malformed confirmation routes.
  */
-export const BOOK_TAB_OPTIONS = {
-  popToTopOnBlur: true,
-} as const;
+export const BOOK_TAB_OPTIONS = {} as const;

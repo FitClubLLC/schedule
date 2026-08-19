@@ -5,8 +5,8 @@ import {
   getCompleteBookingConfirmation,
 } from './bookingNavigation.ts';
 
-test('Book tab pops its nested stack when the member leaves it', () => {
-  assert.equal(BOOK_TAB_OPTIONS.popToTopOnBlur, true);
+test('Book tab does not reset its nested stack on blur', () => {
+  assert.equal('popToTopOnBlur' in BOOK_TAB_OPTIONS, false);
 });
 
 test('parameterless confirmation data is rejected', () => {
