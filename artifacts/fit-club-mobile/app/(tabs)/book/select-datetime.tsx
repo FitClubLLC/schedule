@@ -28,6 +28,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@clerk/expo';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
@@ -93,6 +94,7 @@ const STEPS_WITHOUT_SERVICE = ['Location', 'Date & Time', 'Confirm'];
 export default function SelectDateTimeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { getToken } = useAuth();
 
@@ -307,7 +309,7 @@ export default function SelectDateTimeScreen() {
   const afternoonSlots = slots.filter((s) => getHour(s.time) >= 12 && getHour(s.time) < 17);
   const eveningSlots   = slots.filter((s) => getHour(s.time) >= 17);
 
-  const FOOTER_HEIGHT = 72 + insets.bottom;
+  const FOOTER_HEIGHT = 84 + insets.bottom;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -340,7 +342,7 @@ export default function SelectDateTimeScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: FOOTER_HEIGHT + 24 },
+          { paddingBottom: FOOTER_HEIGHT + tabBarHeight + 24 },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -577,6 +579,7 @@ export default function SelectDateTimeScreen() {
         style={[
           styles.footer,
           {
+            bottom: tabBarHeight,
             backgroundColor: colors.background,
             borderTopColor: colors.border,
             paddingBottom: insets.bottom + 16,
