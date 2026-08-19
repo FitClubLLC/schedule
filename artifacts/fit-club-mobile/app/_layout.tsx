@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useLayoutEffect } from 'react';
 import { Platform, AppState, ActivityIndicator, View, StyleSheet } from 'react-native';
 import * as Sentry from '@sentry/react-native';
 
@@ -103,7 +103,7 @@ function RootLayoutNav() {
 
   // Register Clerk JWT getter with the API client.
   // Must be declared before any conditional return (Rules of Hooks).
-  useEffect(() => {
+  useLayoutEffect(() => {
     setAuthTokenGetter(async () => getToken());
   }, [getToken]);
 

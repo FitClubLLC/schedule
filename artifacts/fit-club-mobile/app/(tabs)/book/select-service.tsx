@@ -23,6 +23,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@clerk/expo';
+import { customFetch } from '@workspace/api-client-react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
@@ -102,7 +103,7 @@ export default function SelectServiceScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useAuth();
 
   const {
     locationId = '',
@@ -117,41 +118,32 @@ export default function SelectServiceScreen() {
 
   const certCode = (certificate as string).trim();
   const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+  const bookingAuthReady = isLoaded && isSignedIn === true;
 
   // ── Queries (shared queryKeys with index.tsx — instant cache hits) ─────────
 
   const configQuery = useQuery<AcuityConfig>({
     queryKey: ['acuity-config'],
-    enabled: !!isSignedIn,
+    enabled: bookingAuthReady,
     staleTime: 10 * 60 * 1000,
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error('Not signed in');
-      const res = await fetch(`${baseUrl}/api/booking/config`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch config');
-      return res.json();
-    },
+    queryFn: () => customFetch<AcuityConfig>('/api/booking/config', {
+      method: 'GET',
+      responseType: 'json',
+    }),
   });
 
   const certsQuery = useQuery<MemberCert[]>({
     queryKey: ['member-certificates'],
-    enabled: !!isSignedIn,
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error('Not signed in');
-      const res = await fetch(`${baseUrl}/api/booking/certificates`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch certificates');
-      return res.json();
-    },
+    enabled: bookingAuthReady,
+    queryFn: () => customFetch<MemberCert[]>('/api/booking/certificates', {
+      method: 'GET',
+      responseType: 'json',
+    }),
   });
 
   const certCheckQuery = useQuery<CertCheckResult>({
     queryKey: ['cert-check', certCode],
-    enabled: !!certCode && !!isSignedIn,
+    enabled: !!certCode && bookingAuthReady,
     retry: false,
     queryFn: async () => {
       const token = await getToken();
@@ -167,17 +159,12 @@ export default function SelectServiceScreen() {
 
   const typesQuery = useQuery<AcuityAppointmentType[]>({
     queryKey: ['appointment-types'],
-    enabled: !!isSignedIn,
+    enabled: bookingAuthReady,
     staleTime: 10 * 60 * 1000,
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error('Not signed in');
-      const res = await fetch(`${baseUrl}/api/booking/appointment-types`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch appointment types');
-      return res.json();
-    },
+    queryFn: () => customFetch<AcuityAppointmentType[]>('/api/booking/appointment-types', {
+      method: 'GET',
+      responseType: 'json',
+    }),
   });
 
   // ── Derived state ──────────────────────────────────────────────────────────
