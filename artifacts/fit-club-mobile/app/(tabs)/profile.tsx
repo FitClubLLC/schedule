@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
-import SvgIcon from '@/components/SvgIcon';
+import SvgIcon, { type SvgIconName } from '@/components/SvgIcon';
 import {
   isBiometricAvailable, hasSavedCreds, clearCreds,
 } from '@/hooks/useBiometrics';
@@ -43,7 +43,7 @@ function SectionLabel({ title, colors }: { title: string; colors: any }) {
 function SettingRow({
   icon, label, value, onPress, destructive, colors,
 }: {
-  icon: string; label: string; value?: string;
+  icon: SvgIconName; label: string; value?: string;
   onPress?: () => void; destructive?: boolean; colors: any;
 }) {
   return (

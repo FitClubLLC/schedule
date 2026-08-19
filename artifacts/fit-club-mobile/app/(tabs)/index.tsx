@@ -278,19 +278,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
   },
-  bookBtn: {
-    alignSelf: 'flex-start',
-    marginTop: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  bookBtnText: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 14,
-    color: '#000',
-    letterSpacing: 0.3,
-  },
   greeting: {
     fontFamily: 'Inter_500Medium',
     fontSize: 13,
