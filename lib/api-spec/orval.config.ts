@@ -1,9 +1,25 @@
 import { defineConfig, InputTransformerFn } from "orval";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "path";
 
 const root = path.resolve(__dirname, "..", "..");
 const apiClientReactSrc = path.resolve(root, "lib", "api-client-react", "src");
 const apiZodSrc = path.resolve(root, "lib", "api-zod", "src");
+
+async function makeGeneratedQueryOverridesPartial(paths: string[]) {
+  const generatedApi = path.resolve(apiClientReactSrc, "generated", "api.ts");
+  if (!paths.includes(generatedApi)) return;
+
+  const source = await readFile(generatedApi, "utf8");
+  const updated = source.replace(
+    /query\?:UseQueryOptions<(.+)>, request\?:/g,
+    "query?:Partial<UseQueryOptions<$1>>, request?:",
+  );
+
+  if (updated !== source) {
+    await writeFile(generatedApi, updated);
+  }
+}
 
 // Our exports make assumptions about the title of the API being "Api" (i.e. generated output is `api.ts`).
 const titleTransformer: InputTransformerFn = (config) => {
@@ -38,6 +54,9 @@ export default defineConfig({
           name: "customFetch",
         },
       },
+    },
+    hooks: {
+      afterAllFilesWrite: makeGeneratedQueryOverridesPartial,
     },
   },
   zod: {

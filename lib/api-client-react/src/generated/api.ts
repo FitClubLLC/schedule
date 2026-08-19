@@ -83,7 +83,7 @@ export const getHealthCheckQueryKey = () => {
     }
 
 
-export const getHealthCheckQueryOptions = <TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getHealthCheckQueryOptions = <TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -110,7 +110,7 @@ export type HealthCheckQueryError = ErrorType<unknown>
  */
 
 export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
@@ -160,7 +160,7 @@ export const getGetUpcomingAppointmentsQueryKey = () => {
     }
 
 
-export const getGetUpcomingAppointmentsQueryOptions = <TData = Awaited<ReturnType<typeof getUpcomingAppointments>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUpcomingAppointments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetUpcomingAppointmentsQueryOptions = <TData = Awaited<ReturnType<typeof getUpcomingAppointments>>, TError = ErrorType<ErrorResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUpcomingAppointments>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -187,7 +187,7 @@ export type GetUpcomingAppointmentsQueryError = ErrorType<ErrorResponse>
  */
 
 export function useGetUpcomingAppointments<TData = Awaited<ReturnType<typeof getUpcomingAppointments>>, TError = ErrorType<ErrorResponse>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUpcomingAppointments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUpcomingAppointments>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
@@ -237,7 +237,7 @@ export const getGetPastAppointmentsQueryKey = () => {
     }
 
 
-export const getGetPastAppointmentsQueryOptions = <TData = Awaited<ReturnType<typeof getPastAppointments>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPastAppointments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetPastAppointmentsQueryOptions = <TData = Awaited<ReturnType<typeof getPastAppointments>>, TError = ErrorType<ErrorResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPastAppointments>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -264,7 +264,7 @@ export type GetPastAppointmentsQueryError = ErrorType<ErrorResponse>
  */
 
 export function useGetPastAppointments<TData = Awaited<ReturnType<typeof getPastAppointments>>, TError = ErrorType<ErrorResponse>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPastAppointments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPastAppointments>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
@@ -314,7 +314,7 @@ export const getGetAppointmentSummaryQueryKey = () => {
     }
 
 
-export const getGetAppointmentSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getAppointmentSummary>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppointmentSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetAppointmentSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getAppointmentSummary>>, TError = ErrorType<ErrorResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAppointmentSummary>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -341,7 +341,7 @@ export type GetAppointmentSummaryQueryError = ErrorType<ErrorResponse>
  */
 
 export function useGetAppointmentSummary<TData = Awaited<ReturnType<typeof getAppointmentSummary>>, TError = ErrorType<ErrorResponse>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAppointmentSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAppointmentSummary>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 

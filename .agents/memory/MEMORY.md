@@ -9,3 +9,4 @@
 - [Acuity booking eligibility authority](acuity-booking-eligibility.md) — validate certificate codes with Acuity per service and member; share location/service checks across availability and submission.
 - [Appointment time classification](appointment-time-classification.md) — partition Acuity appointment lists by real instants in Eastern Time, not UTC or server-local calendar dates.
 - [Admin account deletion safeguards](admin-account-deletion-safeguards.md) — authorize by Clerk primary email and block self/configured-admin account deletion before Clerk mutations.
+- [Orval React Query catalog typing](orval-react-query-catalog-typing.md) — catalog versions hide v5 from Orval; generation post-step widens caller options without changing hook runtime.
