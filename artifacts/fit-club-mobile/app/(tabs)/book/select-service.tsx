@@ -27,6 +27,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@clerk/expo';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { customFetch } from '@workspace/api-client-react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
@@ -80,6 +81,7 @@ const STEPS = ['Location', 'Service', 'Date & Time', 'Confirm'];
 export default function SelectServiceScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
 
@@ -182,7 +184,12 @@ export default function SelectServiceScreen() {
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={[
         styles.container,
-        { paddingTop: insets.top + 16, paddingBottom: 40 },
+        {
+          paddingTop: insets.top + 16,
+          // The classic Android tab bar is absolute, so keep the last
+          // service card scrollable above it and the system safe area.
+          paddingBottom: tabBarHeight + 24,
+        },
       ]}
       showsVerticalScrollIndicator={false}
     >

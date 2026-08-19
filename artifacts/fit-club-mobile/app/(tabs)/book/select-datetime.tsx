@@ -20,7 +20,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,7 +28,6 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@clerk/expo';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
@@ -95,10 +93,6 @@ const STEPS_WITHOUT_SERVICE = ['Location', 'Date & Time', 'Confirm'];
 export default function SelectDateTimeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  // On Android the tab bar is positioned absolutely over screen content.
-  // useBottomTabBarHeight() returns its rendered height (bar + system inset)
-  // so we can push the sticky footer above it without guessing a fixed offset.
-  const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { getToken } = useAuth();
 
@@ -313,11 +307,7 @@ export default function SelectDateTimeScreen() {
   const afternoonSlots = slots.filter((s) => getHour(s.time) >= 12 && getHour(s.time) < 17);
   const eveningSlots   = slots.filter((s) => getHour(s.time) >= 17);
 
-  // On Android, the absolute tab bar sits above the footer, so we offset by
-  // tabBarHeight (which already includes the system bottom inset on Android).
-  // On iOS the system inset alone is sufficient because the tab bar is handled
-  // by the safe area. We take the larger of the two to be safe on both.
-  const FOOTER_HEIGHT = 72 + Math.max(insets.bottom, tabBarHeight);
+  const FOOTER_HEIGHT = 72 + insets.bottom;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -589,7 +579,7 @@ export default function SelectDateTimeScreen() {
           {
             backgroundColor: colors.background,
             borderTopColor: colors.border,
-            paddingBottom: Math.max(insets.bottom, tabBarHeight) + 16,
+            paddingBottom: insets.bottom + 16,
           },
         ]}
       >
