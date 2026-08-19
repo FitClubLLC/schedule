@@ -4,7 +4,7 @@ import { Shell } from "@/components/layout/Shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCreateBooking, useAppointmentTypes } from "@/hooks/useBookingApi";
-import { useUser } from "@clerk/react";
+import { useAuth, useUser } from "@clerk/react";
 import { ArrowLeft, Check, AlertCircle, Loader2 } from "lucide-react";
 import { BookingProgress } from "@/components/book/BookingProgress";
 
@@ -44,17 +44,33 @@ function buildSelectDateTimeUrl(
   return `/book/select-datetime?${q}`;
 }
 
+function usablePhoneNumber(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const phone = value.trim();
+  const digitCount = phone.replace(/\D/g, "").length;
+  return digitCount >= 7 && digitCount <= 15 ? phone : "";
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function Confirm() {
   const [, setLocation] = useLocation();
   const params = getParams();
   const { user } = useUser();
+  const { sessionClaims } = useAuth();
   const clerkFirstName = user?.firstName?.trim() ?? "";
   const clerkLastName = user?.lastName?.trim() ?? "";
+  const clerkPhone = usablePhoneNumber(user?.primaryPhoneNumber?.phoneNumber);
+  const sessionPhone = usablePhoneNumber(
+    (sessionClaims as Record<string, unknown> | null | undefined)?.phone_number,
+  );
+  const trustedPhone = clerkPhone || sessionPhone;
   const needsName = !clerkFirstName;
+  const needsPhone = !trustedPhone;
   const [bookingFirstName, setBookingFirstName] = useState("");
   const [bookingLastName, setBookingLastName] = useState(clerkLastName);
+  const [bookingPhone, setBookingPhone] = useState("");
+  const hasBookingPhone = !!usablePhoneNumber(bookingPhone);
 
   // Resolve appointment type name: URL param → API lookup → neutral fallback.
   const { data: appointmentTypes = [] } = useAppointmentTypes();
@@ -85,6 +101,7 @@ export default function Confirm() {
         firstName: clerkFirstName || bookingFirstName.trim(),
         lastName:  clerkLastName || bookingLastName.trim(),
         email:     user?.primaryEmailAddress?.emailAddress ?? "",
+        phone:     trustedPhone || bookingPhone.trim(),
         ...(hasCertificate ? { certificate: params.certificate } : {}),
       });
 
@@ -216,6 +233,33 @@ export default function Confirm() {
           </div>
         )}
 
+        {/* ── Missing profile phone ───────────────────────────────── */}
+        {needsPhone && (
+          <div className="rounded-xl border border-border bg-muted/20 px-4 py-4 space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Add your phone number to complete booking</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                A valid phone number is required for the studio reservation.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="booking-phone" className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                Phone Number <span className="text-destructive">*</span>
+              </label>
+              <Input
+                id="booking-phone"
+                type="tel"
+                inputMode="tel"
+                value={bookingPhone}
+                onChange={(event) => setBookingPhone(event.target.value)}
+                autoComplete="tel"
+                placeholder="(555) 555-5555"
+                required
+              />
+            </div>
+          </div>
+        )}
+
         {/* ── Cancellation policy ──────────────────────────────────── */}
         <p className="text-xs text-muted-foreground text-center leading-relaxed px-2">
           Cancellations within 24 hours of the session may not receive a refund.
@@ -224,7 +268,11 @@ export default function Confirm() {
         {/* ── Confirm CTA ──────────────────────────────────────────── */}
         <Button
           className="w-full gap-2 py-6 text-sm font-bold"
-          disabled={isPending || (!clerkFirstName && !bookingFirstName.trim())}
+          disabled={
+            isPending ||
+            (!clerkFirstName && !bookingFirstName.trim()) ||
+            (needsPhone && !hasBookingPhone)
+          }
           onClick={handleConfirm}
         >
           {isPending ? (

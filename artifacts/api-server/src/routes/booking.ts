@@ -24,6 +24,14 @@ function nonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function validPhoneNumber(value: unknown): string | undefined {
+  const phone = nonEmptyString(value);
+  if (!phone) return undefined;
+
+  const digitCount = phone.replace(/\D/g, "").length;
+  return digitCount >= 7 && digitCount <= 15 ? phone : undefined;
+}
+
 async function getClerkUserEmail(userId: string): Promise<string | null> {
   try {
     const user = await clerkClient.users.getUser(userId);
@@ -314,8 +322,8 @@ router.get("/booking/certificates/check", requireAuth, async (req: any, res): Pr
 // ── POST /api/booking/appointments ───────────────────────────────────────────
 // Body: { locationId, appointmentTypeID, datetime, firstName?, lastName?, phone?, notes?, certificate? }
 // The authenticated Clerk user remains authoritative when it has a name; the
-// booking form supplies a fallback for Production users whose Clerk profile
-// does not collect names.
+// booking form supplies a fallback when a required Acuity identity field is
+// missing from the Production Clerk profile.
 router.post("/booking/appointments", requireAuth, async (req: any, res): Promise<void> => {
   if (!requireAcuity(req, res)) return;
   try {
@@ -325,7 +333,7 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       datetime,
       firstName: bookingFirstName,
       lastName: bookingLastName,
-      phone,
+      phone: bookingPhone,
       notes,
       certificate,
     } = req.body ?? {};
@@ -360,14 +368,19 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
     const sessionClaims = (auth.sessionClaims ?? {}) as Record<string, unknown>;
     const clerkFirstName = nonEmptyString(clerkUser.firstName);
     const clerkLastName = nonEmptyString(clerkUser.lastName);
+    const clerkPhone = validPhoneNumber(clerkUser.primaryPhoneNumber?.phoneNumber);
     const sessionFirstName = nonEmptyString(sessionClaims.first_name);
     const sessionLastName = nonEmptyString(sessionClaims.last_name);
+    const sessionPhone = validPhoneNumber(sessionClaims.phone_number);
     const formFirstName = nonEmptyString(bookingFirstName);
     const formLastName = nonEmptyString(bookingLastName);
+    const formPhone = validPhoneNumber(bookingPhone);
     const trustedFirstName = clerkFirstName ?? sessionFirstName;
     const trustedLastName = clerkLastName ?? sessionLastName;
+    const trustedPhone = clerkPhone ?? sessionPhone;
     const firstName = trustedFirstName ?? formFirstName;
     const lastName = trustedLastName ?? formLastName;
+    const phone = trustedPhone ?? formPhone;
 
     if (!firstName) {
       req.log.error(
@@ -382,6 +395,19 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       return;
     }
 
+    if (!phone) {
+      req.log.error(
+        {
+          userId,
+        },
+        "Acuity booking identity is missing a valid phone number",
+      );
+      res.status(422).json({
+        error: "A valid phone number is required to complete booking.",
+      });
+      return;
+    }
+
     req.log.info(
       {
         userId,
@@ -389,6 +415,7 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
         lastName: lastName ?? null,
         firstNameSource: trustedFirstName ? "clerk" : "booking-form",
         lastNameSource: trustedLastName ? "clerk" : formLastName ? "booking-form" : "missing",
+        phoneSource: trustedPhone ? "clerk" : "booking-form",
       },
       "Acuity booking identity resolved",
     );
@@ -401,7 +428,7 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       email,
     };
     if (lastName) payload.lastName = lastName;
-    if (phone) payload.phone = phone;
+    payload.phone = phone;
     if (notes) payload.notes = notes;
     if (certificate) payload.certificate = String(certificate);
 

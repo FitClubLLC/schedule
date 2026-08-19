@@ -4,11 +4,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useAuth } from '@clerk/expo';
+import { useAuth, useUser } from '@clerk/expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
@@ -17,11 +18,19 @@ import { BookingProgress } from '@/components/book/BookingProgress';
 const STEPS_WITH_SERVICE    = ['Location', 'Service', 'Date & Time', 'Confirm'];
 const STEPS_WITHOUT_SERVICE = ['Location', 'Date & Time', 'Confirm'];
 
+function usablePhoneNumber(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const phone = value.trim();
+  const digitCount = phone.replace(/\D/g, '').length;
+  return digitCount >= 7 && digitCount <= 15 ? phone : '';
+}
+
 export default function ConfirmScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { getToken } = useAuth();
+  const { getToken, sessionClaims } = useAuth();
+  const { user } = useUser();
 
   const {
     locationId,
@@ -51,8 +60,16 @@ export default function ConfirmScreen() {
 
   const [submitting, setSubmitting]   = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [bookingPhone, setBookingPhone] = useState('');
 
   const hasCertificate = !!(certificate?.trim());
+  const clerkPhone = usablePhoneNumber(user?.primaryPhoneNumber?.phoneNumber);
+  const sessionPhone = usablePhoneNumber(
+    (sessionClaims as Record<string, unknown> | null | undefined)?.phone_number,
+  );
+  const trustedPhone = clerkPhone || sessionPhone;
+  const needsPhone = !trustedPhone;
+  const hasBookingPhone = !!usablePhoneNumber(bookingPhone);
   const baseUrl = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
 
   async function handleConfirm() {
@@ -67,6 +84,7 @@ export default function ConfirmScreen() {
         locationId,
         appointmentTypeID,
         datetime,
+        phone: trustedPhone || bookingPhone.trim(),
       };
       if (hasCertificate) body.certificate = certificate;
 
@@ -188,6 +206,43 @@ export default function ConfirmScreen() {
           </View>
         ) : null}
 
+        {needsPhone ? (
+          <View
+            style={[
+              styles.phoneCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.phoneTitle, { color: colors.foreground }]}>
+              Add your phone number to complete booking
+            </Text>
+            <Text style={[styles.phoneHint, { color: colors.mutedForeground }]}>
+              A valid phone number is required for the studio reservation.
+            </Text>
+            <Text style={[styles.phoneLabel, { color: colors.mutedForeground }]}>
+              PHONE NUMBER *
+            </Text>
+            <TextInput
+              value={bookingPhone}
+              onChangeText={setBookingPhone}
+              placeholder="(555) 555-5555"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="phone-pad"
+              autoComplete="tel"
+              textContentType="telephoneNumber"
+              style={[
+                styles.phoneInput,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  color: colors.foreground,
+                },
+              ]}
+              accessibilityLabel="Phone Number"
+            />
+          </View>
+        ) : null}
+
         <Text style={[styles.policyNote, { color: colors.mutedForeground }]}>
           Cancellations within 24 hours of the session may not receive a refund.
         </Text>
@@ -206,13 +261,16 @@ export default function ConfirmScreen() {
       >
         <TouchableOpacity
           onPress={handleConfirm}
-          disabled={submitting}
+          disabled={submitting || (needsPhone && !hasBookingPhone)}
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel="Confirm Booking"
           style={[
             styles.confirmBtn,
-            { backgroundColor: colors.primary, opacity: submitting ? 0.6 : 1 },
+            {
+              backgroundColor: colors.primary,
+              opacity: submitting || (needsPhone && !hasBookingPhone) ? 0.6 : 1,
+            },
           ]}
         >
           {submitting ? (
@@ -349,6 +407,35 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 13,
     flex: 1,
+  },
+  phoneCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 16,
+    gap: 8,
+  },
+  phoneTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+  },
+  phoneHint: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  phoneLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    letterSpacing: 0.8,
+    marginTop: 6,
+  },
+  phoneInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
   },
   policyNote: {
     fontFamily: 'Inter_400Regular',
