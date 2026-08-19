@@ -11,6 +11,11 @@ import {
   partitionAppointmentsByEasternTime,
   studioDateKey,
 } from "../lib/appointment-time.js";
+import type {
+  AcuityAppointmentListResponse,
+  AcuityAppointmentResponse,
+  AcuityRescheduleResponse,
+} from "../lib/acuity-response-types.js";
 
 const router: IRouter = Router();
 
@@ -80,7 +85,7 @@ router.get(
       return;
     }
 
-    const raw = await response.json();
+    const raw = (await response.json()) as AcuityAppointmentListResponse;
     const appointments = mapAcuityAppointments(raw);
     const { upcoming } = partitionAppointmentsByEasternTime(
       appointments,
@@ -126,7 +131,7 @@ router.get(
       return;
     }
 
-    const raw = await response.json();
+    const raw = (await response.json()) as AcuityAppointmentListResponse;
     const appointments = mapAcuityAppointments(raw);
     const { past } = partitionAppointmentsByEasternTime(
       appointments,
@@ -173,8 +178,8 @@ router.get(
     }
 
     const [upcomingRaw, pastRaw] = await Promise.all([
-      upcomingRes.json(),
-      pastRes.json(),
+      upcomingRes.json() as Promise<AcuityAppointmentListResponse>,
+      pastRes.json() as Promise<AcuityAppointmentListResponse>,
     ]);
 
     const upcoming = partitionAppointmentsByEasternTime(
@@ -212,7 +217,7 @@ router.delete(
       headers: { Authorization: acuityAuthHeader() },
     });
     if (!apptRes.ok) { res.status(404).json({ error: "Appointment not found" }); return; }
-    const appt = await apptRes.json();
+    const appt = (await apptRes.json()) as AcuityAppointmentResponse;
     if (appt.email?.toLowerCase() !== email.toLowerCase()) {
       res.status(403).json({ error: "Forbidden" }); return;
     }
@@ -245,7 +250,7 @@ router.get(
       headers: { Authorization: acuityAuthHeader() },
     });
     if (!apptRes.ok) { res.status(404).json({ error: "Appointment not found" }); return; }
-    const appt = await apptRes.json();
+    const appt = (await apptRes.json()) as AcuityAppointmentResponse;
     if (appt.email?.toLowerCase() !== email.toLowerCase()) {
       res.status(403).json({ error: "Forbidden" }); return;
     }
@@ -292,7 +297,7 @@ router.put(
       headers: { Authorization: acuityAuthHeader() },
     });
     if (!apptRes.ok) { res.status(404).json({ error: "Appointment not found" }); return; }
-    const appt = await apptRes.json();
+    const appt = (await apptRes.json()) as AcuityAppointmentResponse;
     if (appt.email?.toLowerCase() !== email.toLowerCase()) {
       res.status(403).json({ error: "Forbidden" }); return;
     }
@@ -308,7 +313,9 @@ router.put(
       body: JSON.stringify(payload),
     });
 
-    const reschedBody = await reschedRes.json().catch(() => null);
+    const reschedBody = (await reschedRes.json().catch(() => null)) as
+      | AcuityRescheduleResponse
+      | null;
 
     if (!reschedRes.ok) {
       req.log.error(
@@ -329,7 +336,7 @@ router.put(
   },
 );
 
-function mapAcuityAppointments(raw: any[]): any[] {
+function mapAcuityAppointments(raw: AcuityAppointmentListResponse) {
   if (!Array.isArray(raw)) return [];
   return raw.map((appt) => ({
     id: appt.id,

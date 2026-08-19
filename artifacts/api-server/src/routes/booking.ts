@@ -7,6 +7,7 @@ import {
   formatCertificateRemaining,
   validateLocationService,
 } from "../lib/booking-eligibility.js";
+import type { AcuityCreatedAppointmentResponse } from "../lib/acuity-response-types.js";
 
 const router: IRouter = Router();
 
@@ -540,7 +541,7 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       res.status(422).json({ error: message });
       return;
     }
-    const appt = await response.json();
+    const appt = (await response.json()) as AcuityCreatedAppointmentResponse;
     res.json({
       id: appt.id,
       type: appt.type,
