@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Shell } from "@/components/layout/Shell";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useCreateBooking, useAppointmentTypes } from "@/hooks/useBookingApi";
 import { useAuth, useUser } from "@clerk/react";
@@ -70,6 +71,7 @@ export default function Confirm() {
   const [bookingFirstName, setBookingFirstName] = useState("");
   const [bookingLastName, setBookingLastName] = useState(clerkLastName);
   const [bookingPhone, setBookingPhone] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const hasBookingPhone = !!usablePhoneNumber(bookingPhone);
 
   // Resolve appointment type name: URL param → API lookup → neutral fallback.
@@ -102,6 +104,7 @@ export default function Confirm() {
         lastName:  clerkLastName || bookingLastName.trim(),
         email:     user?.primaryEmailAddress?.emailAddress ?? "",
         phone:     trustedPhone || bookingPhone.trim(),
+        termsAccepted,
         ...(hasCertificate ? { certificate: params.certificate } : {}),
       });
 
@@ -260,6 +263,21 @@ export default function Confirm() {
           </div>
         )}
 
+        {/* ── Required Acuity terms ───────────────────────────────── */}
+        <div className="rounded-xl border border-border bg-muted/20 px-4 py-4">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="booking-terms"
+              checked={termsAccepted}
+              onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+              className="mt-0.5"
+            />
+            <label htmlFor="booking-terms" className="cursor-pointer text-sm leading-relaxed text-foreground">
+              I have read and agree to the Terms &amp; Conditions.
+            </label>
+          </div>
+        </div>
+
         {/* ── Cancellation policy ──────────────────────────────────── */}
         <p className="text-xs text-muted-foreground text-center leading-relaxed px-2">
           Cancellations within 24 hours of the session may not receive a refund.
@@ -271,7 +289,8 @@ export default function Confirm() {
           disabled={
             isPending ||
             (!clerkFirstName && !bookingFirstName.trim()) ||
-            (needsPhone && !hasBookingPhone)
+            (needsPhone && !hasBookingPhone) ||
+            !termsAccepted
           }
           onClick={handleConfirm}
         >

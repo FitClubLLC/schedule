@@ -19,6 +19,10 @@ export interface AcuityConfig {
      */
     appointmentTypeIDs: string[];
   }>;
+  termsAcknowledgement: {
+    formId: string;
+    fieldId: string;
+  };
 }
 
 export interface BookingLocation {
@@ -60,6 +64,7 @@ export interface BookingPayload {
   lastName?: string;
   email?: string;
   phone?: string;
+  termsAccepted?: boolean;
   notes?: string;
   certificate?: string;
 }

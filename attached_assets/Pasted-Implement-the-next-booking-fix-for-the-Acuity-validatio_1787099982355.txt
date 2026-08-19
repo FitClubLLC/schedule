@@ -1,0 +1,81 @@
+Implement the next booking fix for the Acuity validation error discovered in the end-to-end test.
+
+DO NOT publish yet.
+
+The latest real booking test successfully resolved and sent:
+- firstName
+- lastName
+- email
+- phone
+- locationId
+- appointmentTypeID
+- datetime
+
+Acuity accepted the appointment request far enough to perform intake-form validation, then returned HTTP 400 because this required intake field was missing:
+
+Form: "Terms & Conditions"
+Field: "I have read and agree to the terms above"
+
+The exact Acuity error was:
+
+The intake form field "I have read and agree to the terms above" for form "Terms & Conditions" is required.
+
+Please implement a proper Terms & Conditions acknowledgement in the native Fit Club booking flow.
+
+Requirements:
+
+1. First inspect the existing Acuity integration and determine how the appointment type's intake forms/fields are currently retrieved or represented.
+
+2. Identify the actual Acuity intake form field ID/key for:
+   "I have read and agree to the terms above"
+
+3. Do NOT hard-code an invented field ID.
+   Use the actual field identifier returned/configured by Acuity.
+
+4. On the Confirm Booking page, add a required checkbox/acknowledgement for the Terms & Conditions requirement.
+
+   Suggested wording:
+   "I have read and agree to the Terms & Conditions."
+
+5. The Confirm Booking button must remain disabled until the required acknowledgement is checked.
+
+6. Include the acknowledgement in the appointment creation request using the Acuity intake-form format required by the existing Acuity integration.
+
+7. The API must validate that the required acknowledgement is present/true before calling Acuity.
+
+8. If it is missing, return a clear local HTTP 422 rather than sending an invalid request to Acuity.
+
+9. Do not log credentials, tokens, authorization headers, email addresses, phone numbers, or other sensitive information.
+
+10. Do not change:
+   - Clerk configuration
+   - Clerk secrets
+   - Acuity credentials
+   - availability logic
+   - certificate logic
+   - cancellation/rescheduling logic
+   - existing first-name fallback
+   - existing phone fallback
+   - production deployment settings
+
+11. Keep the existing name and phone behavior exactly as it currently works.
+
+12. Test the following:
+   - Terms checkbox initially unchecked → Confirm Booking disabled.
+   - Checkbox checked → Confirm Booking enabled, assuming all other required fields are valid.
+   - API rejects a request missing the acknowledgement without calling Acuity.
+   - A complete request contains the actual Acuity intake-form field/value.
+
+13. If possible, perform a real end-to-end test in preview, but DO NOT publish.
+
+Report:
+- actual Acuity intake field ID/key discovered
+- where it is obtained from
+- portal changes
+- API changes
+- build results
+- test results
+- whether the real Acuity request was attempted
+- whether Acuity accepted or rejected it
+
+Do not publish anything.

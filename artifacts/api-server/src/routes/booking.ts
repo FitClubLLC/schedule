@@ -320,7 +320,7 @@ router.get("/booking/certificates/check", requireAuth, async (req: any, res): Pr
 });
 
 // ── POST /api/booking/appointments ───────────────────────────────────────────
-// Body: { locationId, appointmentTypeID, datetime, firstName?, lastName?, phone?, notes?, certificate? }
+// Body: { locationId, appointmentTypeID, datetime, firstName?, lastName?, phone?, termsAccepted, notes?, certificate? }
 // The authenticated Clerk user remains authoritative when it has a name; the
 // booking form supplies a fallback when a required Acuity identity field is
 // missing from the Production Clerk profile.
@@ -334,6 +334,7 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       firstName: bookingFirstName,
       lastName: bookingLastName,
       phone: bookingPhone,
+      termsAccepted,
       notes,
       certificate,
     } = req.body ?? {};
@@ -408,6 +409,21 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       return;
     }
 
+    if (termsAccepted !== true) {
+      req.log.warn({ userId }, "Acuity booking terms acknowledgement is missing");
+      res.status(422).json({
+        error: "You must agree to the Terms & Conditions to complete booking.",
+      });
+      return;
+    }
+
+    const termsFieldId = Number(getAcuityConfig().termsAcknowledgement.fieldId);
+    if (!Number.isInteger(termsFieldId) || termsFieldId <= 0) {
+      req.log.error({ userId }, "Acuity terms field configuration is invalid");
+      res.status(500).json({ error: "Booking configuration is invalid" });
+      return;
+    }
+
     req.log.info(
       {
         userId,
@@ -416,6 +432,7 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
         firstNameSource: trustedFirstName ? "clerk" : "booking-form",
         lastNameSource: trustedLastName ? "clerk" : formLastName ? "booking-form" : "missing",
         phoneSource: trustedPhone ? "clerk" : "booking-form",
+        termsAccepted: true,
       },
       "Acuity booking identity resolved",
     );
@@ -429,6 +446,7 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
     };
     if (lastName) payload.lastName = lastName;
     payload.phone = phone;
+    payload.fields = [{ id: termsFieldId, value: "true" }];
     if (notes) payload.notes = notes;
     if (certificate) payload.certificate = String(certificate);
 

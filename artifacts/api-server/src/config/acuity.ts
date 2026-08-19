@@ -37,10 +37,16 @@ export interface AcuityLocation {
   appointmentTypeIDs: string[];
 }
 
+export interface AcuityTermsAcknowledgement {
+  formId: string;
+  fieldId: string;
+}
+
 export interface AcuityConfig {
   ownerId: string;
   appointmentTypes: AcuityAppointmentTypes;
   locations: AcuityLocation[];
+  termsAcknowledgement: AcuityTermsAcknowledgement;
 }
 
 /**
@@ -71,6 +77,13 @@ export function getAcuityConfig(): AcuityConfig {
   return {
     ownerId: process.env.ACUITY_OWNER_ID ?? "36930698",
     appointmentTypes,
+    // These defaults were verified from Acuity's GET /forms response for the
+    // required "I have read and agree to the terms above" checkbox. They
+    // remain environment-configurable if the Acuity form is changed.
+    termsAcknowledgement: {
+      formId: process.env.ACUITY_TERMS_FORM_ID ?? "3140997",
+      fieldId: process.env.ACUITY_TERMS_FIELD_ID ?? "17742013",
+    },
     locations: [
       {
         id: "1",

@@ -61,6 +61,7 @@ export default function ConfirmScreen() {
   const [submitting, setSubmitting]   = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [bookingPhone, setBookingPhone] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const hasCertificate = !!(certificate?.trim());
   const clerkPhone = usablePhoneNumber(user?.primaryPhoneNumber?.phoneNumber);
@@ -85,6 +86,7 @@ export default function ConfirmScreen() {
         appointmentTypeID,
         datetime,
         phone: trustedPhone || bookingPhone.trim(),
+        termsAccepted,
       };
       if (hasCertificate) body.certificate = certificate;
 
@@ -243,6 +245,35 @@ export default function ConfirmScreen() {
           </View>
         ) : null}
 
+        <TouchableOpacity
+          onPress={() => setTermsAccepted((accepted) => !accepted)}
+          activeOpacity={0.75}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: termsAccepted }}
+          accessibilityLabel="I have read and agree to the Terms and Conditions"
+          style={[
+            styles.termsCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <View
+            style={[
+              styles.termsCheckbox,
+              {
+                backgroundColor: termsAccepted ? colors.primary : colors.background,
+                borderColor: termsAccepted ? colors.primary : colors.border,
+              },
+            ]}
+          >
+            {termsAccepted ? (
+              <SvgIcon name="check" size={14} color={colors.primaryForeground} />
+            ) : null}
+          </View>
+          <Text style={[styles.termsText, { color: colors.foreground }]}>
+            I have read and agree to the Terms &amp; Conditions.
+          </Text>
+        </TouchableOpacity>
+
         <Text style={[styles.policyNote, { color: colors.mutedForeground }]}>
           Cancellations within 24 hours of the session may not receive a refund.
         </Text>
@@ -261,7 +292,7 @@ export default function ConfirmScreen() {
       >
         <TouchableOpacity
           onPress={handleConfirm}
-          disabled={submitting || (needsPhone && !hasBookingPhone)}
+          disabled={submitting || (needsPhone && !hasBookingPhone) || !termsAccepted}
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel="Confirm Booking"
@@ -269,7 +300,7 @@ export default function ConfirmScreen() {
             styles.confirmBtn,
             {
               backgroundColor: colors.primary,
-              opacity: submitting || (needsPhone && !hasBookingPhone) ? 0.6 : 1,
+              opacity: submitting || (needsPhone && !hasBookingPhone) || !termsAccepted ? 0.6 : 1,
             },
           ]}
         >
@@ -436,6 +467,29 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     fontFamily: 'Inter_400Regular',
     fontSize: 15,
+  },
+  termsCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 16,
+  },
+  termsCheckbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  termsText: {
+    flex: 1,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    lineHeight: 20,
   },
   policyNote: {
     fontFamily: 'Inter_400Regular',
