@@ -287,7 +287,7 @@ router.put(
 
     if (!reschedRes.ok) {
       req.log.error(
-        { appointmentId: id, datetime, status: reschedRes.status, acuityResponse: reschedBody },
+        { appointmentId: id, datetime, status: reschedRes.status },
         "Acuity reschedule failed",
       );
       res.status(502).json({

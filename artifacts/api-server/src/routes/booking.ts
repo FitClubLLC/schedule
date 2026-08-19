@@ -69,8 +69,8 @@ function requireAcuity(req: any, res: any): boolean {
 router.get("/booking/config", requireAuth, async (req: any, res): Promise<void> => {
   try {
     res.json(getAcuityConfig());
-  } catch (err) {
-    req.log.error({ err }, "booking/config error");
+  } catch {
+    req.log.error({ errorCode: "booking_config_error" }, "booking/config error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -81,8 +81,8 @@ router.get("/booking/locations", requireAuth, async (req: any, res): Promise<voi
   try {
     const { locations } = getAcuityConfig();
     res.json(locations.map(({ id, name }) => ({ id, name })));
-  } catch (err) {
-    req.log.error({ err }, "booking/locations error");
+  } catch {
+    req.log.error({ errorCode: "booking_locations_error" }, "booking/locations error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -111,8 +111,8 @@ router.get("/booking/appointment-types", requireAuth, async (req: any, res): Pro
         category: t.category ?? null,
       }));
     res.json(types);
-  } catch (err) {
-    req.log.error({ err }, "booking/appointment-types error");
+  } catch {
+    req.log.error({ errorCode: "booking_appointment_types_error" }, "booking/appointment-types error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -143,8 +143,8 @@ router.get("/booking/availability/dates", requireAuth, async (req: any, res): Pr
 
     const response = await fetch(url, { headers: { Authorization: acuityAuth() } });
     if (!response.ok) {
-      const body = await response.text();
-      req.log.error({ status: response.status, body }, "Acuity availability/dates error");
+      await response.text();
+      req.log.error({ status: response.status }, "Acuity availability/dates error");
       res.status(502).json({ error: "Failed to fetch available dates" });
       return;
     }
@@ -152,8 +152,8 @@ router.get("/booking/availability/dates", requireAuth, async (req: any, res): Pr
     const data = await response.json();
     const dates: string[] = Array.isArray(data) ? data.map((d: any) => d.date).filter(Boolean) : [];
     res.json(dates);
-  } catch (err) {
-    req.log.error({ err }, "booking/availability/dates error");
+  } catch {
+    req.log.error({ errorCode: "booking_availability_dates_error" }, "booking/availability/dates error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -182,16 +182,16 @@ router.get("/booking/availability/times", requireAuth, async (req: any, res): Pr
 
     const response = await fetch(url, { headers: { Authorization: acuityAuth() } });
     if (!response.ok) {
-      const body = await response.text();
-      req.log.error({ status: response.status, body }, "Acuity availability/times error");
+      await response.text();
+      req.log.error({ status: response.status }, "Acuity availability/times error");
       res.status(502).json({ error: "Failed to fetch available times" });
       return;
     }
     // Acuity returns [{ time: "ISO", slotsAvailable: N }, ...]
     const data = await response.json();
     res.json(Array.isArray(data) ? data : []);
-  } catch (err) {
-    req.log.error({ err }, "booking/availability/times error");
+  } catch {
+    req.log.error({ errorCode: "booking_availability_times_error" }, "booking/availability/times error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -246,8 +246,8 @@ router.get("/booking/certificates", requireAuth, async (req: any, res): Promise<
         };
       });
     res.json(certs);
-  } catch (err) {
-    req.log.error({ err }, "booking/certificates error");
+  } catch {
+    req.log.error({ errorCode: "booking_certificates_error" }, "booking/certificates error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -318,8 +318,8 @@ router.get("/booking/certificates/check", requireAuth, async (req: any, res): Pr
       appliesToAllProducts: cert.appliesToAllProducts ?? false,
       productIDs: cert.appointmentTypeIDs ?? cert.productIDs ?? [],
     });
-  } catch (err) {
-    req.log.error({ err }, "booking/certificates/check error");
+  } catch {
+    req.log.error({ errorCode: "booking_certificate_check_error" }, "booking/certificates/check error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -447,8 +447,6 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
     req.log.info(
       {
         userId,
-        firstName,
-        lastName: lastName ?? null,
         firstNameSource: trustedFirstName ? "clerk" : "booking-form",
         lastNameSource: trustedLastName ? "clerk" : formLastName ? "booking-form" : "missing",
         phoneSource: trustedPhone ? "clerk" : "booking-form",
@@ -478,7 +476,7 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
 
     if (!response.ok) {
       const body = await response.text();
-      req.log.error({ status: response.status, body }, "Acuity appointment creation error");
+      req.log.error({ status: response.status }, "Acuity appointment creation error");
       let message = "Failed to create appointment";
       try {
         const errJson = JSON.parse(body);
@@ -497,8 +495,8 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       location: appt.location ?? null,
       confirmationPage: appt.confirmationPage ?? null,
     });
-  } catch (err) {
-    req.log.error({ err }, "booking/appointments POST error");
+  } catch {
+    req.log.error({ errorCode: "booking_appointment_creation_error" }, "booking/appointments POST error");
     res.status(500).json({ error: "Internal server error" });
   }
 });

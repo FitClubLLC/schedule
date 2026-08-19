@@ -2,3 +2,4 @@
 - [ClerkLoaded/ClerkLoading in Expo Go](clerk-expo-clerkloaded.md) — web re-exports that hang forever in Expo Go; use useAuth().isLoaded inside the nav component instead.
 - [Production Clerk booking identity fallback](production-clerk-name-fallback.md) — Production Clerk profiles can lack Acuity-required names or phones; collect a local fallback while preferring verified Clerk data.
 - [Acuity native intake forms](acuity-native-intake-forms.md) — native appointments must submit assigned required form fields via verified GET /forms IDs, not labels or inferred values.
+- [Booking log privacy](booking-log-privacy.md) — booking diagnostics use IDs, sources, statuses, and fixed codes only; never log member data or raw Acuity payloads.

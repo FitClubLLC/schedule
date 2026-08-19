@@ -1,0 +1,72 @@
+POST-LAUNCH QA — STEP 3
+
+Do NOT publish and do NOT create any appointments.
+
+The Step 2 audit found that the existing booking route logs firstName and lastName during successful booking attempts. This logging predates Step 2, but it violates our desired production logging standard.
+
+Make ONLY this logging change:
+
+1. Find every booking-related server log that outputs:
+   - firstName
+   - lastName
+   - email
+   - phone
+   - Clerk session/user claims
+   - authorization headers
+   - tokens
+   - credentials
+
+2. Remove the actual values of all of those fields from logs.
+
+3. Preserve useful diagnostic information using safe metadata only, such as:
+   - request ID
+   - Clerk user ID, if we consider that acceptable for internal diagnostics
+   - whether firstName was resolved from Clerk or booking form
+   - whether lastName was resolved from Clerk, booking form, or missing
+   - whether phone was resolved from Clerk or booking form
+   - termsAccepted
+   - appointmentTypeID
+   - location identifier
+   - Acuity HTTP status
+   - sanitized error code/message
+
+Do NOT log:
+- names
+- email addresses
+- phone numbers
+- tokens
+- credentials
+- authorization headers
+- session claims
+- raw Acuity request bodies
+
+Important:
+Do not change booking behavior, validation, eligibility, navigation, Clerk configuration, Acuity configuration, or environment variables.
+
+After the change:
+
+- Run the API build.
+- Inspect the modified booking logging paths.
+- Confirm no sensitive values are logged by those paths.
+- Do not attempt a real booking.
+- Do not publish.
+
+Also DO NOT attempt to solve the unrelated:
+- mobile /mobile blank page
+- Metro port 8081 conflict
+- development /api/booking/config 401
+- existing workspace TypeScript errors
+
+Those are separate issues and should remain untouched for now.
+
+Report:
+
+POST-LAUNCH QA — STEP 3
+------------------------
+Logging cleanup: PASS/FAIL
+Sensitive booking values still logged: YES/NO
+API build:
+Files changed:
+Production publish: NOT PERFORMED
+Real appointments created: NONE
+Unrelated blockers left untouched:
