@@ -7,6 +7,9 @@ const { pipeline } = require('stream/promises');
 let metroProcess = null;
 
 const projectRoot = path.resolve(__dirname, '..');
+const BUNDLE_DOWNLOAD_TIMEOUT_MS = 15 * 60 * 1_000;
+const MANIFEST_DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1_000;
+const OVERALL_DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1_000;
 
 function findWorkspaceRoot(startDir) {
   let dir = startDir;
@@ -188,8 +191,10 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
 
 async function downloadFile(url, outputPath) {
   const controller = new AbortController();
-  const fiveMinMS = 5 * 60 * 1_000;
-  const timeoutId = setTimeout(() => controller.abort(), fiveMinMS);
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    BUNDLE_DOWNLOAD_TIMEOUT_MS,
+  );
 
   try {
     console.log(`Downloading: ${url}`);
@@ -214,7 +219,9 @@ async function downloadFile(url, outputPath) {
     }
 
     if (error.name === 'AbortError') {
-      throw new Error(`Download timeout after 5m: ${url}`);
+      throw new Error(
+        `Bundle download timeout after ${BUNDLE_DOWNLOAD_TIMEOUT_MS / 60_000}m: ${url}`,
+      );
     }
     throw error;
   } finally {
@@ -254,7 +261,10 @@ async function downloadBundle(platform, timestamp) {
 
 async function downloadManifest(platform) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 300_000);
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    MANIFEST_DOWNLOAD_TIMEOUT_MS,
+  );
 
   try {
     console.log(`Fetching ${platform} manifest...`);
@@ -273,7 +283,7 @@ async function downloadManifest(platform) {
   } catch (error) {
     if (error.name === 'AbortError') {
       throw new Error(
-        `Manifest download timeout after 5m for platform: ${platform}`,
+        `Manifest download timeout after ${MANIFEST_DOWNLOAD_TIMEOUT_MS / 60_000}m for platform: ${platform}`,
       );
     }
     throw error;
@@ -536,17 +546,16 @@ async function main() {
 
   await startMetro(domain, expoPublicReplId);
 
-  const downloadTimeout = 600000;
   const downloadPromise = downloadBundlesAndManifests(timestamp);
   const timeoutPromise = new Promise((_, reject) => {
     setTimeout(() => {
       reject(
         new Error(
-          `Overall download timeout after ${downloadTimeout / 1000} seconds. ` +
+          `Overall download timeout after ${OVERALL_DOWNLOAD_TIMEOUT_MS / 60_000} minutes. ` +
             'Metro may be struggling to generate bundles. Check Metro logs above.',
         ),
       );
-    }, downloadTimeout);
+    }, OVERALL_DOWNLOAD_TIMEOUT_MS);
   });
 
   const manifests = await Promise.race([downloadPromise, timeoutPromise]);
