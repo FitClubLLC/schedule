@@ -3,3 +3,4 @@
 - [Production Clerk booking identity fallback](production-clerk-name-fallback.md) — Production Clerk profiles can lack Acuity-required names or phones; collect a local fallback while preferring verified Clerk data.
 - [Acuity native intake forms](acuity-native-intake-forms.md) — native appointments must submit assigned required form fields via verified GET /forms IDs, not labels or inferred values.
 - [Booking log privacy](booking-log-privacy.md) — booking diagnostics use IDs, sources, statuses, and fixed codes only; never log member data or raw Acuity payloads.
+- [Expo path preview routing](expo-path-preview-routing.md) — Expo’s root-relative dev bundle needs a dev-only `/mobile/` rewrite while the direct Expo origin stays unchanged.

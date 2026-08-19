@@ -1,0 +1,63 @@
+POST-LAUNCH QA — STEP 5
+
+Fix ONLY the development mobile preview routing problem identified in Step 4.
+
+Do NOT publish.
+Do NOT modify production.
+Do NOT change Clerk configuration.
+Do NOT change API authentication.
+Do NOT change booking business logic.
+Do NOT change the booking UI.
+Do NOT change Acuity configuration.
+Do NOT create, cancel, or reschedule appointments.
+
+Known problem:
+
+The Replit development `/mobile/` path proxies Expo's HTML, but Expo generates its Metro bundle URL as a root-relative path such as:
+
+/node_modules/.../entry.bundle
+
+The browser therefore requests the bundle outside `/mobile/`, where another web service returns HTML instead of JavaScript.
+
+Goal:
+
+Make the development `/mobile/` preview load the Expo application correctly through the Replit preview environment.
+
+Requirements:
+
+1. Preserve the existing direct Expo development origin.
+2. Make `/mobile/` serve the Expo app and its JavaScript/assets correctly.
+3. Do not weaken or bypass Clerk authentication.
+4. Do not change API CORS/authentication behavior.
+5. Do not hardcode credentials or tokens.
+6. Do not modify production deployment behavior.
+7. Keep the change isolated to development preview/proxy/routing configuration.
+8. Avoid changing the booking screens themselves.
+
+After implementing:
+
+- Restart only the necessary development workflows.
+- Open `/mobile/` in a browser.
+- Verify that the Fit Club Member Login screen renders.
+- Verify that the JavaScript bundle request returns JavaScript rather than HTML.
+- Verify there are no fatal browser runtime errors.
+- Do NOT attempt to book anything yet.
+- Do NOT create any appointments.
+- Do NOT publish.
+
+If there are multiple possible routing solutions, use the smallest and safest change.
+
+Report:
+
+POST-LAUNCH QA — STEP 5
+------------------------
+/mobile/ preview: PASS/FAIL
+Expo bundle loading: PASS/FAIL
+Bundle content type: PASS/FAIL
+Fatal runtime errors: YES/NO
+Files/config changed:
+Production changed: NO
+Production publish: NOT PERFORMED
+Real appointments created: NONE
+
+If fixing the routing requires a production-impacting change, STOP and report it instead of making that change.
