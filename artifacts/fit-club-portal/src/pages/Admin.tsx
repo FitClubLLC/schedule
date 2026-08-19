@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserPlus, Trash2, Mail, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { isConfiguredAdmin, isConfiguredAdminEmail } from "@/lib/adminAccess";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -33,7 +34,7 @@ interface Member {
 export default function AdminPage() {
   const { user } = useUser();
   const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
-  const isAdmin = user?.emailAddresses?.[0]?.emailAddress === adminEmail;
+  const isAdmin = isConfiguredAdmin(user, adminEmail);
 
   const qc = useQueryClient();
 
@@ -197,7 +198,8 @@ export default function AdminPage() {
                 .slice()
                 .sort((a, b) => b.createdAt - a.createdAt)
                 .map((m) => {
-                  const isMe = m.email === adminEmail;
+                   const isMe = m.id === user?.id;
+                   const isProtectedAdmin = isConfiguredAdminEmail(m.email, adminEmail);
                   const name = [m.firstName, m.lastName].filter(Boolean).join(" ") || "—";
                   const joined = new Date(m.createdAt).toLocaleDateString("en-US", {
                     month: "short",
@@ -221,7 +223,7 @@ export default function AdminPage() {
                         <div className="text-xs text-muted-foreground truncate">{m.email}</div>
                         <div className="text-xs text-muted-foreground">Joined {joined}</div>
                       </div>
-                      {!isMe && (
+                       {!isMe && !isProtectedAdmin && (
                         <Button
                           variant="ghost"
                           size="icon"

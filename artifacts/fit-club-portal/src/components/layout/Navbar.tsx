@@ -3,6 +3,7 @@ import { useClerk, useUser } from "@clerk/react";
 import { LogOut, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { isConfiguredAdmin } from "@/lib/adminAccess";
 import { Button } from "@/components/ui/button";
 
 export function Navbar() {
@@ -13,7 +14,7 @@ export function Navbar() {
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
-  const isAdmin = user?.emailAddresses?.[0]?.emailAddress === adminEmail;
+  const isAdmin = isConfiguredAdmin(user, adminEmail);
 
   const navLinks = [
     { href: "/dashboard", label: "Dashboard" },

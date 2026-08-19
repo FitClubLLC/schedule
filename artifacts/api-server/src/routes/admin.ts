@@ -1,9 +1,17 @@
 import { Router, type IRouter } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
+import {
+  getPrimaryEmail,
+  getProtectedDeleteReason,
+  isConfiguredAdminEmail,
+  parseConfiguredAdminEmails,
+} from "../lib/admin-authorization.js";
 
 const router: IRouter = Router();
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+function configuredAdminEmails(): string[] {
+  return parseConfiguredAdminEmails(process.env.ADMIN_EMAIL);
+}
 
 function requireAuth(req: any, res: any, next: any) {
   const auth = getAuth(req);
@@ -16,14 +24,14 @@ function requireAuth(req: any, res: any, next: any) {
 }
 
 async function requireAdmin(req: any, res: any, next: any) {
-  if (!ADMIN_EMAIL) {
-    res.status(500).json({ error: "ADMIN_EMAIL not configured" });
+  const adminEmails = configuredAdminEmails();
+  if (adminEmails.length === 0) {
+    res.status(500).json({ error: "Admin authorization is not configured" });
     return;
   }
   try {
     const user = await clerkClient.users.getUser(req.userId);
-    const email = user.emailAddresses[0]?.emailAddress;
-    if (email !== ADMIN_EMAIL) {
+    if (!isConfiguredAdminEmail(getPrimaryEmail(user), adminEmails)) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -46,7 +54,7 @@ router.get(
         id: u.id,
         firstName: u.firstName ?? "",
         lastName: u.lastName ?? "",
-        email: u.emailAddresses[0]?.emailAddress ?? "",
+        email: getPrimaryEmail(u) ?? "",
         createdAt: u.createdAt,
       }));
       res.json(members);
@@ -102,10 +110,38 @@ router.delete(
   requireAdmin,
   async (req: any, res): Promise<void> => {
     const { userId } = req.params;
+    const adminEmails = configuredAdminEmails();
+
+    if (adminEmails.length === 0) {
+      res.status(500).json({ error: "Admin authorization is not configured" });
+      return;
+    }
+
     try {
+      const targetUser = await clerkClient.users.getUser(userId);
+      const protectedReason = getProtectedDeleteReason({
+        actingUserId: req.userId,
+        targetUserId: userId,
+        targetPrimaryEmail: getPrimaryEmail(targetUser),
+        configuredAdminEmails: adminEmails,
+      });
+
+      if (protectedReason === "self") {
+        res.status(403).json({ error: "Administrators cannot delete their own account" });
+        return;
+      }
+      if (protectedReason === "protected-admin") {
+        res.status(403).json({ error: "Protected administrator accounts cannot be deleted" });
+        return;
+      }
+
       await clerkClient.users.deleteUser(userId);
       res.json({ success: true });
     } catch (err: any) {
+      if (err?.status === 404 || err?.statusCode === 404) {
+        res.status(404).json({ error: "Member not found" });
+        return;
+      }
       res.status(500).json({ error: "Failed to remove member" });
     }
   },
