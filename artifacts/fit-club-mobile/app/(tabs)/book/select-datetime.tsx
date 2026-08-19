@@ -88,6 +88,7 @@ const DAY_HEADERS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 const STEPS_WITH_SERVICE  = ['Location', 'Service', 'Date & Time', 'Confirm'];
 const STEPS_WITHOUT_SERVICE = ['Location', 'Date & Time', 'Confirm'];
+const CTA_TO_TAB_BAR_GAP = 8;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -135,6 +136,7 @@ export default function SelectDateTimeScreen() {
   const [timesLoading, setTimesLoading] = useState(false);
   const [timesError, setTimesError]     = useState('');
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [footerHeight, setFooterHeight] = useState(0);
 
   const currentMonthKey = useRef('');
   const currentDateKey  = useRef('');
@@ -309,12 +311,21 @@ export default function SelectDateTimeScreen() {
   const afternoonSlots = slots.filter((s) => getHour(s.time) >= 12 && getHour(s.time) < 17);
   const eveningSlots   = slots.filter((s) => getHour(s.time) >= 17);
 
-  const FOOTER_HEIGHT = 84 + insets.bottom;
-
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.screen,
+        {
+          backgroundColor: colors.background,
+          // The Android tab bar is absolutely positioned by the parent tabs
+          // navigator. Keep this screen's own layout boundary above that
+          // navigator-owned region instead of positioning the CTA into it.
+          marginBottom: tabBarHeight + CTA_TO_TAB_BAR_GAP,
+        },
+      ]}
+    >
       {/* ── Fixed top bar ────────────────────────────────────────── */}
       <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
@@ -342,7 +353,8 @@ export default function SelectDateTimeScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: FOOTER_HEIGHT + tabBarHeight + 24 },
+          // Measured so the final time slot always clears the sticky CTA.
+          { paddingBottom: footerHeight + 24 },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -576,13 +588,15 @@ export default function SelectDateTimeScreen() {
 
       {/* ── Sticky CTA ──────────────────────────────────────────── */}
       <View
+        onLayout={(event) => {
+          const nextHeight = event.nativeEvent.layout.height;
+          setFooterHeight((height) => (height === nextHeight ? height : nextHeight));
+        }}
         style={[
           styles.footer,
           {
-            bottom: tabBarHeight,
             backgroundColor: colors.background,
             borderTopColor: colors.border,
-            paddingBottom: insets.bottom + 16,
           },
         ]}
       >
@@ -782,11 +796,8 @@ const styles = StyleSheet.create({
 
   // Sticky footer
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     paddingTop: 12,
+    paddingBottom: 12,
     paddingHorizontal: 20,
     borderTopWidth: 1,
   },
