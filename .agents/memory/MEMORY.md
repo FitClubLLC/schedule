@@ -19,3 +19,4 @@
 - [Mobile static build port](mobile-static-build-port.md) — the Expo static builder needs exclusive port 8081; pause and restore the Canvas preview workflow around that build.
 - [Portal Dashboard membership scope](portal-dashboard-membership-scope.md) — Portal mirrors Mobile Home by showing only Acuity certificates eligible for Workout for 1.
 - [Clerk iOS native autolinking](clerk-ios-native-autolinking.md) — JS-only Clerk flows can exclude @clerk/expo from iOS native autolinking while preserving Android native modules.
+- [Sentry CLI with pnpm](sentry-cli-pnpm.md) — Sentry’s iOS debug-symbol phase needs @sentry/cli directly visible at the Mobile app root under pnpm.

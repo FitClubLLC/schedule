@@ -1,0 +1,96 @@
+STRICTLY SCOPED iOS SENTRY BUILD FIX — DO NOT TOUCH ANYTHING ELSE
+
+The second Expo Launch App Store attempt progressed further than the first:
+
+Install iOS dependencies now PASSES.
+The previous Clerk/SPM/CocoaPods blocker is fixed and must remain unchanged.
+The new failure occurs during Create iOS build.
+
+Exact failure:
+
+Script 'Upload Debug Symbols to Sentry' failed
+
+Error: Cannot find module '@sentry/cli/package.json'
+
+code: 'MODULE_NOT_FOUND'
+
+The failing build phase is:
+
+Upload Debug Symbols to Sentry
+
+The archive then fails with exit status 65.
+
+Scope
+
+Fix only the missing Sentry CLI/build-phase dependency required for the iOS archive.
+
+Do not change:
+
+the Task #80 Clerk iOS autolinking exclusion;
+Clerk auth behavior;
+Clerk keys or environments;
+Expo/EAS project identity;
+Apple certificates;
+provisioning profiles;
+iOS bundle identifier;
+Android package identifier;
+Mobile UI or business logic;
+Home, Sessions, Book, Memberships, Profile;
+reminders;
+biometrics;
+API/Portal;
+Acuity;
+Square;
+deployment;
+App Store metadata;
+package versions unrelated to Sentry.
+
+Do not perform a broad dependency upgrade.
+
+Diagnose first
+
+Inspect:
+
+current @sentry/react-native version;
+whether @sentry/cli is present directly or transitively;
+Expo/Sentry config plugin setup;
+generated iOS Upload Debug Symbols to Sentry build phase;
+whether the build phase is expected to resolve @sentry/cli/package.json from the app package;
+whether pnpm/workspace layout is causing the generated Xcode script to miss the CLI.
+Preferred fix
+
+Apply the smallest supported fix that makes the existing Sentry iOS build phase succeed under this Expo 54 / React Native 0.81.5 / pnpm workspace.
+
+Prefer:
+
+adding the exact missing Sentry CLI package only if the current Sentry integration officially expects it;
+or a documented Sentry/Expo build-phase/config correction;
+avoid changing or disabling Sentry unless the documented integration requires that.
+
+Do not remove Sentry monitoring simply to make the build pass.
+
+If the correct fix requires a broad Sentry or Expo upgrade, stop and report instead of implementing it.
+
+Verification
+
+After the narrow fix:
+
+Mobile typecheck must pass.
+Existing focused Mobile tests must pass.
+iOS dependency installation must still pass.
+Reproduce or validate the generated Sentry build phase and confirm @sentry/cli/package.json resolves successfully.
+Confirm Android build behavior remains unchanged.
+Run the existing production bundle checks if they do not mutate external services.
+
+Do not rerun Expo Launch/App Store publishing automatically.
+
+Stop after proving the iOS archive blocker is corrected and report:
+
+root cause;
+exact files changed;
+dependency changes, if any;
+why the fix is minimal;
+verification results;
+whether it is safe for me to manually retry Expo Launch again.
+
+If uncertain, do not guess.
