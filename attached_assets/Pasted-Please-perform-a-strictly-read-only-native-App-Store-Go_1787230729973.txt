@@ -1,0 +1,247 @@
+Please perform a strictly read-only native App Store / Google Play readiness audit for the current Fit Club Mobile app.
+
+The current Mobile app is working well and has been real-device tested. Do not change anything.
+
+This is an audit only.
+
+Do not:
+
+edit code;
+upgrade packages;
+change Expo config;
+change bundle/package identifiers;
+change version/build numbers;
+change Clerk, Acuity, Square, API, Portal, or deployment configuration;
+generate or rotate signing credentials;
+connect Apple or Google developer accounts;
+create App Store Connect or Play Console records;
+run EAS submit/publish;
+upload a build;
+publish anything.
+Audit the current Mobile release configuration
+
+Inspect the current Expo/native configuration and report the exact current state of:
+
+app display name
+Expo slug/project identifier
+app version
+iOS build number
+Android version code
+iOS bundle identifier
+Android application/package ID
+app icon
+adaptive Android icon
+splash/launch screen
+supported orientations
+tablet/iPad support
+URL scheme/deep links
+notification configuration/plugins
+biometric permissions/descriptions
+camera/photo/location or other native permissions if any
+any iOS usage-description strings
+Android permissions requested by the final app
+
+Do not infer settings that are not actually configured.
+
+Production environment audit
+
+Determine what a standalone iOS/Android production build would use for:
+
+Client Dashboard/API production base URL
+Clerk publishable key/environment
+Acuity-related public/config values
+any other EXPO_PUBLIC_* values
+
+Confirm whether a store build is currently capable of pointing to the published production Client Dashboard/API, rather than a Replit development/preview domain.
+
+Do not display secret values. Report only variable names, source/location, whether present, and whether they appear production-safe.
+
+Explicitly identify any variable that is currently development-only, Replit-preview-specific, or ambiguous.
+
+Authentication/store-build readiness
+
+Audit the current Clerk Mobile setup for standalone-store compatibility.
+
+Check:
+
+sign-in/sign-out
+password reset
+verification/device-trust flow
+token cache
+biometric login
+deep-link/callback requirements
+
+Identify anything that currently works in Expo Go but could require additional configuration in a signed standalone iOS/Android app.
+
+Do not alter Clerk settings.
+
+Networking/API readiness
+
+Verify from source/configuration whether a signed standalone app can reach:
+
+production API health endpoint
+appointment endpoints
+booking endpoints
+membership/certificate endpoints
+
+Identify any dependency on:
+
+Replit dev domains
+localhost
+Expo Go
+local Metro
+preview-only routing
+
+Do not make test bookings or mutations.
+
+Acuity/Square readiness
+
+Confirm that the standalone app architecture still preserves:
+
+Acuity as scheduling/package/certificate authority
+Acuity-hosted paid Workout-for-1 fallback
+Acuity-hosted Memberships flow
+Square remaining behind Acuity
+no native Stripe implementation
+
+Identify any external URL behavior that may differ in standalone iOS/Android compared with Expo Go.
+
+Do not open checkout or change Acuity/Square.
+
+Notifications
+
+Audit the current local-session-reminder setup for standalone production builds.
+
+Determine:
+
+whether notification permissions/configuration are sufficient for iOS
+whether Android notification channels/settings are configured appropriately
+whether Expo Go-only limitations disappear in standalone builds
+whether any store-facing permission explanation is needed
+
+Do not request notification permission or send/schedule a real notification during this audit.
+
+Build-system readiness
+
+Inspect the project for the current intended native build path.
+
+Report whether it uses or is ready to use:
+
+EAS Build
+local Expo prebuild/native projects
+another build mechanism
+
+Identify:
+
+whether eas.json exists
+available build profiles
+production profile configuration
+whether iOS/Android signing is configured, missing, or unknown
+whether credentials are managed by Expo/EAS, local files, or not yet configured
+
+Do not generate credentials or run a store build.
+
+Apple readiness
+
+Report whether the project currently has everything needed for an eventual App Store build, including:
+
+unique iOS bundle identifier
+version/build number strategy
+icon/splash assets
+required permission descriptions
+privacy-related configuration
+associated domains/deep links if applicable
+notification capability implications
+
+Identify what still requires:
+
+Apple Developer account
+App Store Connect setup
+signing certificates/profiles
+TestFlight
+App Privacy answers
+screenshots/metadata
+review/demo account
+
+Do not create any of these.
+
+Google Play readiness
+
+Report whether the project currently has everything needed for an eventual Google Play build, including:
+
+unique Android application ID
+version-code strategy
+adaptive icon
+permissions
+notification behavior
+production API configuration
+
+Identify what still requires:
+
+Google Play Console account/app record
+Play App Signing
+AAB generation
+internal/closed testing
+Data Safety form
+screenshots/metadata
+review/demo account
+
+Do not create any of these.
+
+Privacy/store-review audit
+
+Based only on the current app behavior, identify the categories likely relevant to Apple App Privacy and Google Play Data Safety disclosures, including:
+
+account identity
+email/name
+appointment data
+membership/package data
+authentication/session data
+local preferences
+notification/reminder data
+payment handling boundaries
+
+Do not make final legal/privacy claims. Report what the app appears to collect/process and which third party owns it: Fit Club API, Clerk, Acuity, Square, device-local storage, etc.
+
+Reviewer-access readiness
+
+Determine whether an Apple/Google reviewer would need a test/demo member account to meaningfully inspect the authenticated app.
+
+Do not create one.
+
+Report what reviewer instructions will likely need to include so reviewers can safely inspect:
+
+Home
+Sessions
+Book
+Memberships
+Profile
+
+without making a real purchase or affecting a real member.
+
+Final report
+
+Do not implement anything.
+
+Return a structured report with:
+
+Already store-ready
+Must fix before first TestFlight/Play Internal build
+Must configure outside the codebase
+Apple-specific requirements
+Google-specific requirements
+Privacy/Data Safety disclosure inventory
+Reviewer account/instructions requirements
+Potential Expo Go vs standalone differences
+Exact smallest next steps, in order
+
+Rank each item:
+
+Release blocker
+Important before review
+Nice to have
+No change needed
+
+End by explicitly confirming that no code, package, configuration, credentials, account settings, external services, builds, submissions, deployments, or publishing were changed.
+
+Do not enter Plan mode or create tasks automatically. Wait for my approval after presenting the audit.
