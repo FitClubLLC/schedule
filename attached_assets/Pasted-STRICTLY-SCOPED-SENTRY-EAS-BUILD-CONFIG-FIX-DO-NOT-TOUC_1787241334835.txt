@@ -1,0 +1,71 @@
+STRICTLY SCOPED SENTRY EAS BUILD CONFIG FIX — DO NOT TOUCH APP BEHAVIOR
+
+The latest Expo Launch App Store build progressed further:
+
+Install iOS dependencies PASSED.
+Create iOS build now reaches the React Native bundle/Sentry upload phase.
+@sentry/cli is found and executes successfully.
+
+The exact failure is now:
+
+Auth token is required for this request.
+
+The log also states:
+
+To disable source maps auto upload, set SENTRY_DISABLE_AUTO_UPLOAD=true in your environment variables.
+
+This failure occurs during the generated Sentry upload build phase / React Native bundle step.
+
+Goal
+
+Make the iOS App Store archive succeed without changing runtime Sentry behavior or adding a new secret unless strictly necessary.
+
+Preferred approach
+
+Prefer the smallest supported configuration change:
+
+Set SENTRY_DISABLE_AUTO_UPLOAD=true for the EAS Production build environment only, so the build does not attempt authenticated Sentry source-map/debug-symbol upload.
+
+Preserve the existing @sentry/react-native runtime integration.
+
+Do not remove Sentry from the app.
+
+Do not disable Sentry runtime error reporting.
+
+Do not add or rotate SENTRY_AUTH_TOKEN unless you determine that disabling auto-upload would break required runtime functionality.
+
+Do not change
+Mobile UI/business logic
+Clerk fix from Task #80
+direct @sentry/cli@2.55.0 dependency
+Clerk auth/keys/environments
+Apple certificates/provisioning
+Expo project identity
+bundle/application identifiers
+API/Portal
+Acuity
+Square
+Android behavior
+deployment settings unrelated to this one EAS env var
+package versions
+Verify
+
+After the change:
+
+Confirm the EAS Production environment will receive SENTRY_DISABLE_AUTO_UPLOAD=true.
+Confirm the generated iOS build no longer requires Sentry authentication during archive.
+Confirm runtime Sentry initialization remains unchanged.
+Run Mobile typecheck.
+Run the existing focused Mobile tests.
+Run local iOS/Android production bundle checks if non-mutating.
+
+Do not rerun Expo Launch automatically.
+
+Stop and report:
+
+exact configuration changed;
+why disabling build-time upload does not disable runtime Sentry;
+verification results;
+whether it is safe for me to manually retry Expo Launch.
+
+If the project already has a supported production Sentry auth token and the official configuration requires using it instead, do not expose it or change it; report that option and stop before modifying secrets.

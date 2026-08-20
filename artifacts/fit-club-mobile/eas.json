@@ -12,7 +12,8 @@
         "credentialsSource": "remote"
       },
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "client-dashboard-fitclub.replit.app"
+        "EXPO_PUBLIC_DOMAIN": "client-dashboard-fitclub.replit.app",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
   },
