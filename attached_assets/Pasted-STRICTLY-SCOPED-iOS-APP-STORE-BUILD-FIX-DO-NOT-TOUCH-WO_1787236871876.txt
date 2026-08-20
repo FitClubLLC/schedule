@@ -1,0 +1,134 @@
+STRICTLY SCOPED iOS APP STORE BUILD FIX — DO NOT TOUCH WORKING APP BEHAVIOR
+
+The first Expo Launch App Store build failed during Install iOS dependencies → pod install.
+
+The exact failure is:
+
+An error occurred while processing the post-install hook of the Podfile.
+
+undefined method 'package_product_dependencies' for nil:NilClass
+
+The stack trace points into:
+
+react-native/scripts/cocoapods/spm.rb
+
+in:
+
+add_spm_to_target
+
+Immediately before the failure, the log shows:
+
+[SPM] Adding SPM dependency on product ["ClerkKit", "ClerkKitUI"]
+
+and then:
+
+[SPM] Adding package to workspace: <XCRemoteSwiftPackageReference ...>
+
+This is the only App Store build blocker currently identified.
+
+Critical scope
+
+Fix only the iOS native dependency/SPM generation problem required for the App Store build.
+
+Do not change:
+
+Mobile UI or behavior
+Home
+Sessions
+Book
+Memberships
+Profile
+reminders
+biometrics
+authentication flows
+Clerk tenant/environment
+Clerk keys
+Replit secrets
+Expo/EAS production environment variables
+bundle identifier
+Android package ID
+Apple certificates
+provisioning profiles
+Expo project ID
+Acuity
+Square
+API routes/contracts
+Portal
+deployment configuration
+store metadata
+
+Do not republish Client Dashboard.
+
+Diagnose first
+
+Inspect the currently installed:
+
+Expo SDK version
+React Native version
+@clerk/expo version
+Clerk Expo config plugin
+generated iOS project/Podfile behavior
+React Native scripts/cocoapods/spm.rb
+
+Determine why the Clerk config plugin’s Swift Package Manager dependency causes add_spm_to_target to receive a nil target/project object during CocoaPods post-install.
+
+Do not assume the solution is a package upgrade.
+
+Preferred fix
+
+Apply the smallest documented compatibility fix that allows the existing Clerk Expo integration to generate/install:
+
+ClerkKit
+ClerkKitUI
+
+successfully under the app’s current Expo/React Native stack.
+
+Prefer, in order:
+
+a narrow config/plugin compatibility correction;
+a supported Expo/Clerk configuration adjustment;
+only if strictly required, the smallest compatible package version adjustment.
+
+Do not perform a broad Expo SDK, React Native, or dependency upgrade.
+
+If the correct fix would require a broad framework upgrade or auth-architecture change, stop and report instead of implementing it.
+
+Preserve current Clerk behavior
+
+The current Mobile authentication flow is working and must remain unchanged.
+
+Do not replace the current Clerk flow with native Swift UI.
+
+Do not rewrite sign-in.
+
+Do not remove Clerk.
+
+Do not change token caching, device trust, biometrics, or bearer-token behavior.
+
+Verification
+
+After the narrow fix:
+
+Run Mobile typecheck.
+Run existing focused authentication/navigation tests.
+Run an iOS native dependency/prebuild validation that reproduces the failing CocoaPods/SPM path.
+Confirm pod install completes successfully.
+Confirm Android configuration/build behavior is unchanged.
+Run the existing Mobile production build checks if they do not mutate external services.
+
+Do not create users, book appointments, purchase memberships, change notification permission, or mutate Acuity/Square/Clerk.
+
+Do not relaunch App Store automatically
+
+Do not run Expo Launch submission or App Store publishing after the fix.
+
+Stop after proving the iOS dependency installation succeeds and report:
+
+root cause
+exact files changed
+package/version changes, if any
+why the fix is the minimum safe change
+verification results
+whether it is safe for me to manually rerun the existing Expo Launch workflow
+
+If there is uncertainty about the correct Clerk/Expo compatibility fix, do not guess. Report the incompatibility and the supported options instead.
