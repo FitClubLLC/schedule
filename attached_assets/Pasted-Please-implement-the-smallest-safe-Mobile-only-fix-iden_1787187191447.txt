@@ -1,0 +1,51 @@
+Please implement the smallest safe Mobile-only fix identified in this diagnosis.
+
+Prevent the default Book tabPress behavior only when Book is already the focused bottom tab and the member is currently on a nested Book screen such as Select Service, Choose Your Time, or Confirm Booking.
+
+In that situation, tapping the already-selected Book bottom tab should simply be a no-op. It must not trigger React Navigation's automatic bulk popToTop().
+
+Preserve normal behavior when Book is not already selected: tapping Book from Home, Sessions, Memberships, or Profile must continue to open Book normally.
+
+Also preserve:
+
+the existing back arrows and step-by-step Book navigation
+the current Book stack
+the confirmation-route guard
+all current Book service/location/calendar behavior
+Clerk/session/auth behavior
+React Query/cache/retry behavior
+Acuity availability, certificates and appointment creation
+Eastern Time behavior
+Sessions cancel/reschedule
+Square/payment behavior
+Portal and Fit Club Hub
+
+Do not reintroduce popToTopOnBlur, force another stack reset, clear or invalidate caches, or modify the Book queries to work around this.
+
+Please also remove the temporary Book-root diagnostic instrumentation and temporary diagnostic UI once the navigation fix is in place. It must not remain in the release candidate.
+
+Add/update focused regression coverage for:
+
+Book selected from another tab → opens normally.
+Book already active at Book root → normal behavior remains safe.
+Book already active on Select Service → tapping Book does not bulk-pop.
+Book already active on Choose Your Time → tapping Book does not bulk-pop.
+Book already active on Confirm Booking → tapping Book does not bulk-pop.
+Back arrows still navigate backward normally through the Book flow.
+
+Then run:
+
+Mobile typecheck
+focused Book navigation/confirmation tests
+Eastern Time regression test
+booking eligibility regression tests
+
+Do not publish and do not make unrelated changes.
+
+Afterward I will test this exact Android sequence:
+
+Book → location → session → time → Confirm → tap Book bottom tab
+
+Expected result: remain on Confirm Booking with no spinner and no navigation change.
+
+Then I will test the Confirm back arrow separately and verify that the normal step-by-step backward flow still works.

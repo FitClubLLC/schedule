@@ -8,7 +8,10 @@ import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BOOK_TAB_OPTIONS } from '@/lib/bookingNavigation';
+import {
+  BOOK_TAB_OPTIONS,
+  shouldPreventNestedBookTabPress,
+} from '@/lib/bookingNavigation';
 
 function NativeTabLayout() {
   return (
@@ -104,6 +107,21 @@ function ClassicTabLayout() {
       />
       <Tabs.Screen
         name="book"
+        listeners={({ navigation, route }) => ({
+          tabPress: (event) => {
+            const state = navigation.getState();
+            const focusedRoute = state.routes[state.index];
+            const isFocused = focusedRoute?.key === route.key;
+            const nestedIndex =
+              isFocused && focusedRoute.state && 'index' in focusedRoute.state
+                ? focusedRoute.state.index
+                : 0;
+
+            if (shouldPreventNestedBookTabPress({ isFocused, nestedIndex })) {
+              event.preventDefault();
+            }
+          },
+        })}
         options={{
           title: 'Book',
           tabBarLabel: 'Book',

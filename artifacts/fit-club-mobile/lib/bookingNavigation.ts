@@ -57,3 +57,20 @@ export function getCompleteBookingConfirmation(
  * safety boundary for stale or malformed confirmation routes.
  */
 export const BOOK_TAB_OPTIONS = {} as const;
+
+export interface BookTabPressState {
+  isFocused: boolean;
+  nestedIndex?: number;
+}
+
+/**
+ * Prevent the native-stack default tab reselect pop only when Book is already
+ * focused on a nested booking step. Selecting Book from another tab and
+ * selecting it at the Book root must continue with default behavior.
+ */
+export function shouldPreventNestedBookTabPress({
+  isFocused,
+  nestedIndex = 0,
+}: BookTabPressState): boolean {
+  return isFocused && nestedIndex > 0;
+}

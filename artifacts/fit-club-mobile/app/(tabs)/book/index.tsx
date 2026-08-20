@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Pressable,
   TextInput, ActivityIndicator, ScrollView, RefreshControl,
@@ -59,29 +59,10 @@ interface AcuityConfig {
   }>;
 }
 
-type DiagnosticSignedInState = true | false | 'undefined';
-type DiagnosticTokenState = 'not-requested' | 'pending' | 'obtained' | 'missing' | 'failed';
-type DiagnosticRequestState = 'not-started' | 'started' | 'completed' | 'failed';
-type DiagnosticOutcome = 'not-finished' | 'completed' | 'failed';
-
-interface BookConfigDiagnostic {
-  clerkIsLoaded: boolean;
-  isSignedIn: DiagnosticSignedInState;
-  configQueryStatus: string;
-  configFetchStatus: string;
-  tokenStatus: DiagnosticTokenState;
-  configRequest: DiagnosticRequestState;
-  configOutcome: DiagnosticOutcome;
-  elapsedMs: number;
-  loadAttempt: number;
-}
-
-const BOOK_CONFIG_DIAGNOSTIC_THRESHOLD_MS = 5000;
-
 export default function BookScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
   const memberEmail = user?.primaryEmailAddress?.emailAddress;
   const { certificate: certParam } = useLocalSearchParams<{ certificate?: string }>();
@@ -89,59 +70,6 @@ export default function BookScreen() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  const configLoadStartedAt = useRef<number | null>(null);
-  const diagnosticMounted = useRef(true);
-  const [showConfigRecovery, setShowConfigRecovery] = useState(false);
-  const [configDiagnostic, setConfigDiagnostic] = useState<BookConfigDiagnostic>({
-    clerkIsLoaded: false,
-    isSignedIn: 'undefined',
-    configQueryStatus: 'pending',
-    configFetchStatus: 'idle',
-    tokenStatus: 'not-requested',
-    configRequest: 'not-started',
-    configOutcome: 'not-finished',
-    elapsedMs: 0,
-    loadAttempt: 0,
-  });
-
-  const diagnosticRef = useRef(configDiagnostic);
-
-  useEffect(() => {
-    return () => {
-      diagnosticMounted.current = false;
-    };
-  }, []);
-
-  const reportConfigDiagnostic = useCallback(
-    (
-      event: string,
-      patch: Partial<BookConfigDiagnostic>,
-    ) => {
-      const startedAt = configLoadStartedAt.current;
-      const next: BookConfigDiagnostic = {
-        ...diagnosticRef.current,
-        ...patch,
-        elapsedMs: startedAt === null ? 0 : Date.now() - startedAt,
-      };
-      diagnosticRef.current = next;
-      if (diagnosticMounted.current) {
-        setConfigDiagnostic(next);
-      }
-      if (__DEV__) {
-        console.info('[FitClub BookRoot diagnostic]', event, {
-          clerkIsLoaded: next.clerkIsLoaded,
-          isSignedIn: next.isSignedIn,
-          configQueryStatus: next.configQueryStatus,
-          configFetchStatus: next.configFetchStatus,
-          tokenStatus: next.tokenStatus,
-          configRequest: next.configRequest,
-          configOutcome: next.configOutcome,
-          elapsedMs: next.elapsedMs,
-        });
-      }
-    },
-    [],
-  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -164,57 +92,10 @@ export default function BookScreen() {
     queryKey: ['acuity-config'],
     enabled: bookingAuthReady,
     staleTime: 10 * 60 * 1000,
-    queryFn: async () => {
-      configLoadStartedAt.current = Date.now();
-      const loadAttempt = diagnosticRef.current.loadAttempt + 1;
-      reportConfigDiagnostic('config-load-started', {
-        clerkIsLoaded: isLoaded,
-        isSignedIn: typeof isSignedIn === 'boolean' ? isSignedIn : 'undefined',
-        configQueryStatus: 'pending',
-        configFetchStatus: 'fetching',
-        tokenStatus: 'pending',
-        configRequest: 'not-started',
-        configOutcome: 'not-finished',
-        loadAttempt,
-      });
-
-      let requestStarted = false;
-      try {
-        const token = await getToken();
-        reportConfigDiagnostic('clerk-token-resolved', {
-          tokenStatus: token ? 'obtained' : 'missing',
-        });
-
-        requestStarted = true;
-        reportConfigDiagnostic('config-request-started', {
-          configRequest: 'started',
-        });
-
-        const result = await customFetch<AcuityConfig>('/api/booking/config', {
-          method: 'GET',
-          responseType: 'json',
-          // Use the token already obtained for this existing request so the
-          // diagnostic does not create a second auth lookup.
-          headers: { Authorization: token ? `Bearer ${token}` : '' },
-        });
-
-        reportConfigDiagnostic('config-request-completed', {
-          configRequest: 'completed',
-          configOutcome: 'completed',
-        });
-        return result;
-      } catch (error) {
-        reportConfigDiagnostic('config-request-failed', {
-          tokenStatus:
-            diagnosticRef.current.tokenStatus === 'pending'
-              ? 'failed'
-              : diagnosticRef.current.tokenStatus,
-          configRequest: requestStarted ? 'failed' : 'not-started',
-          configOutcome: 'failed',
-        });
-        throw error;
-      }
-    },
+    queryFn: () => customFetch<AcuityConfig>('/api/booking/config', {
+      method: 'GET',
+      responseType: 'json',
+    }),
   });
 
   const certsQuery = useQuery<MemberCert[]>({
@@ -239,40 +120,6 @@ export default function BookScreen() {
   const memberCerts: MemberCert[] = certsQuery.data ?? [];
   const appointmentTypes: AcuityAppointmentType[] = typesQuery.data ?? [];
   const acuityConfig = configQuery.data;
-
-  useEffect(() => {
-    reportConfigDiagnostic('query-state-changed', {
-      clerkIsLoaded: isLoaded,
-      isSignedIn: typeof isSignedIn === 'boolean' ? isSignedIn : 'undefined',
-      configQueryStatus: configQuery.status,
-      configFetchStatus: configQuery.fetchStatus,
-    });
-  }, [
-    configQuery.fetchStatus,
-    configQuery.status,
-    isLoaded,
-    isSignedIn,
-    reportConfigDiagnostic,
-  ]);
-
-  useEffect(() => {
-    if (!configQuery.isLoading || configLoadStartedAt.current === null) {
-      setShowConfigRecovery(false);
-      return;
-    }
-
-    const startedAt = configLoadStartedAt.current;
-    const remainingMs = Math.max(
-      0,
-      BOOK_CONFIG_DIAGNOSTIC_THRESHOLD_MS - (Date.now() - startedAt),
-    );
-    const timeout = setTimeout(() => {
-      setShowConfigRecovery(true);
-      reportConfigDiagnostic('config-load-threshold-reached', {});
-    }, remainingMs);
-
-    return () => clearTimeout(timeout);
-  }, [configDiagnostic.loadAttempt, configQuery.isLoading, reportConfigDiagnostic]);
 
   useEffect(() => {
     if (certParam?.trim()) {
@@ -336,27 +183,6 @@ export default function BookScreen() {
 
       {/* ── Location cards — PRIMARY ───────────────────────────────── */}
       <View style={styles.locationCards}>
-        {showConfigRecovery && configQuery.isLoading && (
-          <View
-            style={[
-              styles.diagnosticBox,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <Text style={[styles.diagnosticTitle, { color: colors.foreground }]}>
-              BOOK IS STILL LOADING
-            </Text>
-            <Text style={[styles.diagnosticText, { color: colors.mutedForeground }]}>
-              Diagnostic: auth {configDiagnostic.clerkIsLoaded ? 'ready' : 'not ready'} · signed in{' '}
-              {String(configDiagnostic.isSignedIn)} · token {configDiagnostic.tokenStatus} · config{' '}
-              {configDiagnostic.configRequest} · query {configDiagnostic.configQueryStatus}/
-              {configDiagnostic.configFetchStatus} · {configDiagnostic.elapsedMs}ms
-            </Text>
-            <Text style={[styles.diagnosticText, { color: colors.mutedForeground }]}>
-              Please capture the Expo Go console output before leaving this screen.
-            </Text>
-          </View>
-        )}
         {configQuery.isLoading
           ? [1, 2].map((i) => (
               <View
@@ -607,22 +433,6 @@ const styles = StyleSheet.create({
   locationCards: {
     gap: 12,
     marginBottom: 28,
-  },
-  diagnosticBox: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    gap: 6,
-  },
-  diagnosticTitle: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
-    letterSpacing: 0.8,
-  },
-  diagnosticText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
-    lineHeight: 17,
   },
   locationCard: {
     flexDirection: 'row',
