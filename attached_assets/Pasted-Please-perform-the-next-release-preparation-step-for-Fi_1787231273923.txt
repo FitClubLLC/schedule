@@ -1,0 +1,105 @@
+Please perform the next release-preparation step for Fit Club Mobile with no application code changes.
+
+The signed-build audit established:
+
+EAS should be the primary release pipeline.
+Production API domain is already correct and healthy.
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is required by Mobile but is not explicitly supplied by eas.json.
+iOS and Android signing readiness are still unknown.
+
+Scope this task only to EAS production environment and signing readiness.
+
+Do not modify:
+
+Mobile application code;
+Home, Book, Sessions, Memberships, Profile, reminders, biometrics, or navigation;
+API code;
+Portal;
+Acuity;
+Square;
+Clerk tenant configuration;
+bundle/package identifiers;
+version/build numbers;
+deployment configuration.
+
+Do not publish to either store.
+
+1. EAS production Clerk variable
+
+Inspect the EAS project/environment configuration and determine whether the Production environment already contains:
+
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+
+Do not display its value.
+
+If it exists:
+
+confirm it is available to Production builds;
+identify whether it is plain/sensitive/secret according to EAS metadata;
+verify, without exposing values, whether it corresponds to the production Clerk environment used by the API if that can be determined safely.
+
+If it does not exist:
+
+stop and report that it must be added;
+do not invent, rotate, or copy a key automatically;
+tell me the exact EAS UI/CLI step needed to add the existing production Clerk publishable key.
+2. API Clerk pairing
+
+Read-only verify as far as metadata allows that the production API’s:
+
+CLERK_PUBLISHABLE_KEY
+CLERK_SECRET_KEY
+
+belong to the same production Clerk environment intended for Mobile.
+
+Do not print values.
+
+If exact pairing cannot be proven safely from metadata, say so and leave it for the first signed authenticated build test.
+
+3. iOS signing readiness
+
+Inspect EAS credential metadata only.
+
+Report whether EAS currently has valid remote iOS credentials for:
+
+com.fitclub15.app
+
+including, where visible without exposing secrets:
+
+distribution certificate status;
+provisioning profile status;
+Apple team/account connection status.
+
+Do not create or replace certificates/profiles yet.
+
+4. Android signing readiness
+
+Inspect EAS credential metadata only.
+
+Report whether Android signing credentials/keystore exist for:
+
+com.fitclub15.app
+
+Do not display keystore passwords or key material.
+
+Do not create or replace a keystore yet.
+
+5. First signed-build readiness verdict
+
+At the end, report:
+
+EAS Production Clerk key: ready / missing / ambiguous
+Clerk/API pairing: proven / likely / unverified
+iOS signing: ready / missing / needs account setup
+Android signing: ready / missing / needs setup
+exact blockers before first internal build
+
+Do not run an EAS build yet.
+
+If all four items are ready, say:
+
+“Ready for first signed internal build.”
+
+Otherwise, give the smallest next setup step only.
+
+Confirm that no application code, external-service configuration, credentials, signing material, builds, submissions, deployments, or publishing were changed.
