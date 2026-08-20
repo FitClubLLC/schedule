@@ -1,0 +1,27 @@
+Please perform a read-only Acuity membership/subscription capability audit for Client Dashboard. Do not change code or Acuity.
+
+The intended business model is:
+
+Once per week membership: $195 every 28 days, 4 Workout for 1 sessions per cycle.
+Twice per week membership: $299 every 28 days, 8 Workout for 1 sessions per cycle.
+Admin-created/private memberships also exist, including discounted spouse memberships and other custom arrangements.
+Any active membership/subscription/package assigned in Acuity to the signed-in member should appear dynamically in that member’s Client Dashboard, even if the app has never seen that product name before.
+Without an available membership/package credit, Workout for 1 can be purchased individually for $59.
+Acuity remains the membership/subscription/certificate authority.
+Square remains the payment processor through Acuity.
+
+Audit the current Acuity integration and available API response shapes and determine:
+
+What endpoint(s) currently return a signed-in member’s packages, certificates, and subscriptions.
+Whether those responses include product/subscription name.
+Whether they include remaining appointment uses or remaining value.
+Whether they expose which appointment types the code can redeem.
+Whether they expose active/inactive/expired status.
+Whether they expose renewal date, expiration date, billing-cycle information, or subscription status.
+Whether private/admin-created Acuity subscriptions assigned to the same member email/account appear in the same API results as public purchases.
+Whether the existing app currently filters out or fails to display any valid private product merely because its name/type is not hard-coded.
+Whether a member can have multiple active certificates/subscriptions simultaneously and how the app should choose/display them.
+How Workout for 1 currently decides whether to consume a certificate versus create a paid appointment with no code.
+What Acuity response occurs when Workout for 1 is booked with no applicable certificate, and whether Acuity/Square can collect the existing $59 payment in the current native-booking architecture.
+
+Do not modify anything. Report what is proven from the API/code and what still requires screenshots or direct inspection of the Acuity admin configuration.
