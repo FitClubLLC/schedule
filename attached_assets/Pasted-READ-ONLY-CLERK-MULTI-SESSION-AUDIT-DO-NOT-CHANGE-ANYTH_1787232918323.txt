@@ -1,0 +1,51 @@
+READ-ONLY CLERK MULTI-SESSION AUDIT — DO NOT CHANGE ANYTHING
+
+We are preparing the Fit Club Client Dashboard Mobile app for its first production Clerk instance.
+
+Clerk will not allow us to clone the current Development instance into Production on the Hobby plan because it says:
+
+“The Multi session feature is not available on your current plan for production instances.”
+
+Before I pay for Clerk Pro, determine whether the Client Dashboard actually requires Clerk Multi-session functionality.
+
+This is strictly READ-ONLY.
+
+Do not:
+
+modify any code;
+modify Clerk;
+create the Production instance;
+change Development Clerk settings;
+change Replit secrets;
+change EAS/Expo variables;
+rotate or expose keys;
+build or publish anything;
+touch Acuity, Square, memberships, bookings, users, or appointments.
+
+Inspect only the current Client Dashboard source/configuration and determine:
+
+Does the Mobile app or Portal intentionally support or depend on multiple simultaneous Clerk sessions/accounts on one device/browser?
+Is any code using Clerk multi-session APIs, session switching, account switching, session lists, setActive, or similar functionality?
+Does normal Client Dashboard authentication require Multi-session, or does it expect one signed-in member/session at a time?
+Could Multi-session have simply been enabled in the Clerk Development dashboard without being required by application code?
+Is there any reason disabling Multi-session before creating the Production instance would break:
+sign-in/sign-out;
+biometric login;
+Clerk bearer-token authentication to the API;
+Home/Sessions data;
+Acuity memberships/certificates;
+booking/cancel/reschedule ownership;
+Portal authentication?
+Identify the exact source files/Clerk APIs supporting the conclusion.
+
+Do not disable Multi-session. I only want a determination.
+
+Finish with exactly one recommendation:
+
+MULTI-SESSION REQUIRED — keep it and upgrade Clerk before creating Production
+
+or
+
+MULTI-SESSION NOT REQUIRED BY THE APP — safest next step is to disable it in Development, verify authentication still works, and then clone Development into Production without upgrading solely for this feature
+
+If the evidence is ambiguous, say AMBIGUOUS — DO NOT CHANGE CLERK YET and explain exactly what remains unknown.
