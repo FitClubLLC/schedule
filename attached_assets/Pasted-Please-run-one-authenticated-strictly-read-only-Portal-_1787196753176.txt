@@ -1,0 +1,50 @@
+Please run one authenticated, strictly read-only Portal smoke test for the Task #78 Dashboard changes before we do final release verification.
+
+Do not change any code, configuration, data, Acuity, Square, Clerk, workflows, or deployment settings. Do not publish.
+
+Use an existing authenticated QA/member session if one is already available. Do not create a new user or alter a member account solely for this test.
+
+Test Portal only. Do not make any further Mobile changes.
+
+On the authenticated Portal Dashboard, verify:
+
+Current membership display
+Current Acuity-backed Workout-for-1 membership/package cards appear on the Dashboard.
+The real Acuity product name is displayed dynamically.
+The current remaining session/value balance is displayed correctly.
+If multiple eligible memberships exist, each is displayed separately.
+Do not hard-code or infer membership names, prices, credit counts, private/spouse status, or balances.
+Appointment Dashboard
+Upcoming/Past counts render normally.
+Next Session/upcoming appointment content renders normally when data exists.
+Genuine empty states remain correct when there are no appointments.
+Do not create an artificial API failure just to test the new error state; the focused automated tests already cover that branch.
+Navigation/actions — read-only only
+Verify Book a Session, Sessions, Memberships, and normal Dashboard navigation are visibly available as expected.
+You may verify destinations/routes only when doing so cannot create or modify anything.
+Do not complete a booking, purchase, cancellation, reschedule, password change, membership action, or payment flow.
+Membership purchase configuration
+Verify the Portal Memberships/Purchase Membership action is available when the Acuity catalog configuration has loaded successfully.
+Do not proceed with a purchase.
+Responsive check
+Inspect the authenticated Dashboard at a normal desktop width and approximately 400px mobile width.
+Confirm membership cards, appointment information, buttons, and navigation are not clipped, overlapped, or inaccessible.
+Runtime health
+Check for new Portal runtime/console errors associated with the Task #78 changes.
+Ignore known framework/development warnings unless they represent a new application failure.
+
+Important: Do not test the new failure states by stopping the API, invalidating authentication, changing Acuity configuration, or otherwise disrupting the environment.
+
+When finished, report:
+
+which authenticated member/QA context was used, without exposing sensitive information;
+membership cards/balances observed;
+appointment Dashboard result;
+desktop and narrow-width layout result;
+any runtime errors;
+whether anything could not be verified;
+confirmation that no member data, appointment, membership, payment, or configuration was modified.
+
+If an authenticated Portal session is not available, stop and report that limitation rather than changing anything or creating test data.
+
+Do not implement fixes during this test. If you discover an issue, diagnose and report it first.
