@@ -1,0 +1,63 @@
+Please implement the first Memberships / Workout for 1 business-model alignment using the verified live Acuity rules.
+
+Preserve Acuity as the source of truth and preserve Square/payment handling through Acuity. Do not introduce Stripe or any native payment collection.
+
+Verified business model
+
+Membership — One Session Per Week: Acuity subscription, $195, grants 4 Workout for 1 uses.
+Membership — Two Sessions Per Week: Acuity subscription, $299, grants 8 Workout for 1 uses.
+Private/admin-created subscription products also exist and grant Workout for 1 credits.
+Workout for 1 individual appointment price is $59.
+Workout for 1 appointment type ID is 83398355.
+Private products must not be hard-coded by name. Any valid Acuity certificate/subscription assigned to the signed-in member and redeemable for Workout for 1 should work dynamically.
+
+Implement only these behaviors:
+
+Dynamic membership/package display
+In Mobile and Portal, show all valid Acuity certificates/packages returned for the signed-in member that apply to configured services.
+Display the actual Acuity product name.
+Display remaining uses/sessions where available.
+Support multiple active memberships/packages.
+Do not assume only the public $195/$299 products exist.
+Workout for 1 booking decision
+If the member has one or more valid Workout for 1 credits, allow the existing native booking flow.
+If multiple eligible credits exist, let the member choose which one to use.
+The server must continue revalidating the selected certificate before appointment creation.
+Do not auto-select a private product merely by product name.
+No-credit Workout for 1 path
+If the member has no valid Workout for 1 credit, do not create a native appointment without a certificate.
+Instead, route the member to the Acuity-hosted Workout for 1 scheduler for the selected location/calendar and appointment type 83398355.
+Prefill the signed-in member email if supported.
+Do not include a certificate parameter.
+This hosted flow is the $59 individual-session purchase path and leaves payment handling in Acuity/Square.
+Private memberships
+Any valid hidden/private/admin-assigned Acuity subscription attached to the member email must appear and be usable automatically if Acuity reports it as redeemable for Workout for 1.
+Do not require a code deployment for new spouse/discounted/private membership names.
+
+Do not implement yet
+
+subscription renewal dates;
+billing-cycle display;
+rollover/reset policy display;
+payment-failed status;
+native Square checkout;
+any Stripe integration;
+Red Light Therapy eligibility changes;
+Free Trial changes;
+cancellation/reschedule policy changes;
+deployment changes.
+
+Add focused tests for:
+
+one valid Workout for 1 certificate → native booking path;
+multiple valid Workout for 1 certificates → selectable list;
+private arbitrary product name → still displayed/usable;
+no valid Workout for 1 certificate → Acuity-hosted $59 path;
+certificate-required native create cannot proceed without a selected valid certificate;
+the hosted no-credit URL uses the selected location calendar and Workout for 1 appointment type and does not include a certificate.
+
+Run Mobile/Portal/API typechecks, focused membership/booking tests, Eastern-time regressions, and affected production builds.
+
+Runtime QA must not purchase anything or create an appointment. Verify only the decision/handoff path.
+
+Do not publish.
