@@ -8,12 +8,13 @@ import type { MemberCertificate, CertificateCheckResult } from "@/hooks/useBooki
  * such as Free Trial are shown unconditionally by the UI and must not be passed
  * to this filter).
  *
- * Eligibility rules (applied in order):
+ * Eligibility rules:
  *
- *  1. workoutFor1Id is ALWAYS included — the base session service requires no
- *     certificate.
+ * All types require the member to have an active certificate that covers them.
+ * Workout for 1 is rendered separately by the service selector because it has
+ * a paid Acuity-hosted fallback when no credit is available.
  *
- *  2. All other types (e.g. Red Light Therapy) require the member to have an
+ * A qualifying certificate has:
  *     active certificate that covers them:
  *       - cert.appliesToAllProducts === true  (general membership), OR
  *       - typeId appears in cert.appointmentTypeIDs (member-cert list) /
@@ -35,17 +36,14 @@ export function getEligibleTypeIds(
   certCheck?: Pick<CertificateCheckResult, "productIDs" | "appliesToAllProducts"> | null,
 ): string[] {
   return locationNativeTypeIds.filter((typeId) => {
-    // 1. Workout for 1 — always visible, no certificate required.
-    if (typeId === workoutFor1Id) return true;
-
-    // 2a. Member has an active cert in their account that covers this type.
+    // 1. Member has an active cert in their account that covers this type.
     if (
       memberCerts.some(
         (c) => c.appliesToAllProducts || c.appointmentTypeIDs.includes(typeId),
       )
     ) return true;
 
-    // 2b. Member entered a code manually and the check result covers this type.
+    // 2. Member entered a code manually and the check result covers this type.
     if (
       certCheck &&
       (certCheck.appliesToAllProducts || certCheck.productIDs.includes(typeId))

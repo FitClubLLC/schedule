@@ -69,6 +69,19 @@ export function configuredAppointmentTypeIds(config: AcuityConfig): string[] {
 }
 
 /**
+ * Workout for 1 is normally a paid Acuity appointment, so its native route is
+ * permitted only when a selected Acuity certificate is present. Other native
+ * services preserve their configured certificate requirement.
+ */
+export function nativeBookingRequiresCertificate(
+  service: AcuityService,
+  workoutFor1AppointmentTypeId: string,
+): boolean {
+  return service.requiresCertificate ||
+    service.appointmentTypeID === workoutFor1AppointmentTypeId;
+}
+
+/**
  * Applies the location/service rule shared by availability and final booking.
  * Only native services are accepted — external (Free Trial) must never reach
  * native availability or appointment creation.

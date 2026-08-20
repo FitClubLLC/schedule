@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
+import { useUser } from "@clerk/react";
 import { Shell } from "@/components/layout/Shell";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, ChevronRight, Clock, Loader2, AlertCircle, ExternalLink } from "lucide-react";
@@ -11,6 +13,10 @@ import {
 } from "@/hooks/useBookingApi";
 import { getEligibleTypeIds } from "@/lib/bookingEligibility";
 import { BookingProgress } from "@/components/book/BookingProgress";
+import {
+  getAcuitySchedulerUrl,
+  getCreditBookingDecision,
+} from "@workspace/api-client-react";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,6 +39,7 @@ interface ServiceOption {
   duration?: number;
   bookingMode: "native" | "external";
   calendarId: string;
+  action: "native" | "hosted-payment" | "choose-credit" | "unavailable";
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -40,18 +47,50 @@ interface ServiceOption {
 export default function SelectService() {
   const [, setLocation] = useLocation();
   const params = getParams();
+  const { user } = useUser();
+  const [selectionMessage, setSelectionMessage] = useState("");
 
   // All queries are cached (staleTime ≥ 2 min) so they return instantly when
   // the member has already visited the Book screen in this session.
   const { data: acuityConfig,     isLoading: configLoading } = useAcuityConfig();
-  const { data: memberCerts = [], isLoading: certsLoading  } = useMemberCertificates();
-  const { data: certCheck                                   } = useCertificateCheck(params.certificate);
+  const {
+    data: memberCerts = [],
+    isLoading: certsLoading,
+    isError: certsError,
+  } = useMemberCertificates();
+  const {
+    data: certCheck,
+    isLoading: certificateCheckLoading,
+  } = useCertificateCheck(params.certificate);
   const { data: appointmentTypes = [], isLoading: typesLoading } = useAppointmentTypes();
 
   const isLoading = configLoading || certsLoading;
 
   // ── Eligibility ──────────────────────────────────────────────────────────
   const locationConfig = acuityConfig?.locations.find((l) => l.id === params.locationId);
+  const selectedCertificate =
+    certCheck && params.certificate
+      ? [{
+          code: params.certificate,
+          productName: certCheck.productName,
+          remainingValue: certCheck.remainingValue,
+          appointmentTypeIDs: certCheck.productIDs,
+          appliesToAllProducts: certCheck.appliesToAllProducts,
+        }]
+      : [];
+  const certificates = [
+    ...memberCerts,
+    ...selectedCertificate.filter(
+      (selected) => !memberCerts.some((certificate) => certificate.code === selected.code),
+    ),
+  ];
+  const workoutDecision = acuityConfig
+    ? getCreditBookingDecision({
+        certificates,
+        appointmentTypeId: acuityConfig.appointmentTypes.workoutFor1,
+        selectedCertificateCode: params.certificate,
+      })
+    : { kind: "hosted-payment" as const };
 
   const eligibleTypeIds =
     acuityConfig && locationConfig
@@ -67,7 +106,9 @@ export default function SelectService() {
   const externalServices: LocationService[] =
     locationConfig?.services.filter((service) => service.bookingMode === "external") ?? [];
 
-  const eligibleTypes: ServiceOption[] = eligibleTypeIds.reduce<ServiceOption[]>((acc, id) => {
+  const eligibleTypes: ServiceOption[] = eligibleTypeIds
+    .filter((id) => id !== acuityConfig?.appointmentTypes.workoutFor1)
+    .reduce<ServiceOption[]>((acc, id) => {
     const configured = locationConfig?.services.find(
       (service) => service.appointmentTypeID === id && service.bookingMode === "native",
     );
@@ -81,9 +122,34 @@ export default function SelectService() {
       duration: metadata?.duration,
       bookingMode: configured.bookingMode,
       calendarId: configured.calendarId,
+      action: "native",
     });
     return acc;
   }, []);
+  const workoutService = locationConfig?.services.find(
+    (service) => service.appointmentTypeID === acuityConfig?.appointmentTypes.workoutFor1,
+  );
+  const workoutMetadata = workoutService
+    ? appointmentTypes.find((type) => String(type.id) === workoutService.appointmentTypeID)
+    : undefined;
+  const workoutOption: ServiceOption[] = workoutService
+    ? [{
+        key: workoutService.key,
+        id: Number(workoutService.appointmentTypeID),
+        name: workoutMetadata?.name ?? workoutService.name,
+        description: workoutMetadata?.description ?? null,
+        duration: workoutMetadata?.duration,
+        bookingMode: workoutService.bookingMode,
+        calendarId: workoutService.calendarId,
+        action: certsError || certificateCheckLoading
+          ? "unavailable"
+          : workoutDecision.kind === "native"
+          ? "native"
+          : workoutDecision.kind === "choose-credit"
+          ? "choose-credit"
+          : "hosted-payment",
+      }]
+    : [];
 
   const serviceOptions: ServiceOption[] = [
     ...externalServices.map((service) => ({
@@ -93,22 +159,33 @@ export default function SelectService() {
       description: "Opens Acuity to schedule your free trial.",
       bookingMode: service.bookingMode,
       calendarId: service.calendarId,
+      action: "hosted-payment" as const,
     })),
+    ...workoutOption,
     ...eligibleTypes,
   ];
 
   function hostedUrl(service: ServiceOption): string {
-    const query = new URLSearchParams({
-      owner: acuityConfig?.ownerId ?? "",
-      appointmentType: String(service.id),
-      calendarID: service.calendarId,
+    return getAcuitySchedulerUrl({
+      ownerId: acuityConfig?.ownerId ?? "",
+      appointmentTypeId: service.id,
+      calendarId: service.calendarId,
+      email: user?.primaryEmailAddress?.emailAddress,
     });
-    return `https://app.acuityscheduling.com/schedule.php?${query.toString()}`;
   }
 
   // ── Navigation ───────────────────────────────────────────────────────────
   function handleSelect(service: ServiceOption) {
-    if (service.bookingMode === "external") {
+    setSelectionMessage("");
+    if (service.action === "unavailable") {
+      setSelectionMessage("We couldn’t verify your packages. Please return and try again.");
+      return;
+    }
+    if (service.action === "choose-credit") {
+      setSelectionMessage("Choose one of your active packages on the Book page before scheduling Workout for 1.");
+      return;
+    }
+    if (service.action === "hosted-payment") {
       window.open(hostedUrl(service), "_blank", "noopener,noreferrer");
       return;
     }
@@ -175,6 +252,12 @@ export default function SelectService() {
         </div>
       ) : (
         <div className="flex flex-col gap-3 max-w-lg">
+          {selectionMessage && (
+            <div role="alert" className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
+              <AlertCircle className="w-4 h-4 shrink-0 text-muted-foreground mt-0.5" />
+              <p className="text-sm text-muted-foreground">{selectionMessage}</p>
+            </div>
+          )}
           {serviceOptions.map((service) => (
             <button
               key={service.key}
@@ -197,12 +280,16 @@ export default function SelectService() {
                 )}
                 {service.duration ? (
                   <p className="flex items-center gap-1 text-xs text-muted-foreground pt-0.5">
-                    {service.bookingMode === "external" ? (
+                    {service.action === "hosted-payment" ? (
                       <ExternalLink className="w-3 h-3 shrink-0" />
                     ) : (
                       <Clock className="w-3 h-3 shrink-0" />
                     )}
-                    {service.bookingMode === "external" ? "External booking" : `${service.duration} min`}
+                    {service.action === "hosted-payment"
+                      ? service.id === Number(acuityConfig?.appointmentTypes.workoutFor1)
+                        ? "Secure payment in Acuity"
+                        : "External booking"
+                      : `${service.duration} min`}
                   </p>
                 ) : null}
               </div>

@@ -5,6 +5,7 @@ import {
   certificateBalanceState,
   configuredAppointmentTypeIds,
   formatCertificateRemaining,
+  nativeBookingRequiresCertificate,
   validateLocationService,
 } from "./booking-eligibility.js";
 
@@ -106,6 +107,24 @@ test("configuredAppointmentTypeIds returns only native type IDs, excluding Free 
   assert.ok(ids.includes("workout"), "workout must appear");
   assert.ok(ids.includes("red-light"), "red-light must appear");
   assert.equal(ids.length, 2);
+});
+
+test("requires a certificate for native Workout for 1 and configured certificate-gated services", () => {
+  const workout = config.locations[0].services.find(
+    (service) => service.appointmentTypeID === "workout",
+  )!;
+  const redLight = config.locations[1].services.find(
+    (service) => service.appointmentTypeID === "red-light",
+  )!;
+
+  assert.equal(
+    nativeBookingRequiresCertificate(workout, config.appointmentTypes.workoutFor1),
+    true,
+  );
+  assert.equal(
+    nativeBookingRequiresCertificate(redLight, config.appointmentTypes.workoutFor1),
+    true,
+  );
 });
 
 // ── validateLocationService — matrix correctness ──────────────────────────────

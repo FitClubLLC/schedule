@@ -15,3 +15,4 @@
 - [Portal React type alignment](portal-react-type-alignment.md) — Portal must match Expo’s React 19.1 type family; preserving symlinks causes widespread Radix errors.
 - [Workspace mode transition](workspace-mode-transition.md) — task assignment can precede the editor’s switch out of Plan mode; wait for the explicit Build-mode update before editing.
 - [Android Book tab blur reset](android-book-tab-blur-reset.md) — do not use popToTopOnBlur for Book; Expo Go Android can leave its entry query visibly pending on re-entry.
+- [Mobile static build port](mobile-static-build-port.md) — the Expo static builder needs exclusive port 8081; pause and restore the Canvas preview workflow around that build.

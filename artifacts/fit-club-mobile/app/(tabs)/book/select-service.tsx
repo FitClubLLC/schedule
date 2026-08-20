@@ -13,7 +13,7 @@
  * includes it in its service list.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -26,13 +26,18 @@ import {
 import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { useAuth } from '@clerk/expo';
+import { useAuth, useUser } from '@clerk/expo';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { customFetch } from '@workspace/api-client-react';
+import {
+  customFetch,
+  getAcuitySchedulerUrl,
+  getCreditBookingDecision,
+} from '@workspace/api-client-react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
 import { BookingProgress } from '@/components/book/BookingProgress';
+import { MEMBER_CERTIFICATES_QUERY_KEY } from '@/lib/membershipRefresh';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -68,11 +73,21 @@ interface AcuityAppointmentType {
   category?: string | null;
 }
 
-// No client-side eligibility gate for native services.
-// All native services are shown; certificate/package validation is authoritative
-// on the server (POST /booking/appointments → 422 if ineligible). This lets
-// members see Red Light Therapy even without a qualifying package — they can
-// tap it and the server will surface the eligibility error at confirm time.
+interface MemberCertificate {
+  code: string;
+  productName: string;
+  remainingValue: string;
+  appointmentTypeIDs?: string[];
+  appliesToAllProducts?: boolean;
+}
+
+interface CertificateCheckResult {
+  valid: boolean;
+  productName: string;
+  remainingValue: string;
+  productIDs: string[];
+  appliesToAllProducts: boolean;
+}
 
 const STEPS = ['Location', 'Service', 'Date & Time', 'Confirm'];
 
@@ -84,6 +99,8 @@ export default function SelectServiceScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+  const [selectionMessage, setSelectionMessage] = useState('');
 
   const {
     locationId = '',
@@ -119,15 +136,60 @@ export default function SelectServiceScreen() {
       responseType: 'json',
     }),
   });
+  const certificatesQuery = useQuery<MemberCertificate[]>({
+    queryKey: MEMBER_CERTIFICATES_QUERY_KEY,
+    enabled: bookingAuthReady,
+    queryFn: () => customFetch<MemberCertificate[]>('/api/booking/certificates', {
+      method: 'GET',
+      responseType: 'json',
+    }),
+  });
+  const selectedCertificateQuery = useQuery<CertificateCheckResult>({
+    queryKey: ['cert-check', certCode],
+    enabled: bookingAuthReady && !!certCode,
+    queryFn: () => customFetch<CertificateCheckResult>(
+      `/api/booking/certificates/check?certificate=${encodeURIComponent(certCode)}`,
+      { method: 'GET', responseType: 'json' },
+    ),
+    retry: false,
+  });
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
-  const isLoading = configQuery.isLoading || typesQuery.isLoading;
+  const isLoading =
+    configQuery.isLoading ||
+    typesQuery.isLoading ||
+    certificatesQuery.isLoading ||
+    (!!certCode && selectedCertificateQuery.isLoading);
 
   const acuityConfig     = configQuery.data;
   const appointmentTypes = typesQuery.data   ?? [];
+  const memberCertificates = certificatesQuery.data ?? [];
 
   const locationCfg = acuityConfig?.locations.find((l) => l.id === locationId);
+  const selectedCertificate =
+    selectedCertificateQuery.data && certCode
+      ? [{
+          code: certCode,
+          productName: selectedCertificateQuery.data.productName,
+          remainingValue: selectedCertificateQuery.data.remainingValue,
+          appointmentTypeIDs: selectedCertificateQuery.data.productIDs,
+          appliesToAllProducts: selectedCertificateQuery.data.appliesToAllProducts,
+        }]
+      : [];
+  const certificates = [
+    ...memberCertificates,
+    ...selectedCertificate.filter(
+      (selected) => !memberCertificates.some((certificate) => certificate.code === selected.code),
+    ),
+  ];
+  const workoutDecision = acuityConfig
+    ? getCreditBookingDecision({
+        certificates,
+        appointmentTypeId: acuityConfig.appointmentTypes.workoutFor1,
+        selectedCertificateCode: certCode,
+      })
+    : { kind: 'hosted-payment' as const };
 
   // Build the visible service list: all services in config order.
   // External services (Free Trial) open the Acuity hosted scheduler.
@@ -150,16 +212,41 @@ export default function SelectServiceScreen() {
 
   const handleSelect = useCallback(
     (service: AcuityService & { meta?: AcuityAppointmentType }) => {
+      setSelectionMessage('');
       if (service.bookingMode === 'external') {
-        // Build the Acuity hosted scheduler URL with owner + type + calendar.
-        const query = new URLSearchParams({
-          owner:           acuityConfig?.ownerId ?? '',
-          appointmentType: service.appointmentTypeID,
-          calendarID:      service.calendarId,
+        const url = getAcuitySchedulerUrl({
+          ownerId: acuityConfig?.ownerId ?? '',
+          appointmentTypeId: service.appointmentTypeID,
+          calendarId: service.calendarId,
+          email: user?.primaryEmailAddress?.emailAddress,
         });
-        const url = `https://app.acuityscheduling.com/schedule.php?${query.toString()}`;
         WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url));
         return;
+      }
+
+      const isWorkoutFor1 =
+        service.appointmentTypeID === acuityConfig?.appointmentTypes.workoutFor1;
+      if (isWorkoutFor1) {
+        if (certificatesQuery.isError || selectedCertificateQuery.isLoading) {
+          setSelectionMessage('We couldn’t verify your packages. Please return and try again.');
+          return;
+        }
+        if (workoutDecision.kind === 'choose-credit') {
+          setSelectionMessage(
+            'Choose one of your active packages on the Book page before scheduling Workout for 1.',
+          );
+          return;
+        }
+        if (workoutDecision.kind === 'hosted-payment') {
+          const url = getAcuitySchedulerUrl({
+            ownerId: acuityConfig?.ownerId ?? '',
+            appointmentTypeId: service.appointmentTypeID,
+            calendarId: service.calendarId,
+            email: user?.primaryEmailAddress?.emailAddress,
+          });
+          WebBrowser.openBrowserAsync(url).catch(() => Linking.openURL(url));
+          return;
+        }
       }
 
       router.push({
@@ -169,12 +256,24 @@ export default function SelectServiceScreen() {
           locationName:        locationName as string,
           appointmentTypeID:   service.appointmentTypeID,
           appointmentTypeName: service.meta?.name ?? service.name,
-          certificate:         certCode,
+          certificate:         isWorkoutFor1 && workoutDecision.kind === 'native'
+            ? workoutDecision.certificateCode
+            : certCode,
           from:                'select-service',
         },
       });
     },
-    [router, locationId, locationName, certCode, acuityConfig],
+    [
+      router,
+      locationId,
+      locationName,
+      certCode,
+      acuityConfig,
+      user?.primaryEmailAddress?.emailAddress,
+      certificatesQuery.isError,
+      selectedCertificateQuery.isLoading,
+      workoutDecision,
+    ],
   );
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -230,11 +329,24 @@ export default function SelectServiceScreen() {
         </View>
       ) : (
         <View style={styles.cards}>
+          {selectionMessage ? (
+            <View style={[styles.messageCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <SvgIcon name="alert-circle" size={18} color={colors.mutedForeground} />
+              <Text style={[styles.messageText, { color: colors.mutedForeground }]}>
+                {selectionMessage}
+              </Text>
+            </View>
+          ) : null}
           {visibleServices.map((service) => {
             const displayName = service.meta?.name ?? service.name;
             const description = service.meta?.description ?? null;
             const duration    = service.meta?.duration;
             const isExternal  = service.bookingMode === 'external';
+            const isWorkoutFor1 =
+              service.appointmentTypeID === acuityConfig?.appointmentTypes.workoutFor1;
+            const isHostedWorkout =
+              isWorkoutFor1 && workoutDecision.kind === 'hosted-payment';
+            const isHosted = isExternal || isHostedWorkout;
 
             return (
               <TouchableOpacity
@@ -263,11 +375,11 @@ export default function SelectServiceScreen() {
                     </Text>
                   )}
 
-                  {isExternal ? (
+                  {isHosted ? (
                     <View style={styles.durationRow}>
                       <SvgIcon name="external-link" size={12} color={colors.mutedForeground} />
                       <Text style={[styles.durationText, { color: colors.mutedForeground }]}>
-                        External booking
+                        {isHostedWorkout ? 'Secure payment in Acuity' : 'External booking'}
                       </Text>
                     </View>
                   ) : !!duration ? (
@@ -281,7 +393,7 @@ export default function SelectServiceScreen() {
                 </View>
 
                 <SvgIcon
-                  name={isExternal ? 'external-link' : 'chevron-right'}
+                  name={isHosted ? 'external-link' : 'chevron-right'}
                   size={18}
                   color={colors.mutedForeground}
                 />
@@ -328,4 +440,13 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   emptyText:    { fontFamily: 'Inter_400Regular', flex: 1, fontSize: 14, lineHeight: 20 },
+  messageCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+  },
+  messageText: { fontFamily: 'Inter_400Regular', flex: 1, fontSize: 13, lineHeight: 19 },
 });

@@ -5,6 +5,7 @@ import {
   certificateBalanceState,
   configuredAppointmentTypeIds,
   formatCertificateRemaining,
+  nativeBookingRequiresCertificate,
   validateLocationService,
 } from "../lib/booking-eligibility.js";
 import type { AcuityCreatedAppointmentResponse } from "../lib/acuity-response-types.js";
@@ -408,6 +409,26 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       return;
     }
     const calendarId = locationValidation.service.calendarId;
+    const certificateCode = nonEmptyString(certificate);
+    if (
+      nativeBookingRequiresCertificate(
+        locationValidation.service,
+        getAcuityConfig().appointmentTypes.workoutFor1,
+      ) &&
+      !certificateCode
+    ) {
+      req.log.warn(
+        {
+          locationId: String(locationId),
+          appointmentTypeID: requestedAppointmentTypeId,
+        },
+        "Acuity native booking requires an eligible certificate",
+      );
+      res.status(422).json({
+        error: "Choose an active package for this session, or continue through Acuity to purchase it.",
+      });
+      return;
+    }
 
     // Use the verified Clerk session that authenticated this exact request rather
     // than a mutable request property. The Admin API is authoritative, while the
@@ -478,7 +499,6 @@ router.post("/booking/appointments", requireAuth, async (req: any, res): Promise
       return;
     }
 
-    const certificateCode = nonEmptyString(certificate);
     if (certificateCode) {
       const certificateEligibility = await getCertificateEligibility(
         certificateCode,

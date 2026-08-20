@@ -21,6 +21,82 @@ export function getAcuityMembershipCatalogUrl(ownerId: string): string {
   return `https://app.acuityscheduling.com/catalog.php?owner=${encodeURIComponent(ownerId)}`;
 }
 
+export interface CertificateAppointmentEligibility {
+  code: string;
+  appointmentTypeIDs?: string[];
+  appliesToAllProducts?: boolean;
+}
+
+export function certificateCoversAppointmentType(
+  certificate: CertificateAppointmentEligibility,
+  appointmentTypeId: string,
+): boolean {
+  return certificate.appliesToAllProducts === true ||
+    certificate.appointmentTypeIDs?.includes(appointmentTypeId) === true;
+}
+
+export function getEligibleCertificatesForAppointmentType<
+  T extends CertificateAppointmentEligibility,
+>(certificates: T[], appointmentTypeId: string): T[] {
+  return certificates.filter((certificate) =>
+    certificateCoversAppointmentType(certificate, appointmentTypeId),
+  );
+}
+
+export type CreditBookingDecision =
+  | { kind: "native"; certificateCode: string }
+  | { kind: "choose-credit"; certificateCodes: string[] }
+  | { kind: "hosted-payment" };
+
+/**
+ * A native appointment may only use a certificate the member explicitly chose.
+ * When usable credits exist but none is selected, return a choice state rather
+ * than silently spending a different credit. When none exist, Acuity's hosted
+ * scheduler owns payment collection.
+ */
+export function getCreditBookingDecision(input: {
+  certificates: CertificateAppointmentEligibility[];
+  appointmentTypeId: string;
+  selectedCertificateCode?: string;
+}): CreditBookingDecision {
+  const eligible = getEligibleCertificatesForAppointmentType(
+    input.certificates,
+    input.appointmentTypeId,
+  );
+  const selectedCode = input.selectedCertificateCode?.trim();
+
+  if (selectedCode && eligible.some((certificate) => certificate.code === selectedCode)) {
+    return { kind: "native", certificateCode: selectedCode };
+  }
+  if (eligible.length > 0) {
+    return {
+      kind: "choose-credit",
+      certificateCodes: eligible.map((certificate) => certificate.code),
+    };
+  }
+  return { kind: "hosted-payment" };
+}
+
+/**
+ * Builds a narrowly scoped Acuity scheduler handoff. Payment and any payment
+ * processor remain within Acuity; a certificate is deliberately never added.
+ */
+export function getAcuitySchedulerUrl(input: {
+  ownerId: string;
+  appointmentTypeId: string | number;
+  calendarId: string | number;
+  email?: string | null;
+}): string {
+  const query = new URLSearchParams({
+    owner: input.ownerId,
+    appointmentType: String(input.appointmentTypeId),
+    calendarID: String(input.calendarId),
+  });
+  const email = input.email?.trim();
+  if (email) query.set("email", email);
+  return `https://app.acuityscheduling.com/schedule.php?${query.toString()}`;
+}
+
 /**
  * Acuity can take a few seconds to expose a newly purchased package or a
  * restored package credit. These are deliberately bounded follow-ups, not
