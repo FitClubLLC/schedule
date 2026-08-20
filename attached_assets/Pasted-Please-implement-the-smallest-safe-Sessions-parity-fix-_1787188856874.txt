@@ -1,0 +1,79 @@
+Please implement the smallest safe Sessions parity fix based on the completed read-only audit.
+
+Scope this work only to the four confirmed member-facing issues:
+
+1. Portal appointment load errors
+
+Portal must not display “No upcoming appointments” or “No past appointments” when the underlying appointments request actually failed.
+
+Add a clear, branded, non-sensitive error/retry state that distinguishes:
+
+loading,
+genuine empty results,
+request failure.
+
+Do not change the appointment API or query keys unless required for the UI state.
+
+2. Portal cancellation failure feedback
+
+If cancellation fails, show a clear member-facing error instead of silently stopping the spinner.
+
+Preserve the existing successful cancellation behavior and existing query invalidation.
+
+Do not change Acuity cancellation semantics or cancellation eligibility rules.
+
+3. Portal reschedule times must display in Eastern Time
+
+The studio operates in Eastern Time. Reschedule availability must display the Acuity/studio clock time consistently regardless of the member's browser timezone.
+
+Reuse the project's existing Eastern/studio-time utilities where possible rather than creating competing timezone logic.
+
+Do not change the actual Acuity availability instant or reschedule payload—this is about correct studio-time interpretation/display.
+
+4. Mobile reschedule dates must use the Eastern studio calendar
+
+Mobile must generate/request reschedule date keys according to the studio's Eastern calendar rather than the Android/iOS device's local timezone.
+
+A member traveling outside Eastern Time must still request the correct Fit Club studio date.
+
+Reuse the existing Eastern-time utilities/patterns already used by booking.
+
+Do not change yet:
+
+the 14-day Mobile versus 60-day Portal reschedule window;
+cancellation eligibility/window rules;
+cancelled-status gating;
+Acuity policy behavior;
+appointment ownership rules;
+Clerk authentication;
+booking;
+memberships/packages;
+Square;
+Home;
+Profile;
+deployment configuration.
+
+Preserve the existing API ownership protection that verifies the signed-in member before cancellation, availability lookup, or rescheduling. Preserve the existing Acuity appointment-specific reschedule operation; do not create replacement appointments.
+
+Add focused regression coverage for the changes, especially:
+
+Portal failed request ≠ empty schedule.
+Portal cancellation error is visible.
+Portal reschedule slot displays the same Eastern clock time when tested from a non-Eastern browser timezone.
+Mobile generates the same Eastern studio date when tested from Eastern and non-Eastern device-timezone scenarios.
+Existing DST/Eastern-time tests continue to pass.
+
+Then run:
+
+Mobile typecheck
+Portal typecheck
+relevant API typecheck if shared code/API is touched
+existing Eastern-time tests
+new focused Sessions tests
+production builds for affected clients
+
+Runtime QA must remain non-mutating. Do not create, cancel, or reschedule an appointment merely to test this. If the existing QA member still has no appointment, explicitly document which populated/mutation states cannot be proven at runtime.
+
+Do not publish.
+
+At completion, report the exact files changed, behavior before/after, tests/build results, and any remaining Sessions issues separately.
