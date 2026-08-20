@@ -16,6 +16,9 @@ import {
 import {
   type NotifTiming, NOTIF_TIMING_KEY, PREF_LOCATION_KEY, DEFAULT_NOTIF_TIMING,
 } from '@/lib/notificationPrefs';
+import { useGetUpcomingAppointments } from '@workspace/api-client-react';
+import { useSessionReminders } from '@/hooks/useSessionReminders';
+import { getSessionReminderStatusCopy } from '@/lib/sessionReminderPresentation';
 
 // Locations match the env-var defaults used across the app
 const LOCATIONS = [
@@ -72,7 +75,7 @@ export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useUser();
-  const { signOut, getToken } = useAuth();
+  const { signOut, getToken, isSignedIn } = useAuth();
 
   // ── Name editing ──────────────────────────────────────────────────────────
   const [firstName, setFirstName] = useState(user?.firstName ?? '');
@@ -89,6 +92,7 @@ export default function ProfileScreen() {
 
   // ── Notification timing ───────────────────────────────────────────────────
   const [notifTiming, setNotifTimingState] = useState<NotifTiming>(DEFAULT_NOTIF_TIMING);
+  const [notifTimingLoaded, setNotifTimingLoaded] = useState(false);
 
   // ── Biometrics ────────────────────────────────────────────────────────────
   const [biometricHardware, setBiometricHardware] = useState(false);
@@ -107,14 +111,26 @@ export default function ProfileScreen() {
   // ── Signing out ───────────────────────────────────────────────────────────
   const [signingOut, setSigningOut] = useState(false);
 
+  const upcomingQuery = useGetUpcomingAppointments({
+    query: { enabled: !!isSignedIn },
+  });
+  const reminderStatus = useSessionReminders(
+    upcomingQuery.data,
+    notifTimingLoaded ? notifTiming : undefined,
+  );
+  const reminderStatusCopy = getSessionReminderStatusCopy(reminderStatus);
+
   // ── Load preferences on mount ─────────────────────────────────────────────
   useEffect(() => {
     AsyncStorage.getItem(PREF_LOCATION_KEY).then((v) => v && setPrefLocationState(v));
-    AsyncStorage.getItem(NOTIF_TIMING_KEY).then((v) => {
-      if (v === '24h' || v === '2h' || v === 'both' || v === 'off') {
-        setNotifTimingState(v as NotifTiming);
-      }
-    });
+    AsyncStorage.getItem(NOTIF_TIMING_KEY)
+      .then((v) => {
+        if (v === '24h' || v === '2h' || v === 'both' || v === 'off') {
+          setNotifTimingState(v as NotifTiming);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setNotifTimingLoaded(true));
     Promise.all([isBiometricAvailable(), hasSavedCreds()]).then(([avail, saved]) => {
       setBiometricHardware(avail);
       setBiometricEnabled(saved);
@@ -476,6 +492,14 @@ export default function ProfileScreen() {
             );
           })}
         </View>
+        <View style={[styles.reminderStatusCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.reminderStatusTitle, { color: colors.foreground }]}>
+            {reminderStatusCopy.title}
+          </Text>
+          <Text style={[styles.reminderStatusDetail, { color: colors.mutedForeground }]}>
+            {reminderStatusCopy.detail}
+          </Text>
+        </View>
 
         {/* ── Security ─────────────────────────────────────────────────────── */}
         <SectionLabel title="SECURITY" colors={colors} />
@@ -678,6 +702,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
     lineHeight: 16,
+  },
+  reminderStatusCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+    marginTop: -12,
+    marginBottom: 24,
+    gap: 5,
+  },
+  reminderStatusTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  reminderStatusDetail: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    lineHeight: 17,
   },
 
   // Setting rows (security)

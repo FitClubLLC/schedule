@@ -1,0 +1,103 @@
+Please implement a very tightly scoped Mobile-only session reminder fix.
+
+The current Mobile app is working well. Do not refactor or change any unrelated feature.
+
+Scope: Mobile session reminders only.
+
+Fix these two confirmed issues:
+
+1. Reminder timing changes must take effect immediately
+
+The Mobile Profile reminder options currently support:
+
+24 hours before
+2 hours before
+both
+off
+
+When the member changes this setting, immediately rebuild the app-owned local/device session reminders based on the new preference.
+
+Required behavior:
+
+switching to Off immediately cancels all currently scheduled Fit Club session reminders;
+switching from one timing option to another immediately cancels/replaces stale Fit Club reminders and schedules the correct new ones;
+do not wait for the appointment list to change or for the screen/app to remount;
+use the current loaded upcoming appointments and existing local-notification scheduling logic;
+avoid duplicate reminders.
+
+2. Notification permission/scheduling status must be visible
+
+If native notification permission is denied, unavailable, or local reminder scheduling cannot run, show a clear, non-sensitive member-facing message in Mobile Profile.
+
+The UI should make clear that:
+
+these are device-local appointment reminders;
+they apply only on this device;
+they do not control Acuity email/SMS reminders, Clerk security messages, payment receipts, or Portal behavior.
+
+If permission is denied, do not repeatedly prompt or loop. Show an informative state and let the OS/app’s existing permission behavior remain authoritative.
+
+Preserve all current behavior outside this narrow reminder scope.
+
+Do not change:
+
+Home
+Book
+Sessions appointment data/actions
+Memberships/packages
+Profile name/email/location behavior
+password change
+biometric login or SecureStore behavior
+Clerk authentication
+Acuity
+Square
+API contracts
+Portal
+Fit Club Hub
+booking/cancellation/rescheduling logic
+Eastern Time logic
+deployment configuration
+package/dependency versions unless absolutely required by the existing notification implementation
+
+Do not add:
+
+remote push notifications
+Expo push-token registration
+server-side notification jobs
+email/SMS sending
+web push
+notification webhooks
+
+Keep the existing local notification architecture.
+
+Add focused regression tests for:
+
+changing from Both → Off cancels existing scheduled Fit Club reminders immediately;
+changing reminder timing replaces prior schedules without duplicates;
+permission denied/unavailable produces a visible, safe UI state;
+reminder preference remains device-local and existing persistence behavior remains unchanged.
+
+Run:
+
+Mobile typecheck
+focused reminder tests
+existing Eastern-time Mobile test
+Mobile production iOS/Android build
+
+Runtime QA must be non-mutating:
+
+do not book/cancel/reschedule anything;
+do not change Clerk/Acuity/Square data;
+do not publish.
+
+If testing notification permission would require changing the real device permission state, do not do that automatically; verify the branch through source/tests and report the limitation.
+
+At completion, report:
+
+exact files changed;
+before/after reminder behavior;
+test/build results;
+any runtime limitation;
+confirmation that no unrelated Mobile, Portal, API, Acuity, Square, Clerk, or deployment behavior changed.
+
+Do not publish.
