@@ -1,0 +1,88 @@
+STRICTLY SCOPED REPLIT DEPLOYMENT HEALTHCHECK DIAGNOSIS — DO NOT TOUCH APP LOGIC
+
+The current Republish fails after all application builds succeed.
+
+Build evidence:
+
+API build succeeds.
+Mobile static Expo build succeeds for iOS and Android.
+Portal Vite build succeeds.
+Security scan completes.
+Hosting/pid1 layers are created.
+
+The failure occurs only when Replit starts artifact processes.
+
+Replit system logs repeatedly show healthcheck failures for the API and Mobile artifact routes, followed by SIGTERM shutdown:
+
+healthcheck failed ... /api...
+
+healthcheck failed ... /mobi...
+
+then:
+
+received signal, shutting down artifact process
+
+artifact process exited with error
+
+ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL
+
+Command failed with signal "SIGTERM"
+
+Goal
+
+Diagnose only why the Replit deployment health checks fail after successful builds.
+
+Do not change
+Mobile UI/business logic
+Portal UI/business logic
+API contracts or auth behavior
+Clerk
+Sentry
+Expo/EAS
+Apple credentials
+bundle identifiers
+Acuity
+Square
+package versions
+deployment type
+production domain
+App Store configuration
+Inspect first
+
+Check only:
+
+current artifact/start commands for API, Mobile, and Portal;
+expected listen ports;
+Replit artifact healthcheck paths;
+whether /api/healthz is the configured API health endpoint;
+whether the Mobile static artifact serves /mobile/ quickly enough during startup;
+whether any artifact process is binding the wrong port or waiting on another process before listening;
+whether recent config changes affected only build-time env and should not affect runtime.
+
+Do not assume this is an application-code bug.
+
+Preferred outcome
+
+If the issue is only healthcheck timing/path/port configuration, make the smallest Replit deployment config correction needed.
+
+If the healthcheck configuration is managed by Replit and not safely editable from the project, stop and report that Replit Support is required.
+
+Verification
+
+Before any change, reproduce the healthcheck failure locally/read-only if possible.
+
+After any narrow fix:
+
+confirm API health endpoint responds;
+confirm Mobile artifact serves /mobile/;
+confirm Portal serves;
+confirm no auth, booking, membership, Clerk, Sentry, Apple, or Expo behavior changed;
+do not run Expo Launch;
+do not publish automatically unless explicitly approved.
+
+Report:
+
+exact root cause;
+exact file/config changed, if any;
+whether the problem is Replit-managed infrastructure;
+whether it is safe to Republish once more.
