@@ -1,0 +1,127 @@
+Please perform a strictly scoped signed-build production environment validation for the current Fit Club Mobile app.
+
+The current app is working well. Do not change application behavior.
+
+This task is only to verify that a future signed iOS/Android store build will receive the correct production Clerk configuration and production API domain.
+
+Do not:
+
+change Mobile UI or business logic;
+change Home, Book, Sessions, Memberships, Profile, reminders, biometrics, booking, or navigation;
+change API routes;
+change Acuity or Square;
+change Portal;
+change Clerk tenant settings unless explicitly required and approved;
+rotate any keys;
+change bundle/package IDs;
+change version/build numbers;
+publish or submit to Apple/Google;
+create App Store Connect or Play Console records.
+1. Validate production Clerk key delivery
+
+The Mobile app requires:
+
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+
+Determine exactly how the EAS production build would receive that value today.
+
+Report:
+
+whether the variable is already configured for EAS production builds;
+whether it is supplied through EAS environment/secrets, project environment, profile environment, or another supported source;
+whether it is the production Clerk publishable key rather than the development key;
+whether the app would currently fail startup in a signed production build because the variable is absent.
+
+Do not print the key value.
+
+If the variable is missing from the signed-build environment, do not immediately change code or rotate credentials. Report the smallest supported configuration step needed to supply the existing production publishable key to EAS.
+
+2. Validate production API configuration
+
+Confirm the EAS production build is configured to use:
+
+client-dashboard-fitclub.replit.app
+
+as the production API/domain source.
+
+Verify read-only that:
+
+https://client-dashboard-fitclub.replit.app/api/healthz responds successfully;
+the production deployment is currently healthy;
+the Mobile production configuration contains no localhost, Metro, Expo Go, Replit dev-domain, or preview-domain dependency.
+
+Do not make appointment, membership, payment, or profile mutations.
+
+3. Validate Clerk ↔ production API compatibility
+
+Determine whether the production API is configured to validate tokens from the same production Clerk environment intended for the signed Mobile build.
+
+Check configuration/source/environment metadata only.
+
+Do not display secret keys or tokens.
+
+Report whether:
+
+Mobile production Clerk publishable key and API-side Clerk secret/key belong to the same production Clerk instance/environment;
+anything still points to a development Clerk environment;
+there is any known signed-build auth mismatch risk.
+
+If this cannot be proven without a signed build, say so explicitly.
+
+4. Inspect EAS production profile only
+
+Review the current EAS production profile and report:
+
+platform outputs expected:
+Android AAB
+iOS store/TestFlight-compatible build
+production environment variables it currently supplies
+credentials source
+whether Android signing is configured, missing, or unknown
+whether iOS remote signing credentials are configured, missing, or unknown
+
+Do not generate credentials or build anything yet.
+
+5. Choose the release pipeline
+
+The repository currently contains both EAS-related configuration and a Codemagic iOS release path.
+
+Recommend one primary release pipeline for the first App Store / Google Play release, based on the current project.
+
+Prefer the path that:
+
+supports both iOS and Android;
+minimizes changes to the working app;
+supports TestFlight and Google Play internal testing cleanly;
+keeps signing/credentials manageable.
+
+Do not delete or modify the unused pipeline yet. Just recommend which one we should use.
+
+6. No signed build yet
+
+Do not run EAS Build, Codemagic, App Store submission, or Google Play submission in this task.
+
+We are only validating whether the signed-build environment is ready.
+
+Final report
+
+Return:
+
+Production Clerk key status
+ready / missing / ambiguous
+Production API status
+ready / issue found
+Clerk/API environment compatibility
+proven / likely / not yet provable
+EAS signing readiness
+iOS
+Android
+Recommended primary release pipeline
+EAS or Codemagic
+brief reason
+Exact blockers before first signed internal build
+Smallest next step
+
+End by confirming that no application code, Clerk tenant settings, Acuity, Square, users, appointments, memberships, deployment configuration, signing credentials, store accounts, builds, submissions, or publishing were changed.
+
+Do not enter Plan mode or create implementation tasks automatically. Wait for my approval after the report.
