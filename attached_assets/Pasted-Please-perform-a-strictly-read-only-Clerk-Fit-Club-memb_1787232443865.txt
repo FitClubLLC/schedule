@@ -1,0 +1,125 @@
+Please perform a strictly read-only Clerk → Fit Club member identity audit before we create a Clerk Production instance.
+
+The current working app uses a Clerk Development instance. We have confirmed there is no Production Clerk instance yet.
+
+Before creating Production, determine whether a member who later signs into a new Clerk Production account using the same email address will safely reconnect to the same Fit Club/Acuity member data, or whether any part of the app depends on the old Clerk Development userId.
+
+Do not change anything.
+
+Do not:
+
+create a Clerk Production instance;
+create or migrate users;
+change Clerk settings;
+change Replit secrets;
+change EAS variables;
+change API code;
+change Acuity;
+change Square;
+change appointments, memberships, packages, certificates, or member records;
+run builds;
+publish or submit anything.
+1. Trace authenticated identity through the API
+
+Inspect all protected API routes used by Mobile/Portal and determine what member identity they use internally:
+
+Clerk userId
+Clerk primary email
+email passed to Acuity
+any database member ID
+any other stable identifier
+
+For each major area, report the identity used:
+
+Home/dashboard
+Sessions/upcoming/past
+Book
+Acuity certificates/packages/memberships
+appointment creation
+cancellation
+rescheduling
+Profile
+2. Acuity matching
+
+Determine exactly how the API finds a member’s Acuity data.
+
+Specifically answer:
+
+Are certificates/packages retrieved by the signed-in Clerk member’s email?
+Are appointments looked up by email, Clerk user ID, Acuity client ID, or another field?
+Does appointment ownership validation depend on Clerk userId, email, or appointment/customer fields?
+Would a new Clerk Production user with the same email address still see the same Acuity memberships, private memberships, appointment history, and upcoming sessions?
+
+Do not query or modify real member records during this audit unless existing logs/source already prove the behavior.
+
+3. Search for persisted Clerk user IDs
+
+Search the current repository and any app-owned database/schema for persisted or compared Clerk IDs, including:
+
+userId
+clerkUserId
+clerk_user_id
+subject / sub
+external IDs
+
+Determine whether any member-facing data is permanently tied to a Development Clerk user ID.
+
+If Clerk user IDs are stored, explain exactly what they are used for and whether a new Production ID would break continuity.
+
+4. Profile data continuity
+
+Determine which data lives only in Clerk versus Acuity/device-local storage.
+
+Report what would happen for a new Production Clerk account with the same email regarding:
+
+first/last name
+email
+profile settings
+preferred location
+reminder preference
+biometric enrollment
+appointment history
+upcoming sessions
+memberships/private memberships
+remaining session credits
+
+Clearly distinguish:
+
+automatically preserved because it comes from Acuity/email matching;
+device-local and unaffected;
+Clerk-instance-specific and would need to be recreated.
+5. Authenticated API authorization safety
+
+Confirm whether changing from Development Clerk IDs to Production Clerk IDs would affect:
+
+authorization checks;
+ownership checks;
+cancellation/rescheduling protection;
+package/certificate visibility.
+
+We need to know whether the system relies on same-email continuity or same-Clerk-user-ID continuity.
+
+6. Reviewer/test account implications
+
+Determine whether we can safely create a fresh Production Clerk reviewer/test account using a dedicated test email and associate it with harmless Acuity test data, without affecting real members.
+
+Do not create the account or Acuity data yet.
+
+Final report
+
+Report:
+
+Primary member continuity key
+email / Clerk user ID / mixed / other
+Would same-email Production Clerk users reconnect to existing Acuity data?
+yes / no / partially / not provable
+Anything tied permanently to Development Clerk IDs
+What must be recreated in Clerk Production
+What will carry over automatically
+Any migration risk
+Whether it is safe to create the Clerk Production instance next
+Smallest safe migration/release sequence
+
+End by confirming that no code, Clerk instances, users, Acuity data, secrets, EAS settings, builds, deployments, or publishing were changed.
+
+Do not enter Plan mode or create tasks automatically. Stop after the audit and wait for approval.

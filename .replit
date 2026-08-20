@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "python-base-3.13"]
+modules = ["nodejs-24", "python-base-3.13", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -29,3 +29,6 @@ EXPO_PUBLIC_ACUITY_CALENDAR_URL = "https://app.acuityscheduling.com/schedule.php
 ADMIN_EMAIL = "info@fitclub15.com"
 VITE_ADMIN_EMAIL = "info@fitclub15.com"
 CORS_ORIGIN = "https://client-dashboard-fitclub.replit.app"
+
+[nix]
+channel = "stable-25_05"
