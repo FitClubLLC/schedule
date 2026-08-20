@@ -1,0 +1,228 @@
+Please perform a strictly read-only Profile, Security, Preferences, and Notifications audit of the current Fit Club Client Dashboard across Mobile and Portal.
+
+This is an audit only. Do not implement fixes or make changes.
+
+Do not modify code, configuration, environment variables, Clerk, Acuity, Square, member data, notification settings, workflows, deployment settings, or Fit Club Hub. Do not publish.
+
+The production Mobile app is currently working well. Do not refactor or alter Home, Book, Sessions, Memberships/packages, booking navigation, certificate handling, Acuity integration, or payment behavior as part of this audit.
+
+1. Profile and account information
+
+Audit Mobile and Portal for:
+
+member name
+email address
+profile/avatar
+preferred Fit Club location
+any phone/contact information
+profile editing
+where profile information comes from: Clerk, app/API data, Acuity, or another source
+whether changes persist correctly and which system is authoritative
+loading, empty, error, and retry states
+
+Identify any Mobile/Portal inconsistencies, but do not change them.
+
+2. Password and account security
+
+Trace the current implementation of:
+
+Change Password
+password validation
+incorrect-current-password behavior
+success/error feedback
+sign-out
+biometric login/preferences on Mobile
+any other authentication/security controls exposed to members
+
+Determine what is actually handled by Clerk versus application code.
+
+Do not change Clerk configuration, credentials, sessions, passwords, or authentication settings during QA.
+
+3. Notification and reminder inventory
+
+This section is especially important.
+
+Trace every current member-facing notification/reminder mechanism in the repository and determine what is actually functional today.
+
+Look for:
+
+Mobile push notifications
+Expo Notifications
+device push-token registration
+appointment reminders
+booking confirmation notifications
+cancellation notifications
+reschedule notifications
+membership/payment/renewal notifications
+email reminders
+SMS/text reminders
+local/device notifications
+notification permission requests
+reminder preference toggles
+scheduled notification jobs/background tasks
+API notification endpoints
+webhook-triggered notifications
+Acuity-provided email/SMS notifications
+Clerk-provided emails/security notifications
+
+For each notification mechanism, identify:
+
+what triggers it;
+who actually sends it — Client Dashboard, Expo, Acuity, Clerk, another provider, etc.;
+whether it is implemented and active, partially implemented, UI-only, dead code, or not implemented;
+whether the member can control it;
+where that preference is stored;
+whether Mobile and Portal behave consistently.
+
+Do not send any test notification, email, SMS, push notification, or webhook during this audit.
+
+4. Mobile reminder preferences
+
+The Mobile Profile currently exposes reminder/preferences-related controls. Trace these carefully.
+
+Determine:
+
+exactly what each toggle currently controls;
+whether changing a toggle actually affects notification delivery;
+whether the setting is persisted;
+where it is persisted;
+whether it survives sign-out/reinstall/device change;
+whether it is account-level or device-level;
+whether notification permissions are checked;
+what happens if the member denies OS notification permission;
+whether the UI could currently imply functionality that is not actually connected.
+
+Do not toggle a real member's settings for QA.
+
+5. Acuity communication responsibilities
+
+Perform a read-only trace of the existing Acuity integration and repository configuration/documentation to determine which appointment communications are intentionally owned by Acuity.
+
+Specifically distinguish:
+
+booking confirmation
+appointment reminders
+cancellation confirmation
+reschedule confirmation
+package/subscription purchase emails
+subscription renewal/payment emails
+
+Do not modify Acuity settings and do not send test communications.
+
+If an Acuity communication setting cannot be proven from the API/repository, mark it as requires Acuity admin-console verification rather than guessing.
+
+6. Portal notification/preferences parity
+
+Determine whether Portal exposes:
+
+notification preferences
+reminder settings
+preferred location
+profile editing
+password/security controls
+
+Compare this with Mobile.
+
+Do not assume every Mobile setting needs Portal parity. Identify the difference and explain whether it appears intentional, harmless, misleading, or potentially missing.
+
+7. Failure and edge states
+
+Read-only audit what a member sees when:
+
+profile data fails to load;
+profile update would fail;
+password change fails;
+notification permission is denied;
+push-token registration fails;
+reminder configuration cannot load;
+the API is unavailable;
+Acuity is unavailable;
+the member signs out and signs back in;
+the member changes devices.
+
+Do not deliberately stop services or manufacture failures. Use source/test evidence for failure branches that cannot safely be reproduced.
+
+8. Privacy and security review
+
+Check for obvious member-facing security/privacy issues related to these areas, including:
+
+tokens or credentials being logged;
+push tokens exposed unnecessarily;
+sensitive member information in console logs;
+passwords handled by application code when Clerk should own them;
+notification payloads containing unnecessary sensitive information;
+secrets embedded in Mobile/Portal client bundles.
+
+Do not display or report actual secret/token values. If one is found, identify only its location/type and severity.
+
+9. Safe runtime QA
+
+Runtime verification must remain non-mutating.
+
+You may inspect existing screens and routes in an already authenticated safe QA session if one exists.
+
+Do not:
+
+create an account;
+change a password;
+edit profile information;
+change reminder/preferences settings;
+request notification permissions;
+register/unregister a push token;
+send a notification;
+create/cancel/reschedule an appointment;
+purchase a membership;
+alter Acuity, Clerk, or Square.
+
+If an authenticated session is unavailable, stop authenticated runtime testing and rely on code/test evidence. Do not create or alter a session solely for this audit.
+
+10. Report only — no implementation
+
+At the end, provide a structured report containing:
+
+A. What currently works
+
+Clearly distinguish code-proven behavior from behavior verified at runtime.
+
+B. Notification responsibility map
+
+Provide a table with:
+
+Event | Current sender/owner | Mobile behavior | Portal behavior | Member preference available? | Verification level
+
+Include at minimum booking confirmation, appointment reminder, cancellation, reschedule, membership purchase, subscription renewal/payment, password/security messages, and any push notifications discovered.
+
+C. Confirmed defects
+
+Only call something a defect when supported by code, tests, logs, or safe runtime evidence.
+
+D. UI that implies functionality that does not actually exist
+
+This is especially important for notification/reminder toggles.
+
+E. Mobile/Portal inconsistencies
+
+Separate meaningful parity gaps from reasonable platform-specific differences.
+
+F. Privacy/security findings
+
+Do not expose secret values.
+
+G. Admin-console verification required
+
+List anything that can only be confirmed in Acuity, Clerk, Expo, or another external admin console.
+
+H. Smallest safe future fix plan
+
+Rank confirmed issues as:
+
+Critical
+Important
+Nice-to-have
+No change recommended
+
+Favor preserving the current working Mobile app. Do not propose architectural rewrites when a small UI/state correction would solve the issue.
+
+Do not create a task or enter Plan mode automatically. Do not implement anything. Wait for my approval after presenting the audit.
+
+Confirm at the end that no code, member data, preferences, authentication state, appointments, notifications, external services, workflows, deployment settings, or publishing were changed.
