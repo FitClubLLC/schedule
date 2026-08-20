@@ -39,6 +39,8 @@ import { BookingProgress } from '@/components/book/BookingProgress';
 import { MEMBER_CERTIFICATES_QUERY_KEY } from '@/lib/membershipRefresh';
 import {
   getWorkoutBookingAction,
+  isWorkoutBookingActionUnavailable,
+  WORKOUT_CHOOSE_MEMBERSHIP_MESSAGE,
   type MobileMemberCertificate,
 } from '@/lib/membershipPresentation';
 
@@ -234,9 +236,7 @@ export default function SelectServiceScreen() {
           return;
         }
         if (workoutAction.kind === 'choose-credit') {
-          setSelectionMessage(
-            'Choose one of your active packages on the Book page before scheduling Workout for 1.',
-          );
+          setSelectionMessage(WORKOUT_CHOOSE_MEMBERSHIP_MESSAGE);
           return;
         }
         if (workoutAction.kind === 'hosted-payment') {
@@ -349,6 +349,17 @@ export default function SelectServiceScreen() {
               </Text>
             </View>
           ) : null}
+          {workoutAction.kind === 'choose-credit' ? (
+            <View
+              testID="workout-choose-membership-message"
+              style={[styles.messageCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            >
+              <SvgIcon name="info" size={18} color={colors.mutedForeground} />
+              <Text style={[styles.messageText, { color: colors.mutedForeground }]}>
+                {WORKOUT_CHOOSE_MEMBERSHIP_MESSAGE}
+              </Text>
+            </View>
+          ) : null}
           {workoutAction.kind === 'error' ? (
             <View style={[styles.messageCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <SvgIcon name="wifi-off" size={18} color={colors.mutedForeground} />
@@ -374,16 +385,23 @@ export default function SelectServiceScreen() {
             const isHostedWorkout =
               isWorkoutFor1 && workoutAction.kind === 'hosted-payment';
             const isHosted = isExternal || isHostedWorkout;
-            const isUnavailable = isWorkoutFor1 && workoutAction.kind === 'error';
+            const isUnavailable =
+              isWorkoutFor1 && isWorkoutBookingActionUnavailable(workoutAction);
 
             return (
               <TouchableOpacity
                 key={service.key}
+                testID={isWorkoutFor1 ? 'workout-for-1-service' : undefined}
                 onPress={() => handleSelect(service)}
                 activeOpacity={0.75}
                 disabled={isUnavailable}
                 accessibilityRole="button"
                 accessibilityLabel={displayName}
+                accessibilityHint={
+                  isUnavailable && workoutAction.kind === 'choose-credit'
+                    ? WORKOUT_CHOOSE_MEMBERSHIP_MESSAGE
+                    : undefined
+                }
                 accessibilityState={{ disabled: isUnavailable }}
                 style={[
                   styles.card,
@@ -424,7 +442,13 @@ export default function SelectServiceScreen() {
                 </View>
 
                 <SvgIcon
-                  name={isHosted ? 'external-link' : 'chevron-right'}
+                  name={
+                    isUnavailable
+                      ? 'info'
+                      : isHosted
+                        ? 'external-link'
+                        : 'chevron-right'
+                  }
                   size={18}
                   color={colors.mutedForeground}
                 />

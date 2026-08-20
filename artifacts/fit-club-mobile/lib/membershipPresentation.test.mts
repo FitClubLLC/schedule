@@ -4,6 +4,8 @@ import {
   formatMembershipBalance,
   getWorkoutBookingAction,
   getWorkoutMemberships,
+  isWorkoutBookingActionUnavailable,
+  WORKOUT_CHOOSE_MEMBERSHIP_MESSAGE,
 } from "./membershipPresentation.ts";
 
 const workoutTypeId = "83398355";
@@ -57,7 +59,7 @@ test("Home supports multiple active Workout memberships", () => {
   );
 });
 
-test("a successfully loaded empty package response enables hosted payment", () => {
+test("zero eligible Workout credits uses the Acuity-hosted payment path", () => {
   assert.deepEqual(
     getWorkoutBookingAction({
       packageIsLoading: false,
@@ -96,7 +98,7 @@ test("pending and failed package states cannot masquerade as no credit", () => {
   );
 });
 
-test("eligible packages require an explicit selection for native booking", () => {
+test("credits exist with none selected shows a clear unavailable choose-membership state", () => {
   const input = {
     packageIsLoading: false,
     packageIsError: false,
@@ -111,12 +113,41 @@ test("eligible packages require an explicit selection for native booking", () =>
     workoutAppointmentTypeId: workoutTypeId,
   };
 
-  assert.deepEqual(getWorkoutBookingAction(input), {
+  const action = getWorkoutBookingAction(input);
+  assert.deepEqual(action, {
     kind: "choose-credit",
     certificateCodes: ["MEMBER-1"],
   });
+  assert.equal(
+    WORKOUT_CHOOSE_MEMBERSHIP_MESSAGE,
+    "Select one of your active memberships above to book this session.",
+  );
+  assert.equal(isWorkoutBookingActionUnavailable(action), true);
+});
+
+test("selected eligible credit uses native booking", () => {
+  const input = {
+    packageIsLoading: false,
+    packageIsError: false,
+    selectedCertificateIsLoading: false,
+    selectedCertificateIsError: false,
+    certificates: [{
+      code: "MEMBER-1",
+      productName: "Member Package",
+      remainingValue: "2 sessions",
+      appointmentTypeIDs: [workoutTypeId],
+    }],
+    workoutAppointmentTypeId: workoutTypeId,
+  };
+
   assert.deepEqual(
     getWorkoutBookingAction({ ...input, selectedCertificateCode: "MEMBER-1" }),
     { kind: "native", certificateCode: "MEMBER-1" },
+  );
+  assert.equal(
+    isWorkoutBookingActionUnavailable(
+      getWorkoutBookingAction({ ...input, selectedCertificateCode: "MEMBER-1" }),
+    ),
+    false,
   );
 });

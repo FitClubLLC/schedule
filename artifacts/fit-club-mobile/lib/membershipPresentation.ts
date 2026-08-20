@@ -12,6 +12,9 @@ export interface MobileMemberCertificate {
   appliesToAllProducts?: boolean;
 }
 
+export const WORKOUT_CHOOSE_MEMBERSHIP_MESSAGE =
+  "Select one of your active memberships above to book this session.";
+
 export function getWorkoutMemberships(
   certificates: MobileMemberCertificate[],
   workoutAppointmentTypeId: string,
@@ -32,6 +35,12 @@ export type WorkoutBookingAction =
   | { kind: "loading" }
   | { kind: "error" }
   | CreditBookingDecision;
+
+export function isWorkoutBookingActionUnavailable(
+  action: WorkoutBookingAction,
+): boolean {
+  return action.kind === "error" || action.kind === "choose-credit";
+}
 
 export function getWorkoutBookingAction(input: {
   packageIsLoading: boolean;

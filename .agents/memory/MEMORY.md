@@ -8,6 +8,7 @@
 - [Current Acuity booking path](current-acuity-booking-path.md) — current web/mobile clients use native multi-step booking plus the API; older Acuity-handoff docs are stale.
 - [Acuity booking eligibility authority](acuity-booking-eligibility.md) — validate certificate codes with Acuity per service and member; share location/service checks across availability and submission.
 - [Acuity-Square payment boundary](acuity-square-payment-boundary.md) — preserve Acuity scheduling/packages with its existing Square payment flow; never add or reference Stripe.
+- [Workout credit selection policy](workout-credit-selection-policy.md) — eligible Workout for 1 credits require an explicit choice; only no-credit states may hand off to Acuity payment.
 - [Acuity live membership verification](acuity-live-membership-verification.md) — product API exposes subscription kind/counts, but admin settings are needed for recurrence, rollover, and processor.
 - [Appointment time classification](appointment-time-classification.md) — partition Acuity appointment lists by real instants in Eastern Time, not UTC or server-local calendar dates.
 - [Admin account deletion safeguards](admin-account-deletion-safeguards.md) — authorize by Clerk primary email and block self/configured-admin account deletion before Clerk mutations.
