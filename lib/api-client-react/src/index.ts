@@ -2,3 +2,10 @@ export * from "./generated/api";
 export * from "./generated/api.schemas";
 export { customFetch, setBaseUrl, setAuthTokenGetter } from "./custom-fetch";
 export type { AuthTokenGetter } from "./custom-fetch";
+export {
+  getAcuityMembershipCatalogUrl,
+  getPackageLoadState,
+  MEMBERSHIP_CERTIFICATE_REFRESH_DELAYS_MS,
+  scheduleMembershipCertificateFollowUps,
+} from "./membership";
+export type { PackageLoadState, ScheduleRefresh } from "./membership";

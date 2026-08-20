@@ -19,6 +19,7 @@ import {
   useAppointmentTypes,
 } from "@/hooks/useBookingApi";
 import { getEligibleTypeIds } from "@/lib/bookingEligibility";
+import { getPackageLoadState } from "@workspace/api-client-react";
 
 const CERT_STORAGE_KEY = "fitclub_certificate";
 
@@ -29,8 +30,18 @@ function formatRemaining(value: string) {
 export default function Book() {
   const [, setLocation] = useLocation();
   const { data: acuityConfig, isLoading: configLoading } = useAcuityConfig();
-  const { data: memberCerts = [], isLoading: certsLoading } = useMemberCertificates();
+  const {
+    data: memberCerts = [],
+    isLoading: certsLoading,
+    isError: certsError,
+    refetch: refetchCertificates,
+  } = useMemberCertificates();
   const { data: appointmentTypes = [] } = useAppointmentTypes();
+  const packageState = getPackageLoadState({
+    isLoading: certsLoading,
+    isError: certsError,
+    itemCount: memberCerts.length,
+  });
 
   // ── Certificate state — persisted to localStorage ──────────────────────────
   const [inputCode, setInputCode] = useState(() =>
@@ -169,18 +180,31 @@ export default function Book() {
       {/* ── Secondary: packages + cert ────────────────────────────── */}
       <div className="max-w-2xl border-t border-border pt-8 space-y-6">
         {/* Member packages */}
-        {(certsLoading || memberCerts.length > 0) && (
-          <div>
-            <p className="text-xs font-bold tracking-widest text-muted-foreground mb-3">
-              YOUR PACKAGES
-            </p>
-            {certsLoading ? (
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Loading packages…
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
+        <div>
+          <p className="text-xs font-bold tracking-widest text-muted-foreground mb-3">
+            YOUR PACKAGES
+          </p>
+          {packageState === "loading" ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Loading packages…
+            </div>
+          ) : packageState === "error" ? (
+            <div className="rounded-xl border border-border bg-card px-4 py-3">
+              <p className="text-sm text-muted-foreground">
+                We couldn’t load your packages. Please try again.
+              </p>
+              <button
+                onClick={() => void refetchCertificates()}
+                className="mt-2 text-xs font-bold tracking-wider text-primary hover:underline underline-offset-4"
+              >
+                TRY AGAIN
+              </button>
+            </div>
+          ) : packageState === "empty" ? (
+            <p className="text-sm text-muted-foreground">No active packages found.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
                 {memberCerts.map((cert) => {
                   const active = inputCode === cert.code && isValid;
                   return (
@@ -227,15 +251,14 @@ export default function Book() {
                     </button>
                   );
                 })}
-              </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
 
         {/* Manual certificate code entry */}
         <div>
           <p className="text-xs font-bold tracking-widest text-muted-foreground mb-3">
-            {memberCerts.length > 0 ? "OR ENTER A CODE MANUALLY" : "MEMBERSHIP / PACKAGE CODE"}
+            {packageState === "ready" ? "OR ENTER A CODE MANUALLY" : "MEMBERSHIP / PACKAGE CODE"}
           </p>
 
           <div

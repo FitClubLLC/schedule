@@ -1,26 +1,57 @@
 import { useState } from 'react';
 import { Alert, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  customFetch,
+  getAcuityMembershipCatalogUrl,
+} from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
+import {
+  MEMBER_CERTIFICATES_QUERY_KEY,
+  scheduleMobileCatalogCertificateRefreshes,
+} from '@/lib/membershipRefresh';
 
-const MEMBERSHIPS_URL = 'https://app.acuityscheduling.com/catalog.php?owner=36930698';
+interface AcuityCatalogConfig {
+  ownerId: string;
+}
 
 export default function MembershipsScreen() {
   const colors = useColors();
   const queryClient = useQueryClient();
   const [openingCatalog, setOpeningCatalog] = useState(false);
+  const configQuery = useQuery<AcuityCatalogConfig>({
+    queryKey: ['acuity-config'],
+    queryFn: () => customFetch<AcuityCatalogConfig>('/api/booking/config', {
+      method: 'GET',
+      responseType: 'json',
+    }),
+  });
+  const catalogUrl = configQuery.data
+    ? getAcuityMembershipCatalogUrl(configQuery.data.ownerId)
+    : null;
 
-  useAppForegroundRefresh([['member-certificates']]);
+  useAppForegroundRefresh([MEMBER_CERTIFICATES_QUERY_KEY]);
+
+  const refreshCertificates = () =>
+    queryClient.invalidateQueries({ queryKey: MEMBER_CERTIFICATES_QUERY_KEY });
 
   const openMembershipCatalog = async () => {
+    if (!catalogUrl) {
+      Alert.alert(
+        'Memberships unavailable',
+        'Please try again in a moment.',
+      );
+      return;
+    }
+
     setOpeningCatalog(true);
     try {
       if (Platform.OS === 'web') {
-        await Linking.openURL(MEMBERSHIPS_URL);
+        await Linking.openURL(catalogUrl);
       } else {
-        await WebBrowser.openBrowserAsync(MEMBERSHIPS_URL, {
+        await WebBrowser.openBrowserAsync(catalogUrl, {
           dismissButtonStyle: 'close',
           toolbarColor: colors.background,
           controlsColor: colors.primary,
@@ -33,7 +64,12 @@ export default function MembershipsScreen() {
       );
     } finally {
       setOpeningCatalog(false);
-      await queryClient.invalidateQueries({ queryKey: ['member-certificates'] });
+      // Browser close is not proof of purchase. It only gives Acuity a chance
+      // to return the authoritative package data after normal propagation.
+      void refreshCertificates();
+      scheduleMobileCatalogCertificateRefreshes(() => {
+        void refreshCertificates();
+      });
     }
   };
 
@@ -46,11 +82,15 @@ export default function MembershipsScreen() {
       <TouchableOpacity
         style={[styles.button, { backgroundColor: colors.primary }]}
         activeOpacity={0.8}
-        disabled={openingCatalog}
+        disabled={openingCatalog || !catalogUrl}
         onPress={openMembershipCatalog}
       >
         <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
-          {openingCatalog ? 'OPENING ACUITY…' : 'OPEN MEMBERSHIPS'}
+          {openingCatalog
+            ? 'OPENING ACUITY…'
+            : configQuery.isLoading
+            ? 'LOADING MEMBERSHIPS…'
+            : 'OPEN MEMBERSHIPS'}
         </Text>
       </TouchableOpacity>
     </View>

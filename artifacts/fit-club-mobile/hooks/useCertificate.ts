@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@clerk/expo';
 import { useQuery } from '@tanstack/react-query';
+import { isAuthoritativeCertificateInvalidStatus } from '@/lib/certificateValidation';
 
 // Storage key is namespaced by Clerk userId so certificates don't leak
 // between accounts on a shared device.
@@ -9,7 +10,7 @@ function storageKey(userId: string | null | undefined): string {
   return userId ? `@fitclub/certificate/${userId}` : '@fitclub/certificate';
 }
 
-export type CertStatus = 'idle' | 'checking' | 'valid' | 'invalid';
+export type CertStatus = 'idle' | 'checking' | 'valid' | 'invalid' | 'unavailable';
 
 export interface CertInfo {
   productName: string;
@@ -68,10 +69,16 @@ export function useCertificate() {
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (!res.ok) {
-        // Permanently invalid — remove from storage so it doesn't reload on
-        // every future visit and silently fail in the background.
-        await AsyncStorage.removeItem(storageKey(userId));
-        throw new Error('Invalid certificate');
+        const codeIsInvalid = isAuthoritativeCertificateInvalidStatus(res.status);
+        // Only Acuity's 422 validation response proves the code itself cannot
+        // be used. Preserve a saved code across network and server failures.
+        if (codeIsInvalid) {
+          await AsyncStorage.removeItem(storageKey(userId));
+        }
+        throw Object.assign(
+          new Error(codeIsInvalid ? 'Invalid certificate' : 'Unable to validate certificate'),
+          { codeIsInvalid },
+        );
       }
       return res.json();
     },
@@ -87,7 +94,8 @@ export function useCertificate() {
     } else if (checkQuery.isSuccess) {
       status = 'valid';
     } else if (checkQuery.isError) {
-      status = 'invalid';
+      const error = checkQuery.error as Error & { codeIsInvalid?: boolean };
+      status = error.codeIsInvalid ? 'invalid' : 'unavailable';
     }
   }
 

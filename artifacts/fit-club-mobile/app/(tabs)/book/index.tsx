@@ -14,6 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SvgIcon from '@/components/SvgIcon';
 import { useCertificate } from '@/hooks/useCertificate';
 import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
+import { getPackageLoadState } from '@workspace/api-client-react';
+import { MEMBER_CERTIFICATES_QUERY_KEY } from '@/lib/membershipRefresh';
 
 interface MemberCert {
   code: string;
@@ -75,7 +77,7 @@ export default function BookScreen() {
     setRefreshing(true);
     try {
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: ['member-certificates'] }),
+        queryClient.refetchQueries({ queryKey: MEMBER_CERTIFICATES_QUERY_KEY }),
         queryClient.refetchQueries({ queryKey: ['cert-check'] }),
       ]);
     } finally {
@@ -84,7 +86,7 @@ export default function BookScreen() {
   }, [queryClient]);
 
   // Auto-refresh certificates when returning from an external browser (Free Trial flow).
-  useAppForegroundRefresh([['member-certificates']]);
+  useAppForegroundRefresh([MEMBER_CERTIFICATES_QUERY_KEY]);
 
   const bookingAuthReady = isLoaded && isSignedIn === true;
 
@@ -118,6 +120,11 @@ export default function BookScreen() {
   });
 
   const memberCerts: MemberCert[] = certsQuery.data ?? [];
+  const packageState = getPackageLoadState({
+    isLoading: certsQuery.isLoading,
+    isError: certsQuery.isError,
+    itemCount: memberCerts.length,
+  });
   const appointmentTypes: AcuityAppointmentType[] = typesQuery.data ?? [];
   const acuityConfig = configQuery.data;
 
@@ -240,16 +247,32 @@ export default function BookScreen() {
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
       {/* ── Your packages — SECONDARY ─────────────────────────────── */}
-      {(certsQuery.isLoading || memberCerts.length > 0) && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-            YOUR PACKAGES
-          </Text>
+       <View style={styles.section}>
+         <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+           YOUR PACKAGES
+         </Text>
 
-          {certsQuery.isLoading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginTop: 4 }} />
-          ) : (
-            <View style={styles.packagesList}>
+         {packageState === 'loading' ? (
+           <ActivityIndicator color={colors.primary} style={{ marginTop: 4 }} />
+         ) : packageState === 'error' ? (
+           <View style={[styles.packageMessage, { backgroundColor: colors.card, borderColor: colors.border }]}>
+             <Text style={[styles.packageMessageText, { color: colors.mutedForeground }]}>
+               We couldn’t load your packages. Please try again.
+             </Text>
+             <TouchableOpacity
+               onPress={() => void certsQuery.refetch()}
+               accessibilityRole="button"
+               accessibilityLabel="Try loading packages again"
+             >
+               <Text style={[styles.packageRetry, { color: colors.primary }]}>TRY AGAIN</Text>
+             </TouchableOpacity>
+           </View>
+         ) : packageState === 'empty' ? (
+           <Text style={[styles.packageEmptyText, { color: colors.mutedForeground }]}>
+             No active packages found.
+           </Text>
+         ) : (
+           <View style={styles.packagesList}>
               {memberCerts.map((cert) => {
                 const isActive = code === cert.code && status === 'valid';
                 return (
@@ -309,15 +332,14 @@ export default function BookScreen() {
                   </TouchableOpacity>
                 );
               })}
-            </View>
-          )}
-        </View>
-      )}
+           </View>
+         )}
+       </View>
 
       {/* ── Certificate code section ──────────────────────────────── */}
       <View style={styles.section}>
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-          {memberCerts.length > 0 ? 'OR ENTER A CODE MANUALLY' : 'MEMBERSHIP / PACKAGE CODE'}
+          {packageState === 'ready' ? 'OR ENTER A CODE MANUALLY' : 'MEMBERSHIP / PACKAGE CODE'}
         </Text>
 
         <View
@@ -376,6 +398,14 @@ export default function BookScreen() {
             <SvgIcon name="alert-circle" size={14} color="#ef4444" />
             <Text style={[styles.certBannerText, { color: '#ef4444' }]}>
               Invalid or expired certificate code
+            </Text>
+          </View>
+        )}
+        {status === 'unavailable' && code.length > 0 && (
+          <View style={[styles.certBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <SvgIcon name="alert-circle" size={14} color={colors.mutedForeground} />
+            <Text style={[styles.certBannerText, { color: colors.mutedForeground }]}>
+              We couldn’t verify this code. Please try again.
             </Text>
           </View>
         )}
@@ -489,6 +519,26 @@ const styles = StyleSheet.create({
   // Packages
   packagesList: {
     gap: 8,
+  },
+  packageMessage: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
+  },
+  packageMessageText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  packageRetry: {
+    fontFamily: 'BarlowCondensed_700Bold',
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  packageEmptyText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
   },
   packageCard: {
     flexDirection: 'row',

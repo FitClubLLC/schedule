@@ -7,7 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
  * Use this on screens that display data that may have changed while the user
  * was in an external browser (e.g. after completing a booking in Acuity).
  */
-export function useAppForegroundRefresh(queryKeys: string[][]) {
+export function useAppForegroundRefresh(queryKeys: ReadonlyArray<ReadonlyArray<string>>) {
   const queryClient = useQueryClient();
   const appState = useRef<AppStateStatus>(AppState.currentState);
 

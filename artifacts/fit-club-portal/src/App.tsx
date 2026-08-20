@@ -5,6 +5,11 @@ import { shadcn } from '@clerk/themes';
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from 'wouter';
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { MEMBERSHIP_CERTIFICATE_REFRESH_DELAYS_MS } from "@workspace/api-client-react";
+import {
+  consumeMembershipCatalogReturn,
+  PORTAL_MEMBER_CERTIFICATES_QUERY_KEY,
+} from "@/lib/membershipCatalogReturn";
 
 import Home from "@/pages/Home";
 import Dashboard from "@/pages/Dashboard";
@@ -128,6 +133,44 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+/**
+ * A catalog link opens Acuity in a separate tab. Once this tab regains focus,
+ * refresh the existing package query a bounded number of times to account for
+ * normal Acuity propagation. This does not imply a purchase occurred.
+ */
+function MembershipCatalogReturnRefresh() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    let timerIds: ReturnType<typeof setTimeout>[] = [];
+
+    const refreshCertificates = () => {
+      queryClient.invalidateQueries({ queryKey: PORTAL_MEMBER_CERTIFICATES_QUERY_KEY });
+      void queryClient.refetchQueries({
+        queryKey: PORTAL_MEMBER_CERTIFICATES_QUERY_KEY,
+        type: "active",
+      });
+    };
+
+    const handleFocus = () => {
+      if (!consumeMembershipCatalogReturn()) return;
+
+      refreshCertificates();
+      timerIds = MEMBERSHIP_CERTIFICATE_REFRESH_DELAYS_MS.map((delayMs) =>
+        setTimeout(refreshCertificates, delayMs),
+      );
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      timerIds.forEach((timerId) => clearTimeout(timerId));
+    };
+  }, [queryClient]);
+
+  return null;
+}
+
 function HomeRedirect() {
   return (
     <>
@@ -183,6 +226,7 @@ function ClerkProviderWithRoutes() {
     >
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
+        <MembershipCatalogReturnRefresh />
         <Switch>
           <Route path="/" component={HomeRedirect} />
           

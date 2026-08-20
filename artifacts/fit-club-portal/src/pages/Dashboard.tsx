@@ -12,6 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUser } from "@clerk/react";
+import { getAcuityMembershipCatalogUrl } from "@workspace/api-client-react";
+import { useAcuityConfig } from "@/hooks/useBookingApi";
+import { markMembershipCatalogOpened } from "@/lib/membershipCatalogReturn";
 
 function ChangePasswordDialog() {
   const { user } = useUser();
@@ -158,6 +161,18 @@ function ChangePasswordDialog() {
 export default function Dashboard() {
   const { data: summary, isLoading: isLoadingSummary } = useGetAppointmentSummary();
   const { data: upcoming, isLoading: isLoadingUpcoming } = useGetUpcomingAppointments();
+  const { data: acuityConfig } = useAcuityConfig();
+  const membershipsUrl = acuityConfig
+    ? getAcuityMembershipCatalogUrl(acuityConfig.ownerId)
+    : undefined;
+
+  const handleMembershipCatalogClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!membershipsUrl) {
+      event.preventDefault();
+      return;
+    }
+    markMembershipCatalogOpened();
+  };
 
   return (
     <Shell>
@@ -172,11 +187,13 @@ export default function Dashboard() {
               </Button>
             </Link>
             <a
-              href="https://app.acuityscheduling.com/catalog.php?owner=36930698"
+              href={membershipsUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={handleMembershipCatalogClick}
+              aria-disabled={!membershipsUrl}
             >
-              <Button size="lg" className="shadow-md">
+              <Button size="lg" className="shadow-md" disabled={!membershipsUrl}>
                 Purchase a Membership
               </Button>
             </a>

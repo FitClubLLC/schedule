@@ -5,8 +5,9 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { isConfiguredAdmin } from "@/lib/adminAccess";
 import { Button } from "@/components/ui/button";
-
-const MEMBERSHIPS_URL = "https://app.acuityscheduling.com/catalog.php?owner=36930698";
+import { useAcuityConfig } from "@/hooks/useBookingApi";
+import { getAcuityMembershipCatalogUrl } from "@workspace/api-client-react";
+import { markMembershipCatalogOpened } from "@/lib/membershipCatalogReturn";
 
 export function Navbar() {
   const [location] = useLocation();
@@ -17,6 +18,18 @@ export function Navbar() {
 
   const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
   const isAdmin = isConfiguredAdmin(user, adminEmail);
+  const { data: acuityConfig } = useAcuityConfig();
+  const membershipsUrl = acuityConfig
+    ? getAcuityMembershipCatalogUrl(acuityConfig.ownerId)
+    : undefined;
+
+  const handleMembershipCatalogClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!membershipsUrl) {
+      event.preventDefault();
+      return;
+    }
+    markMembershipCatalogOpened();
+  };
 
   const navLinks = [
     { href: "/dashboard", label: "Dashboard" },
@@ -57,9 +70,11 @@ export function Navbar() {
           
           <div className="hidden md:flex md:items-center md:space-x-4">
             <a
-              href={MEMBERSHIPS_URL}
+              href={membershipsUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={handleMembershipCatalogClick}
+              aria-disabled={!membershipsUrl}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               <ShoppingBag className="w-3.5 h-3.5" />
@@ -109,10 +124,14 @@ export function Navbar() {
               );
             })}
               <a
-                href={MEMBERSHIPS_URL}
+                href={membershipsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={(event) => {
+                  handleMembershipCatalogClick(event);
+                  setMobileMenuOpen(false);
+                }}
+                aria-disabled={!membershipsUrl}
                 className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-semibold text-primary hover:bg-primary/10"
               >
                 <ShoppingBag className="w-4 h-4" />

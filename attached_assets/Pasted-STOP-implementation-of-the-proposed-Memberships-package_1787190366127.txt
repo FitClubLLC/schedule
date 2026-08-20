@@ -1,0 +1,105 @@
+STOP implementation of the proposed Memberships/package reliability changes for now. Do not modify anything.
+
+We need to determine whether the Client Dashboard previously implemented a richer Acuity membership/payment model that has since been lost or simplified.
+
+Perform a read-only historical Git audit of the entire reachable repository history, focusing on the original booking, memberships/packages, certificates, Acuity, and payment implementation.
+
+The business model we are trying to reconstruct is:
+
+Workout for 1 membership
+
+Once-per-week membership
+$195 automatically charged every 28 days
+4 Workout for 1 sessions included per 28-day cycle
+Member books included sessions against their available membership/package credits
+
+Workout for 1 without membership
+
+Individual Workout for 1 can be purchased for $59
+
+Free Trial
+
+Separate Acuity-hosted Free Trial flow
+
+Red Light Therapy
+
+Treat separately; do not infer its pricing or package rules during this audit.
+
+Search all reachable Git history—not just the current tree—for:
+
+$195
+$59
+195
+59
+28 days
+28-day
+4 sessions
+four sessions
+once per week
+twice per week
+membership
+subscription
+package
+certificate
+certificate balance
+remaining uses
+Acuity certificates/packages
+checkout/payment
+Square
+appointment payment
+Workout for 1
+historical Acuity appointment-type/package/product IDs
+historical environment variable names related to memberships/packages/payment
+
+Trace historical versions of:
+
+Mobile Book
+Mobile Memberships
+Portal Book
+Portal Dashboard/Memberships
+API booking routes
+Acuity client/service
+certificate/package endpoints
+appointment creation
+payment-required responses
+external Acuity handoffs
+
+Specifically determine whether an older implementation supported this decision:
+
+Workout for 1
+
+→ member has eligible included credit → book using credit
+
+→ member does not have credit → purchase/pay $59
+
+Also determine whether the old app displayed:
+
+membership/package name;
+remaining session balance;
+renewal/expiration date;
+four-session entitlement;
+purchase-single-session option;
+membership purchase option;
+package/certificate selection before booking;
+any “pay now” or Acuity-hosted payment handoff.
+
+Compare the strongest historical implementation with the current implementation and identify what functionality disappeared, was simplified, or changed.
+
+Do not assume the current implementation is correct merely because it matches recent Git commits. Look back to the earliest relevant native-booking/membership implementation and surrounding commits.
+
+Also compare this with the current public Fit Club website, which presently advertises individual appointments plus once-per-week/twice-per-week memberships and routes Free Trial/membership activity through Acuity.
+
+Do not change code, Acuity, Square, Clerk, users, appointments, environment variables, tasks, or deployment. Do not publish.
+
+Report:
+
+A chronological history of the membership/Workout for 1 implementation.
+Exact historical files/commits where the richest implementation existed.
+Historical Acuity IDs/configuration that can actually be proven.
+Whether the $195 / 28 days / 4 sessions model appears in repository history.
+Whether the $59 individual Workout for 1 path appears in repository history.
+How Acuity certificates/packages were used.
+How payment was handled and where Square entered the flow.
+Exactly what functionality exists historically but is missing today.
+What cannot be proven from Git and would require inspecting the current Acuity account.
+No implementation plan yet—this is reconstruction only.

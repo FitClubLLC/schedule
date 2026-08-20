@@ -1,0 +1,101 @@
+Please implement a small, first-phase Memberships / Packages reliability fix based on the completed audit.
+
+Do not change Workout for 1 eligibility or Red Light Therapy visibility/eligibility in this task. Those require a separate product decision.
+
+Implement only these confirmed reliability issues:
+
+1. Explicit package/certificate states in Mobile and Portal Book
+
+The package/certificate area must distinguish:
+
+loading,
+successfully loaded with active package/certificate data,
+successfully loaded with no active packages,
+request failure.
+
+A request failure must never be presented as “no package.”
+
+For a genuine empty state, use concise member-facing language such as:
+“No active packages found.”
+
+Keep the existing manual package/certificate-code entry available.
+
+For a load failure, provide a non-sensitive error message and Try Again action.
+
+Do not change eligibility rules.
+
+2. Do not delete a saved Mobile certificate because of a transient failure
+
+Audit the existing persisted certificate validation path.
+
+Preserve a saved certificate code when validation fails because of:
+
+network failure,
+timeout,
+API/server 5xx,
+temporary Acuity failure.
+
+Clear the stored code only when the authoritative response explicitly establishes that the certificate/code itself is invalid or no longer usable under the existing validation contract.
+
+Do not broaden eligibility and do not treat a transport failure as certificate invalidity.
+
+3. Refresh package/certificate data after external membership activity
+
+Preserve Acuity as the source of truth.
+
+Mobile:
+
+retain the existing refresh when the Acuity browser closes;
+add a small bounded follow-up refresh strategy sufficient to handle normal Acuity propagation delay;
+do not assume that a purchase occurred merely because the browser was opened/closed.
+
+Portal:
+
+when the member returns/focuses the Client Dashboard after using the Acuity membership/catalog link, invalidate/refetch the existing member-certificate/package query;
+after a successful appointment cancellation, refresh certificate/package data as Mobile already does, including a bounded delayed follow-up appropriate for Acuity's asynchronous credit restoration.
+
+Do not poll indefinitely.
+
+4. Centralize the existing Acuity membership catalog URL
+
+Remove duplicated hard-coded copies from Mobile/Portal purchase entry points and use one existing/configured source where practical within the current workspace architecture.
+
+Do not change the actual catalog destination unless the current source proves the duplicates differ.
+
+Do not introduce Stripe or any new checkout/payment system. The payment boundary remains Acuity → Square.
+
+Explicitly out of scope
+
+Do not change:
+
+Workout for 1 eligibility;
+Red Light Therapy eligibility or visibility;
+Free Trial behavior;
+service/calendar mappings;
+booking eligibility;
+Acuity certificate semantics;
+Clerk/authentication;
+appointment ownership;
+Square/payment behavior;
+cancellation eligibility/window;
+Sessions reschedule behavior;
+deployment configuration;
+Fit Club Hub.
+
+Add focused regression tests for:
+
+loading vs empty vs error package states;
+transient certificate-validation failure preserves the saved Mobile code;
+authoritative invalid-certificate response clears it;
+Mobile post-catalog bounded refresh;
+Portal focus/return package refresh;
+Portal post-cancellation certificate refresh;
+centralized catalog destination remains correct.
+
+Run Mobile and Portal typechecks, relevant focused tests, existing booking eligibility tests, existing Eastern-time tests, and production builds for affected clients.
+
+Runtime QA must remain non-mutating. Do not purchase anything, create a certificate, cancel an appointment, or book an appointment merely for testing.
+
+Do not publish.
+
+Report exact files changed, before/after behavior, test/build results, and anything that remains unverified.
