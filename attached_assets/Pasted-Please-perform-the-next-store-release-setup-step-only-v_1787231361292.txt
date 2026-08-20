@@ -1,0 +1,90 @@
+Please perform the next store-release setup step only: verify the EAS Production environment variable and signing credential status. Do not change application code or run a build yet.
+
+Scope:
+
+1. EAS Production Clerk variable
+
+Use the supported EAS/Expo project tooling or dashboard metadata to inspect the actual EAS project—not just Replit secrets.
+
+Determine whether the Production environment contains:
+
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+
+Do not display the value.
+
+If present:
+
+confirm it is available to Production builds;
+confirm whether it is the live/production Clerk publishable key if that can be determined safely;
+do not rotate or replace it.
+
+If missing:
+
+add the existing production Clerk publishable key to the EAS Production environment under that exact variable name;
+do not create a new Clerk instance or rotate any key;
+do not change Clerk tenant settings.
+
+If you cannot access the actual EAS environment safely, stop and tell me exactly what I need to do manually in the Expo/EAS dashboard.
+
+2. iOS EAS signing metadata
+
+Read-only inspect EAS credentials for:
+
+com.fitclub15.app
+
+Report:
+
+whether an Apple Developer account/team is connected;
+whether a valid iOS distribution certificate exists;
+whether a provisioning profile exists for this bundle identifier;
+whether EAS reports those credentials as usable.
+
+Do not create, revoke, renew, or replace credentials yet.
+
+3. Android EAS signing metadata
+
+Read-only inspect EAS credentials for:
+
+com.fitclub15.app
+
+Report:
+
+whether an Android keystore exists in EAS;
+whether it is associated with this application ID;
+whether EAS reports it as usable for an AAB build.
+
+Do not create or replace a keystore yet.
+
+4. No build yet
+
+Do not run:
+
+EAS Build;
+TestFlight submission;
+Play upload;
+Codemagic;
+any store submission.
+
+Do not change:
+
+Mobile code;
+API;
+Portal;
+Clerk tenant settings;
+Acuity;
+Square;
+bundle/package IDs;
+version/build numbers;
+deployment settings.
+
+At the end report only:
+
+EAS Production Clerk variable: ready / added / missing / inaccessible
+iOS signing: ready / missing / inaccessible
+Android signing: ready / missing / inaccessible
+exact remaining blocker before the first signed internal build
+whether the next step is now “Run first signed internal build”
+
+If any action would require creating or replacing signing credentials, stop and ask for approval first.
+
+Do not publish.
