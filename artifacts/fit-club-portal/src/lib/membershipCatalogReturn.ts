@@ -24,3 +24,16 @@ export function schedulePortalCertificateRefreshes(
 ): void {
   scheduleMembershipCertificateFollowUps(refresh, schedule);
 }
+
+/**
+ * Keep a newly consumed credit aligned with Acuity's normal propagation delay.
+ * This is not purchase confirmation and does not poll indefinitely.
+ */
+export function refreshPortalCertificatesAfterBooking(
+  invalidate: () => void,
+  refetch: () => void,
+  schedule?: ScheduleRefresh,
+): void {
+  invalidate();
+  schedulePortalCertificateRefreshes(refetch, schedule);
+}

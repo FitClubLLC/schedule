@@ -1,0 +1,22 @@
+Assign Task #78 — Show current membership credits and clearly flag dashboard data failures and implement it in Build mode.
+
+Keep the implementation narrowly scoped to:
+
+Add current Acuity-backed membership/package cards and remaining balances to the Portal Dashboard, using the same existing authenticated certificate source already used by Portal Book.
+Match the current Mobile Home membership eligibility/display behavior. Do not hard-code membership names, prices, credit counts, public/private status, spouse status, or discounts.
+Support multiple memberships dynamically.
+Add explicit error/retry handling for Portal Dashboard appointment summary and upcoming-session failures. A failed request must never render as 0, “No sessions scheduled,” or another genuine empty state.
+Add an explicit upcoming-appointments error/retry state to Mobile Home.
+After a successful Portal native booking, add the same bounded delayed certificate refresh behavior already proven on Mobile, while preserving the existing immediate invalidation.
+Add a visible retryable configuration error to the Mobile Memberships purchase screen.
+Make Portal’s Memberships navigation action genuinely unavailable when the Acuity catalog URL/configuration has failed or is not ready.
+
+Preserve all existing Acuity certificate eligibility, private/admin-created memberships, native booking, hosted Acuity/Square purchase behavior, Clerk authentication, appointment ownership, Sessions behavior, and Eastern Time handling.
+
+Do not change Acuity products/subscriptions, Square, payment logic, membership renewal rules, 4/8-session entitlements, certificate ownership, booking eligibility, private membership behavior, API contracts unless strictly necessary for the existing data to render, or Fit Club Hub.
+
+Add focused regression tests for the new error/empty distinction, dynamic Portal membership rendering/state, and Portal post-booking certificate refresh.
+
+Run Mobile and Portal typechecks and focused tests. Perform non-mutating runtime QA only. Do not create/cancel/reschedule appointments or make purchases during QA.
+
+Do not publish. Report the exact files changed and validation results when complete.

@@ -8,6 +8,7 @@ import {
 } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
+import SvgIcon from '@/components/SvgIcon';
 import {
   MEMBER_CERTIFICATES_QUERY_KEY,
   scheduleMobileCatalogCertificateRefreshes,
@@ -76,23 +77,45 @@ export default function MembershipsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.foreground }]}>MEMBERSHIPS</Text>
-      <Text style={[styles.body, { color: colors.mutedForeground }]}>
-        Purchase securely through Acuity. When you return, your package will refresh automatically.
-      </Text>
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: colors.primary }]}
-        activeOpacity={0.8}
-        disabled={openingCatalog || !catalogUrl}
-        onPress={openMembershipCatalog}
-      >
-        <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
-          {openingCatalog
-            ? 'OPENING ACUITY…'
-            : configQuery.isLoading
-            ? 'LOADING MEMBERSHIPS…'
-            : 'OPEN MEMBERSHIPS'}
-        </Text>
-      </TouchableOpacity>
+      {configQuery.isError ? (
+        <View style={[styles.errorCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SvgIcon name="wifi-off" size={20} color={colors.mutedForeground} />
+          <Text style={[styles.errorTitle, { color: colors.foreground }]}>
+            Memberships unavailable
+          </Text>
+          <Text style={[styles.errorBody, { color: colors.mutedForeground }]}>
+            We couldn&apos;t load the secure Acuity membership catalog. Please try again.
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { borderColor: colors.primary }]}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            onPress={() => void configQuery.refetch()}
+          >
+            <Text style={[styles.retryButtonText, { color: colors.primary }]}>TRY AGAIN</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          <Text style={[styles.body, { color: colors.mutedForeground }]}>
+            Purchase securely through Acuity. When you return, your package will refresh automatically.
+          </Text>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.primary }]}
+            activeOpacity={0.8}
+            disabled={openingCatalog || !catalogUrl}
+            onPress={openMembershipCatalog}
+          >
+            <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
+              {openingCatalog
+                ? 'OPENING ACUITY…'
+                : configQuery.isLoading
+                ? 'LOADING MEMBERSHIPS…'
+                : 'OPEN MEMBERSHIPS'}
+            </Text>
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 }
@@ -126,6 +149,38 @@ const styles = StyleSheet.create({
   buttonText: {
     fontFamily: 'BarlowCondensed_700Bold',
     fontSize: 15,
+    letterSpacing: 1.5,
+  },
+  errorCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 20,
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+    maxWidth: 360,
+  },
+  errorTitle: {
+    fontFamily: 'BarlowCondensed_700Bold',
+    fontSize: 21,
+    letterSpacing: 0.5,
+  },
+  errorBody: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    marginTop: 2,
+  },
+  retryButtonText: {
+    fontFamily: 'BarlowCondensed_700Bold',
+    fontSize: 14,
     letterSpacing: 1.5,
   },
 });

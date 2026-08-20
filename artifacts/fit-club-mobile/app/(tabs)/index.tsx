@@ -29,6 +29,7 @@ import { useSessionReminders } from '@/hooks/useSessionReminders';
 import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
 import { formatStudioTime, formatStudioTodayPart, studioDateKey } from '@/lib/studioTime';
 import { MEMBER_CERTIFICATES_QUERY_KEY } from '@/lib/membershipRefresh';
+import { getHomeUpcomingState } from '@/lib/homePresentation';
 import {
   formatMembershipBalance,
   type MobileMemberCertificate,
@@ -90,9 +91,14 @@ export default function DashboardScreen() {
   useSessionReminders(upcomingQuery.data);
   const isRefreshing =
     (summaryQuery.isFetching && !summaryQuery.isLoading) ||
+    (upcomingQuery.isFetching && !upcomingQuery.isLoading) ||
     (membershipQuery.isFetching && !membershipQuery.isLoading);
   const summaryError = summaryQuery.isError;
   const upcomingError = upcomingQuery.isError;
+  const upcomingState = getHomeUpcomingState({
+    isLoading: upcomingQuery.isLoading,
+    isError: upcomingError,
+  });
 
   const _now = new Date();
   const todayYMD = studioDateKey(_now);
@@ -280,7 +286,30 @@ export default function DashboardScreen() {
         </View>
 
         {/* Today's sessions */}
-        {!upcomingQuery.isLoading && !upcomingError && (
+        {upcomingState === 'loading' ? (
+          <View style={[styles.todayStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={[styles.todayStateText, { color: colors.mutedForeground }]}>
+              Loading today&apos;s sessions…
+            </Text>
+          </View>
+        ) : upcomingState === 'error' ? (
+          <View style={[styles.todayStateCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <SvgIcon name="wifi-off" size={18} color={colors.mutedForeground} />
+            <View style={styles.todayStateContent}>
+              <Text style={[styles.todayStateText, { color: colors.mutedForeground }]}>
+                Today&apos;s sessions are unavailable.
+              </Text>
+              <TouchableOpacity
+                onPress={() => void upcomingQuery.refetch()}
+                accessibilityRole="button"
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.todayRetryText, { color: colors.primary }]}>RETRY</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
           <TouchableOpacity
             activeOpacity={0.75}
             onPress={() => router.push('/(tabs)/appointments')}
@@ -491,6 +520,31 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     overflow: 'hidden',
     minHeight: 100,
+  },
+  todayStateCard: {
+    minHeight: 100,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  todayStateContent: {
+    flex: 1,
+    gap: 8,
+  },
+  todayStateText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  todayRetryText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 12,
+    letterSpacing: 1.2,
   },
   todayAccent: {
     width: 4,

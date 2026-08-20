@@ -8,6 +8,7 @@ export {
   getAcuityMembershipCatalogUrl,
   getCreditBookingDecision,
   getEligibleCertificatesForAppointmentType,
+  formatMembershipBalance,
   getPackageLoadState,
   MEMBERSHIP_CERTIFICATE_REFRESH_DELAYS_MS,
   scheduleMembershipCertificateFollowUps,

@@ -9,6 +9,10 @@ import {
   getGetAppointmentSummaryQueryKey,
 } from "@workspace/api-client-react";
 import { Calendar, Clock, MapPin, CheckCircle2 } from "lucide-react";
+import {
+  PORTAL_MEMBER_CERTIFICATES_QUERY_KEY,
+  refreshPortalCertificatesAfterBooking,
+} from "@/lib/membershipCatalogReturn";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -37,8 +41,18 @@ export default function Confirmed() {
     queryClient.invalidateQueries({ queryKey: getGetUpcomingAppointmentsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetPastAppointmentsQueryKey()    });
     queryClient.invalidateQueries({ queryKey: getGetAppointmentSummaryQueryKey()  });
-    queryClient.invalidateQueries({ queryKey: ["booking", "certificates"]         });
-  }, []);
+    refreshPortalCertificatesAfterBooking(
+      () => {
+        queryClient.invalidateQueries({ queryKey: PORTAL_MEMBER_CERTIFICATES_QUERY_KEY });
+      },
+      () => {
+        void queryClient.refetchQueries({
+          queryKey: PORTAL_MEMBER_CERTIFICATES_QUERY_KEY,
+          type: "active",
+        });
+      },
+    );
+  }, [queryClient]);
 
   return (
     <Shell>

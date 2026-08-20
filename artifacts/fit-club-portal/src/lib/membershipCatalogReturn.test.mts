@@ -4,6 +4,7 @@ import { MEMBERSHIP_CERTIFICATE_REFRESH_DELAYS_MS } from "@workspace/api-client-
 import {
   consumeMembershipCatalogReturn,
   markMembershipCatalogOpened,
+  refreshPortalCertificatesAfterBooking,
   schedulePortalCertificateRefreshes,
 } from "./membershipCatalogReturn.ts";
 
@@ -32,4 +33,28 @@ test("Portal post-return and post-cancellation refreshes are bounded", () => {
   );
 
   assert.deepEqual(scheduled, [...MEMBERSHIP_CERTIFICATE_REFRESH_DELAYS_MS]);
+});
+
+test("Portal post-booking refresh immediately invalidates and then refetches on a bounded schedule", () => {
+  const scheduled: Array<() => void> = [];
+  let invalidations = 0;
+  let refetches = 0;
+
+  refreshPortalCertificatesAfterBooking(
+    () => {
+      invalidations += 1;
+    },
+    () => {
+      refetches += 1;
+    },
+    (callback) => {
+      scheduled.push(callback);
+    },
+  );
+
+  assert.equal(invalidations, 1);
+  assert.equal(refetches, 0);
+  assert.equal(scheduled.length, MEMBERSHIP_CERTIFICATE_REFRESH_DELAYS_MS.length);
+  scheduled.forEach((callback) => callback());
+  assert.equal(refetches, MEMBERSHIP_CERTIFICATE_REFRESH_DELAYS_MS.length);
 });

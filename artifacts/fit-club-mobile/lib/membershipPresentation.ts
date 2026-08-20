@@ -1,8 +1,11 @@
 import {
+  formatMembershipBalance,
   getCreditBookingDecision,
   getEligibleCertificatesForAppointmentType,
   type CreditBookingDecision,
 } from "@workspace/api-client-react";
+
+export { formatMembershipBalance };
 
 export interface MobileMemberCertificate {
   code: string;
@@ -23,12 +26,6 @@ export function getWorkoutMemberships(
     certificates,
     workoutAppointmentTypeId,
   );
-}
-
-export function formatMembershipBalance(remainingValue: string): string {
-  const value = remainingValue.trim();
-  if (!value) return "Balance unavailable";
-  return /\bremaining\b/i.test(value) ? value : `${value} remaining`;
 }
 
 export type WorkoutBookingAction =

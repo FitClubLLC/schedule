@@ -17,6 +17,12 @@ export function getPackageLoadState(input: {
   return input.itemCount > 0 ? "ready" : "empty";
 }
 
+export function formatMembershipBalance(remainingValue: string): string {
+  const value = remainingValue.trim();
+  if (!value) return "Balance unavailable";
+  return /\bremaining\b/i.test(value) ? value : `${value} remaining`;
+}
+
 export function getAcuityMembershipCatalogUrl(ownerId: string): string {
   return `https://app.acuityscheduling.com/catalog.php?owner=${encodeURIComponent(ownerId)}`;
 }

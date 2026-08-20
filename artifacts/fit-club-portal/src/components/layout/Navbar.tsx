@@ -18,7 +18,8 @@ export function Navbar() {
 
   const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
   const isAdmin = isConfiguredAdmin(user, adminEmail);
-  const { data: acuityConfig } = useAcuityConfig();
+  const acuityConfigQuery = useAcuityConfig();
+  const acuityConfig = acuityConfigQuery.data;
   const membershipsUrl = acuityConfig
     ? getAcuityMembershipCatalogUrl(acuityConfig.ownerId)
     : undefined;
@@ -30,6 +31,37 @@ export function Navbar() {
     }
     markMembershipCatalogOpened();
   };
+
+  const membershipAction = (
+    className: string,
+    iconClassName: string,
+    onOpened?: () => void,
+  ) => membershipsUrl ? (
+    <a
+      href={membershipsUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(event) => {
+        handleMembershipCatalogClick(event);
+        onOpened?.();
+      }}
+      className={className}
+    >
+      <ShoppingBag className={iconClassName} />
+      Memberships
+    </a>
+  ) : (
+    <button
+      type="button"
+      disabled
+      aria-disabled="true"
+      title={acuityConfigQuery.isError ? "Memberships are temporarily unavailable" : "Memberships are loading"}
+      className={`${className} cursor-not-allowed opacity-60`}
+    >
+      <ShoppingBag className={iconClassName} />
+      Memberships
+    </button>
+  );
 
   const navLinks = [
     { href: "/dashboard", label: "Dashboard" },
@@ -69,17 +101,10 @@ export function Navbar() {
           </div>
           
           <div className="hidden md:flex md:items-center md:space-x-4">
-            <a
-              href={membershipsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={handleMembershipCatalogClick}
-              aria-disabled={!membershipsUrl}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              Memberships
-            </a>
+            {membershipAction(
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors",
+              "w-3.5 h-3.5",
+            )}
             <div className="text-sm font-semibold text-foreground">
               {user?.firstName} {user?.lastName}
             </div>
@@ -123,20 +148,11 @@ export function Navbar() {
                 </Link>
               );
             })}
-              <a
-                href={membershipsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(event) => {
-                  handleMembershipCatalogClick(event);
-                  setMobileMenuOpen(false);
-                }}
-                aria-disabled={!membershipsUrl}
-                className="flex items-center gap-2 px-3 py-2 rounded-md text-base font-semibold text-primary hover:bg-primary/10"
-              >
-                <ShoppingBag className="w-4 h-4" />
-                Memberships
-              </a>
+              {membershipAction(
+                "flex items-center gap-2 px-3 py-2 rounded-md text-base font-semibold text-primary hover:bg-primary/10",
+                "w-4 h-4",
+              () => setMobileMenuOpen(false),
+              )}
             <button
               onClick={() => {
                 setMobileMenuOpen(false);
