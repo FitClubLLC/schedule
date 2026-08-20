@@ -1,0 +1,69 @@
+READ-ONLY REPLIT-MANAGED CLERK PRODUCTION DOMAIN AUDIT — DO NOT CHANGE ANYTHING
+
+We are preparing the existing Fit Club Client Dashboard for App Store / Google Play release.
+
+We verified that the correct production deployment is:
+
+https://client-dashboard-fitclub.replit.app
+
+We attempted to create a Clerk Production instance by cloning the current Development instance.
+
+Clerk then asked for the production application domain. When entering:
+
+client-dashboard-fitclub.replit.app
+
+Clerk displayed this exact error:
+
+“The client-dashboard-fitclub.replit.app root domain is already in use by a Replit app. Delete the Replit app or contact Replit support to remove the domain before using it in Clerk.”
+
+DO NOT change anything. This is a strictly read-only investigation.
+
+In particular, do NOT:
+
+delete, unlink, redeploy, or modify the Replit app;
+change the production domain;
+change Clerk Development or create a Clerk Production instance;
+change Clerk keys or Replit secrets;
+change Expo/EAS variables;
+create another domain as a workaround;
+rotate credentials;
+modify code;
+build, submit, or publish anything;
+touch Acuity, Square, members, appointments, memberships, or authentication data.
+
+Determine specifically how Replit-managed Clerk is intended to move an existing deployed Replit app from its current Clerk Development instance to a Clerk Production instance when the app's *.replit.app production domain is already reserved/managed by Replit.
+
+Please establish:
+
+Whether client-dashboard-fitclub.replit.app is currently registered/claimed by Replit's managed Clerk integration.
+Whether creating a Clerk Production instance manually from the Clerk dashboard is actually the correct workflow for a Replit-managed Clerk application.
+Whether Replit provides a supported production/promotion workflow for its managed Clerk integration.
+Whether the existing production Replit deployment currently uses the Development Clerk instance.
+Whether changing Clerk environments through Replit would preserve the existing production deployment/domain.
+Whether a custom domain is required or merely optional.
+Whether Replit Support must release or change anything before Clerk Production can use the existing client-dashboard-fitclub.replit.app domain.
+What happens to the existing Clerk secrets (EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY, CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY) under the supported Replit production transition.
+
+Inspect only available project configuration, deployment metadata, Replit-managed Clerk metadata/documentation, and other non-secret information.
+
+Do not expose secret values.
+
+Finish with:
+
+CURRENT STATE
+
+WHY CLERK REJECTED THE DOMAIN
+
+SUPPORTED REPLIT → CLERK PRODUCTION PATH
+
+DOES REPLIT SUPPORT NEED TO BE INVOLVED?
+
+EXACT SINGLE NEXT STEP FOR THE USER
+
+If the supported path cannot be established conclusively, say:
+
+AMBIGUOUS — DO NOT CHANGE CLERK OR REPLIT YET
+
+and identify exactly what needs to be confirmed with Replit Support.
+
+Do not implement anything.
