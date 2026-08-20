@@ -4,7 +4,7 @@ import { Appointment } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, MapPin, X, CalendarClock, Loader2 } from "lucide-react";
+import { Calendar, Clock, MapPin, X, CalendarClock, Loader2, AlertCircle } from "lucide-react";
 import { getLocationByCalendarName, LOCATION_COLORS } from "@/lib/locations";
 import {
   AlertDialog,
@@ -27,6 +27,7 @@ import {
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { useAppointmentActions, type TimeSlot } from "@/hooks/useAppointmentActions";
 import { formatStudioTime } from "@/lib/studioTime";
+import { CANCELLATION_ERROR_MESSAGE } from "@/lib/appointmentStates";
 
 function LocationBadge({ calendarName }: { calendarName?: string | null }) {
   if (!calendarName) return null;
@@ -132,7 +133,7 @@ function RescheduleDialog({ appointment, onClose }: { appointment: Appointment; 
                       : "bg-card border-border hover:border-primary/50 hover:bg-primary/5 text-foreground"
                   }`}
                 >
-                  {format(parseISO(slot.time), "h:mm a")}
+                  {formatStudioTime(slot.time)}
                 </button>
               ))}
             </div>
@@ -168,6 +169,7 @@ export function AppointmentCard({
 }) {
   const { cancelAppointment } = useAppointmentActions();
   const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
 
   const dateObj = parseISO(appointment.date);
@@ -175,8 +177,11 @@ export function AppointmentCard({
 
   async function handleCancel() {
     setCancelling(true);
+    setCancelError(false);
     try {
       await cancelAppointment(appointment.id);
+    } catch {
+      setCancelError(true);
     } finally {
       setCancelling(false);
     }
@@ -281,6 +286,12 @@ export function AppointmentCard({
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
+            )}
+            {cancelError && (
+              <p className="mt-3 flex items-center gap-2 text-sm text-destructive" role="alert">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {CANCELLATION_ERROR_MESSAGE}
+              </p>
             )}
           </div>
         </div>

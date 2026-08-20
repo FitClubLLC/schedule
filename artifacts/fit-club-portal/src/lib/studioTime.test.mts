@@ -8,3 +8,8 @@ test("renders Acuity offset timestamps in Eastern Time", () => {
   assert.equal(formatStudioTime(acuityDatetime), "3:20 PM");
   assert.equal(studioHour(acuityDatetime), 15);
 });
+
+test("renders the same studio clock regardless of the source timezone offset", () => {
+  assert.equal(formatStudioTime("2026-08-20T15:20:00-0400"), "3:20 PM");
+  assert.equal(formatStudioTime("2026-08-20T15:20:00-0700"), "6:20 PM");
+});

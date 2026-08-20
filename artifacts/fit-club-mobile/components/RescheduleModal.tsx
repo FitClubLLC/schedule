@@ -12,23 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
 import { useAppointmentActions, TimeSlot } from '@/hooks/useAppointmentActions';
-import { formatStudioTime } from '@/lib/studioTime';
+import { buildStudioDateRange, formatStudioTime } from '@/lib/studioTime';
 
-// Build an array of the next `count` dates starting from today.
-function buildDateRange(count = 14): Date[] {
-  const dates: Date[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  for (let i = 0; i < count; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    dates.push(d);
-  }
-  return dates;
-}
-
-// Use local calendar fields — toISOString() converts to UTC and will return
-// tomorrow's date for Eastern-time users after ~7 pm (UTC-4/-5).
 function toYMD(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
@@ -56,7 +41,7 @@ export default function RescheduleModal({
   const insets = useSafeAreaInsets();
   const { fetchAvailableTimes, rescheduleAppointment } = useAppointmentActions();
 
-  const dates = buildDateRange(14);
+  const dates = buildStudioDateRange(14);
   const [selectedDate, setSelectedDate] = useState<Date>(dates[0]);
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
