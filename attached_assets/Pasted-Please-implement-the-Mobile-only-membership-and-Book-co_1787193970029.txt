@@ -1,0 +1,78 @@
+Please implement the Mobile-only membership and Book consistency fix from the completed read-only diagnosis.
+
+Scope only these items:
+
+1. Show Acuity membership/package data on Home
+
+Reuse the existing shared member-certificate query already used by Book.
+
+On Home, show all active Workout-for-1-eligible memberships/packages returned by Acuity for the signed-in member:
+
+actual Acuity product name;
+remaining sessions/uses;
+support multiple active packages;
+support private/spouse/discounted products dynamically, without hard-coded names.
+
+Do not calculate the balance from appointment history. Acuity remains authoritative.
+
+Preserve the existing successful-booking certificate invalidation and use the existing bounded delayed refresh so Home can reflect Acuity’s updated remaining credit after a booking.
+
+2. Make Book entry consistent
+
+When the member selects the Book tab from another bottom tab, take them to the Book root/package-aware starting screen, matching Home → Book a Session.
+
+When the member is already inside the active Book flow, preserve their current nested step.
+
+Keep the existing Android protection that prevents the active Book tab from causing the bulk popToTop() spinner regression.
+
+Do not reintroduce popToTopOnBlur or blanket stack resets.
+
+3. Replace Service Selection spinner/no-op states
+
+Model the Workout-for-1 action explicitly as:
+
+loading;
+package lookup failed → visible Retry;
+eligible package(s) exist but none selected → choose a package;
+selected eligible package → native credit booking;
+successfully loaded with no eligible credit → Acuity-hosted $59 payment path.
+
+A failed or unresolved package request must never masquerade as “no credit.”
+
+Do not show an apparently tappable payment card whose handler silently refuses the tap.
+
+4. Fix no-credit Workout for 1 tap
+
+When certificate/package loading completed successfully and there are zero eligible Workout-for-1 credits, tapping Workout for 1 must reliably open the existing location-specific Acuity-hosted payment handoff with:
+
+selected location/calendar;
+Workout for 1 appointment type;
+signed-in email prefill where supported;
+no certificate parameter.
+
+Do not create a native appointment in the no-credit case.
+
+Regression coverage
+
+Add focused Mobile tests for:
+
+Home renders dynamic Acuity membership name and remaining sessions;
+multiple memberships render;
+arbitrary private membership name is displayed;
+entering Book from another tab lands at Book root;
+already-active Book nested flow remains preserved;
+successful empty certificate response enables the Acuity payment action;
+pending/error certificate state displays loading/retry and cannot silently no-op;
+successful native booking invalidation/refetch updates the Home membership balance.
+
+Run:
+
+Mobile typecheck;
+focused Book/navigation/membership tests;
+Eastern-time regression;
+booking eligibility regression;
+Mobile production iOS/Android build.
+
+Runtime QA must not create another booking or make a purchase. Do not publish.
+
+Leave Portal, API ownership, Clerk, Acuity rules, Square, Sessions, Eastern Time, deployment, and Fit Club Hub unchanged.

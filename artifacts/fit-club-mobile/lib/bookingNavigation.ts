@@ -74,3 +74,13 @@ export function shouldPreventNestedBookTabPress({
 }: BookTabPressState): boolean {
   return isFocused && nestedIndex > 0;
 }
+
+/**
+ * An off-tab Book press starts a new booking from the package-aware root.
+ * The active nested flow is preserved by shouldPreventNestedBookTabPress.
+ */
+export function shouldNavigateBookTabToRoot({
+  isFocused,
+}: BookTabPressState): boolean {
+  return !isFocused;
+}

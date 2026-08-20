@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   BOOK_TAB_OPTIONS,
   getCompleteBookingConfirmation,
+  shouldNavigateBookTabToRoot,
   shouldPreventNestedBookTabPress,
 } from './bookingNavigation.ts';
 
@@ -15,11 +16,19 @@ test('selecting Book from another tab keeps normal tab navigation', () => {
     shouldPreventNestedBookTabPress({ isFocused: false, nestedIndex: 3 }),
     false,
   );
+  assert.equal(
+    shouldNavigateBookTabToRoot({ isFocused: false, nestedIndex: 3 }),
+    true,
+  );
 });
 
 test('selecting Book at its root keeps normal behavior', () => {
   assert.equal(
     shouldPreventNestedBookTabPress({ isFocused: true, nestedIndex: 0 }),
+    false,
+  );
+  assert.equal(
+    shouldNavigateBookTabToRoot({ isFocused: true, nestedIndex: 0 }),
     false,
   );
 });
@@ -28,6 +37,10 @@ test('reselecting Book on Select Service does not bulk-pop', () => {
   assert.equal(
     shouldPreventNestedBookTabPress({ isFocused: true, nestedIndex: 1 }),
     true,
+  );
+  assert.equal(
+    shouldNavigateBookTabToRoot({ isFocused: true, nestedIndex: 1 }),
+    false,
   );
 });
 

@@ -31,13 +31,16 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
   customFetch,
   getAcuitySchedulerUrl,
-  getCreditBookingDecision,
 } from '@workspace/api-client-react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
 import { BookingProgress } from '@/components/book/BookingProgress';
 import { MEMBER_CERTIFICATES_QUERY_KEY } from '@/lib/membershipRefresh';
+import {
+  getWorkoutBookingAction,
+  type MobileMemberCertificate,
+} from '@/lib/membershipPresentation';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -71,14 +74,6 @@ interface AcuityAppointmentType {
   price: string;
   description?: string | null;
   category?: string | null;
-}
-
-interface MemberCertificate {
-  code: string;
-  productName: string;
-  remainingValue: string;
-  appointmentTypeIDs?: string[];
-  appliesToAllProducts?: boolean;
 }
 
 interface CertificateCheckResult {
@@ -136,10 +131,10 @@ export default function SelectServiceScreen() {
       responseType: 'json',
     }),
   });
-  const certificatesQuery = useQuery<MemberCertificate[]>({
+  const certificatesQuery = useQuery<MobileMemberCertificate[]>({
     queryKey: MEMBER_CERTIFICATES_QUERY_KEY,
     enabled: bookingAuthReady,
-    queryFn: () => customFetch<MemberCertificate[]>('/api/booking/certificates', {
+    queryFn: () => customFetch<MobileMemberCertificate[]>('/api/booking/certificates', {
       method: 'GET',
       responseType: 'json',
     }),
@@ -183,10 +178,14 @@ export default function SelectServiceScreen() {
       (selected) => !memberCertificates.some((certificate) => certificate.code === selected.code),
     ),
   ];
-  const workoutDecision = acuityConfig
-    ? getCreditBookingDecision({
+  const workoutAction = acuityConfig
+    ? getWorkoutBookingAction({
+        packageIsLoading: certificatesQuery.isLoading,
+        packageIsError: certificatesQuery.isError,
+        selectedCertificateIsLoading: !!certCode && selectedCertificateQuery.isLoading,
+        selectedCertificateIsError: !!certCode && selectedCertificateQuery.isError,
         certificates,
-        appointmentTypeId: acuityConfig.appointmentTypes.workoutFor1,
+        workoutAppointmentTypeId: acuityConfig.appointmentTypes.workoutFor1,
         selectedCertificateCode: certCode,
       })
     : { kind: 'hosted-payment' as const };
@@ -227,17 +226,20 @@ export default function SelectServiceScreen() {
       const isWorkoutFor1 =
         service.appointmentTypeID === acuityConfig?.appointmentTypes.workoutFor1;
       if (isWorkoutFor1) {
-        if (certificatesQuery.isError || selectedCertificateQuery.isLoading) {
-          setSelectionMessage('We couldn’t verify your packages. Please return and try again.');
+        if (workoutAction.kind === 'error') {
+          setSelectionMessage('We couldn’t verify your packages. Please retry before continuing.');
           return;
         }
-        if (workoutDecision.kind === 'choose-credit') {
+        if (workoutAction.kind === 'loading') {
+          return;
+        }
+        if (workoutAction.kind === 'choose-credit') {
           setSelectionMessage(
             'Choose one of your active packages on the Book page before scheduling Workout for 1.',
           );
           return;
         }
-        if (workoutDecision.kind === 'hosted-payment') {
+        if (workoutAction.kind === 'hosted-payment') {
           const url = getAcuitySchedulerUrl({
             ownerId: acuityConfig?.ownerId ?? '',
             appointmentTypeId: service.appointmentTypeID,
@@ -256,8 +258,8 @@ export default function SelectServiceScreen() {
           locationName:        locationName as string,
           appointmentTypeID:   service.appointmentTypeID,
           appointmentTypeName: service.meta?.name ?? service.name,
-          certificate:         isWorkoutFor1 && workoutDecision.kind === 'native'
-            ? workoutDecision.certificateCode
+            certificate:         isWorkoutFor1 && workoutAction.kind === 'native'
+             ? workoutAction.certificateCode
             : certCode,
           from:                'select-service',
         },
@@ -272,9 +274,19 @@ export default function SelectServiceScreen() {
       user?.primaryEmailAddress?.emailAddress,
       certificatesQuery.isError,
       selectedCertificateQuery.isLoading,
-      workoutDecision,
+      workoutAction,
     ],
   );
+
+  const retryQueries = () => {
+    setSelectionMessage('');
+    void Promise.all([
+      configQuery.refetch(),
+      typesQuery.refetch(),
+      certificatesQuery.refetch(),
+      certCode ? selectedCertificateQuery.refetch() : Promise.resolve(),
+    ]);
+  };
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -337,6 +349,21 @@ export default function SelectServiceScreen() {
               </Text>
             </View>
           ) : null}
+          {workoutAction.kind === 'error' ? (
+            <View style={[styles.messageCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <SvgIcon name="wifi-off" size={18} color={colors.mutedForeground} />
+              <Text style={[styles.messageText, { color: colors.mutedForeground }]}>
+                We couldn’t load your package eligibility.
+              </Text>
+              <TouchableOpacity
+                onPress={retryQueries}
+                accessibilityRole="button"
+                accessibilityLabel="Retry package eligibility"
+              >
+                <Text style={[styles.retryText, { color: colors.primary }]}>RETRY</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
           {visibleServices.map((service) => {
             const displayName = service.meta?.name ?? service.name;
             const description = service.meta?.description ?? null;
@@ -345,20 +372,24 @@ export default function SelectServiceScreen() {
             const isWorkoutFor1 =
               service.appointmentTypeID === acuityConfig?.appointmentTypes.workoutFor1;
             const isHostedWorkout =
-              isWorkoutFor1 && workoutDecision.kind === 'hosted-payment';
+              isWorkoutFor1 && workoutAction.kind === 'hosted-payment';
             const isHosted = isExternal || isHostedWorkout;
+            const isUnavailable = isWorkoutFor1 && workoutAction.kind === 'error';
 
             return (
               <TouchableOpacity
                 key={service.key}
                 onPress={() => handleSelect(service)}
                 activeOpacity={0.75}
+                disabled={isUnavailable}
                 accessibilityRole="button"
                 accessibilityLabel={displayName}
+                accessibilityState={{ disabled: isUnavailable }}
                 style={[
                   styles.card,
                   { backgroundColor: colors.card, borderColor: colors.border },
                   isExternal && styles.cardExternal,
+                  isUnavailable && styles.cardUnavailable,
                 ]}
               >
                 <View style={styles.cardBody}>
@@ -449,4 +480,6 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   messageText: { fontFamily: 'Inter_400Regular', flex: 1, fontSize: 13, lineHeight: 19 },
+  retryText: { fontFamily: 'Inter_700Bold', fontSize: 12, letterSpacing: 1 },
+  cardUnavailable: { opacity: 0.62 },
 });

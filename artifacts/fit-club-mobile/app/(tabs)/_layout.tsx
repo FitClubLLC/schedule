@@ -10,6 +10,7 @@ import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   BOOK_TAB_OPTIONS,
+  shouldNavigateBookTabToRoot,
   shouldPreventNestedBookTabPress,
 } from '@/lib/bookingNavigation';
 
@@ -119,6 +120,12 @@ function ClassicTabLayout() {
 
             if (shouldPreventNestedBookTabPress({ isFocused, nestedIndex })) {
               event.preventDefault();
+              return;
+            }
+
+            if (shouldNavigateBookTabToRoot({ isFocused, nestedIndex })) {
+              event.preventDefault();
+              navigation.navigate(route.name, { screen: 'index' });
             }
           },
         })}

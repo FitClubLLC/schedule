@@ -17,6 +17,10 @@ import {
 import { useColors } from '@/hooks/useColors';
 import SvgIcon, { SvgIconName } from '@/components/SvgIcon';
 import {
+  MEMBER_CERTIFICATES_QUERY_KEY,
+  scheduleMobileCatalogCertificateRefreshes,
+} from '@/lib/membershipRefresh';
+import {
   getCompleteBookingConfirmation,
   type BookingConfirmationRouteParams,
 } from '@/lib/bookingNavigation';
@@ -53,7 +57,10 @@ export default function ConfirmedScreen() {
     queryClient.invalidateQueries({ queryKey: getGetUpcomingAppointmentsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetPastAppointmentsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetAppointmentSummaryQueryKey() });
-    queryClient.invalidateQueries({ queryKey: ['member-certificates'] });
+    queryClient.invalidateQueries({ queryKey: MEMBER_CERTIFICATES_QUERY_KEY });
+    scheduleMobileCatalogCertificateRefreshes(() => {
+      void queryClient.refetchQueries({ queryKey: MEMBER_CERTIFICATES_QUERY_KEY });
+    });
   }, [hasConfirmation, queryClient]);
 
   if (!confirmation) {

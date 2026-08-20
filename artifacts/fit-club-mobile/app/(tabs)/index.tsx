@@ -11,9 +11,16 @@ import {
   Image,
 } from 'react-native';
 import { useUser, useAuth } from '@clerk/expo';
+import { useQuery } from '@tanstack/react-query';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useGetAppointmentSummary, useGetUpcomingAppointments } from '@workspace/api-client-react';
+import {
+  customFetch,
+  getEligibleCertificatesForAppointmentType,
+  getPackageLoadState,
+  useGetAppointmentSummary,
+  useGetUpcomingAppointments,
+} from '@workspace/api-client-react';
 import SvgIcon from '@/components/SvgIcon';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -21,6 +28,17 @@ import AppointmentCard from '@/components/AppointmentCard';
 import { useSessionReminders } from '@/hooks/useSessionReminders';
 import { useAppForegroundRefresh } from '@/hooks/useAppForegroundRefresh';
 import { formatStudioTime, formatStudioTodayPart, studioDateKey } from '@/lib/studioTime';
+import { MEMBER_CERTIFICATES_QUERY_KEY } from '@/lib/membershipRefresh';
+import {
+  formatMembershipBalance,
+  type MobileMemberCertificate,
+} from '@/lib/membershipPresentation';
+
+interface AcuityConfig {
+  appointmentTypes: {
+    workoutFor1: string;
+  };
+}
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -38,9 +56,30 @@ export default function DashboardScreen() {
 
   const summaryQuery = useGetAppointmentSummary({ query: { enabled: !!isSignedIn } });
   const upcomingQuery = useGetUpcomingAppointments({ query: { enabled: !!isSignedIn } });
+  const membershipQuery = useQuery<MobileMemberCertificate[]>({
+    queryKey: MEMBER_CERTIFICATES_QUERY_KEY,
+    enabled: !!isSignedIn,
+    queryFn: () => customFetch<MobileMemberCertificate[]>('/api/booking/certificates', {
+      method: 'GET',
+      responseType: 'json',
+    }),
+  });
+  const acuityConfigQuery = useQuery<AcuityConfig>({
+    queryKey: ['acuity-config'],
+    enabled: !!isSignedIn,
+    staleTime: 10 * 60 * 1000,
+    queryFn: () => customFetch<AcuityConfig>('/api/booking/config', {
+      method: 'GET',
+      responseType: 'json',
+    }),
+  });
 
   // Refetch when the user returns from an external browser (e.g. after booking in Acuity)
-  useAppForegroundRefresh([['/api/appointments/upcoming'], ['/api/appointments/summary']]);
+  useAppForegroundRefresh([
+    ['/api/appointments/upcoming'],
+    ['/api/appointments/summary'],
+    MEMBER_CERTIFICATES_QUERY_KEY,
+  ]);
 
   const summary = summaryQuery.data;
   const upcoming = upcomingQuery.data ?? [];
@@ -49,7 +88,9 @@ export default function DashboardScreen() {
   // Schedule local push notifications before each upcoming session.
   // Timing preference (24h / 2h / both / off) is read from AsyncStorage inside the hook.
   useSessionReminders(upcomingQuery.data);
-  const isRefreshing = summaryQuery.isFetching && !summaryQuery.isLoading;
+  const isRefreshing =
+    (summaryQuery.isFetching && !summaryQuery.isLoading) ||
+    (membershipQuery.isFetching && !membershipQuery.isLoading);
   const summaryError = summaryQuery.isError;
   const upcomingError = upcomingQuery.isError;
 
@@ -58,9 +99,26 @@ export default function DashboardScreen() {
   const todaysSessions = upcoming.filter((a) => a.date === todayYMD);
 
   const onRefresh = () => {
-    summaryQuery.refetch();
-    upcomingQuery.refetch();
+    void Promise.all([
+      summaryQuery.refetch(),
+      upcomingQuery.refetch(),
+      membershipQuery.refetch(),
+      acuityConfigQuery.refetch(),
+    ]);
   };
+
+  const workoutMemberships =
+    acuityConfigQuery.data?.appointmentTypes.workoutFor1
+      ? getEligibleCertificatesForAppointmentType(
+          membershipQuery.data ?? [],
+          acuityConfigQuery.data.appointmentTypes.workoutFor1,
+        )
+      : [];
+  const membershipState = getPackageLoadState({
+    isLoading: membershipQuery.isLoading || acuityConfigQuery.isLoading,
+    isError: membershipQuery.isError || acuityConfigQuery.isError,
+    itemCount: workoutMemberships.length,
+  });
 
   const handleSignOut = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -172,6 +230,54 @@ export default function DashboardScreen() {
             </View>
           </View>
         )}
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+            YOUR MEMBERSHIPS
+          </Text>
+          {membershipState === 'loading' ? (
+            <View style={[styles.membershipLoading, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : membershipState === 'error' ? (
+            <View style={[styles.membershipMessage, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <SvgIcon name="wifi-off" size={18} color={colors.mutedForeground} />
+              <Text style={[styles.membershipMessageText, { color: colors.mutedForeground }]}>
+                Membership data unavailable — pull down to retry
+              </Text>
+            </View>
+          ) : membershipState === 'empty' ? (
+            <View style={[styles.membershipMessage, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.membershipMessageText, { color: colors.mutedForeground }]}>
+                No active Workout memberships found.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.membershipList}>
+              {workoutMemberships.map((membership) => (
+                <View
+                  key={membership.code}
+                  style={[styles.membershipCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                >
+                  <View style={styles.membershipIconWrap}>
+                    <SvgIcon name="credit-card" size={16} color={colors.primary} />
+                  </View>
+                  <View style={styles.membershipInfo}>
+                    <Text
+                      style={[styles.membershipName, { color: colors.foreground }]}
+                      numberOfLines={1}
+                    >
+                      {membership.productName}
+                    </Text>
+                    <Text style={[styles.membershipBalance, { color: colors.mutedForeground }]}>
+                      {formatMembershipBalance(membership.remainingValue)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
 
         {/* Today's sessions */}
         {!upcomingQuery.isLoading && !upcomingError && (
@@ -464,5 +570,59 @@ const styles = StyleSheet.create({
     fontFamily: 'BarlowCondensed_800ExtraBold',
     fontSize: 18,
     letterSpacing: 2,
+  },
+  membershipLoading: {
+    borderRadius: 10,
+    borderWidth: 1,
+    minHeight: 68,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  membershipMessage: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  membershipMessageText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
+  },
+  membershipList: {
+    gap: 10,
+  },
+  membershipCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  membershipIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(211,175,55,0.10)',
+  },
+  membershipInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  membershipName: {
+    fontFamily: 'BarlowCondensed_700Bold',
+    fontSize: 18,
+    letterSpacing: 0.3,
+  },
+  membershipBalance: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
   },
 });
