@@ -1,0 +1,35 @@
+The new iOS build successfully built, published, appeared in TestFlight, and installed on a physical iPhone. However, the TestFlight app crashes immediately on launch. Apple displays:
+
+"FIT CLUB ... (2aae31)" Crashed
+
+Expo Go development is currently working correctly, including authentication, sessions, memberships, and booking data.
+
+This TestFlight build was created after we removed only the @sentry/react-native/expo config plugin from artifacts/fit-club-mobile/app.json to prevent the Sentry archive-time upload scripts from breaking the iOS build. The installed @sentry/react-native package and existing runtime Sentry.init(...) were intentionally left unchanged.
+
+Diagnose this read-only first. Do not edit files, install/update packages, rebuild, republish, change credentials, or change configuration yet.
+
+Please investigate the TestFlight launch crash specifically:
+
+Inspect the mobile app's production startup path and everything that executes before/around the root app render.
+Inspect the current Sentry.init(...) configuration and determine whether removing the Expo Sentry config plugin could leave runtime native Sentry initialization in a state capable of causing an iOS standalone launch crash.
+Check for any production-only environment variables required at startup, especially:
+Clerk publishable key
+API/domain configuration
+Sentry DSN
+any variables that differ between Expo Go development and the standalone iOS build.
+Verify the generated iOS/native configuration from the current app.json without modifying the repository. Check for missing native modules, plist entries, URL schemes, Clerk requirements, or startup configuration.
+Inspect any available logs/artifacts from the successful iOS/TestFlight build for warnings or errors relevant to runtime startup.
+Determine whether the app could crash before React Native renders due to a native dependency/configuration issue.
+Do not assume the API Server workflow being stopped is responsible. The TestFlight build must use the production API; a stopped Replit development workflow should not cause a native application crash.
+
+If the actual TestFlight/iOS crash log is required to identify the cause, stop and tell me that rather than making speculative changes.
+
+Report:
+
+what is verified;
+what remains unknown;
+the most likely crash layer (native startup, JS startup, Clerk, Sentry, environment/configuration, etc.);
+whether the Apple crash report is required;
+and the single smallest safe next diagnostic step.
+
+Do not make a fix yet.
