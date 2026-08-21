@@ -1,0 +1,27 @@
+We have exhausted the available Apple TestFlight crash information for build 1.0.0 (8). The downloaded crash report confirms EXC_CRASH (SIGABRT) on Thread 2 through objc_exception_rethrow → ObjCTurboModule::performVoidMethodInvocation, but Apple does not provide the ExceptionReason or native module/method name.
+
+Your prior read-only investigation identified the standalone-only expo-notifications startup registration in artifacts/fit-club-mobile/app/_layout.tsx as the strongest remaining candidate because it is the only startup path found that matches all three characteristics: standalone-build-only, native void TurboModule invocation, and execution during the asynchronous startup path.
+
+Make one tightly scoped diagnostic change only:
+
+Temporarily disable the startup block that dynamically imports expo-notifications and calls Notifications.setNotificationHandler(...) for real/standalone builds.
+
+Requirements:
+
+Do not uninstall expo-notifications.
+Do not change notification permissions, push-token registration, or unrelated notification code.
+Do not change Sentry. Keep the @sentry/react-native/expo config plugin removed exactly as it is now.
+Do not change Clerk, authentication, API URLs, memberships, sessions, booking, Acuity, UI, navigation, EAS/Expo identity, Apple credentials, bundle identifier, or dependencies.
+Do not run Expo Launch, EAS build, publish, or App Store submission.
+Do not restart workflows unless required for a local verification.
+
+After the change:
+
+Show me the exact before/after diff.
+Confirm precisely which notification startup code is now bypassed.
+Confirm whether any other notification behavior was changed.
+Run the existing Mobile typecheck and focused relevant tests.
+If possible, run a clean temporary Expo prebuild inspection without modifying the project's generated native directories.
+Confirm that the change is isolated and ready for me to manually Republish and then Start publishing to the App Store.
+
+Stop after verification. Do not build or publish anything.
