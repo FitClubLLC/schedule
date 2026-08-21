@@ -1,0 +1,45 @@
+Perform a new strictly read-only crash compatibility audit. Do not edit, build, publish, or change anything.
+
+We have now ruled out the standalone expo-notifications handler by a diagnostic TestFlight build.
+
+Important external evidence:
+
+React Native issue #54859 documents iOS 26 startup crashes with:
+React Native 0.81.5
+Expo SDK 54
+EXC_CRASH (SIGABRT)
+ObjCTurboModule::performVoidMethodInvocation
+react-native-screens issue #3940 documents a TestFlight-only iOS 26 crash with:
+React Native 0.81.5
+Expo SDK 54
+Expo Router
+objc_exception_rethrow
+ObjCTurboModule::performVoidMethodInvocation
+root cause reported as RNSTabBarController updateTabBarAppearance
+
+Our crash:
+
+iPhone14,7
+iOS 26.6
+React Native 0.81.5 / Expo 54
+TestFlight
+immediate SIGABRT
+same React TurboModule exception frames
+
+Please verify read-only:
+
+Exact installed react-native-screens version.
+Exact installed react-native-gesture-handler and react-native-keyboard-controller versions.
+Whether the current Expo Router tab/navigation configuration uses the react-native-screens path implicated by RNSTabBarController.
+Whether our current react-native-screens version/config is affected by or plausibly matches issue #3940.
+Whether any existing configuration disables/enables native screens or native tabs.
+Correct the earlier claim that gesture-handler does not exist in Expo Go; Expo SDK 54 docs list it as included.
+Do not propose a change unless the evidence materially distinguishes react-native-screens from the other candidates.
+
+Also determine whether the successful Replit Expo Launch/TestFlight build left an .xcarchive, .dSYM, or downloadable build artifact anywhere accessible read-only. Do not regenerate one.
+
+Stop after reporting the evidence.
+
+And I would update Replit Support with:
+
+Please tell me whether you can provide the .xcarchive or dSYM for the successful Expo Launch TestFlight build 1.0.0 (8). We have the Apple .crash report but it lacks the Objective-C exception reason/module selector. We need the build symbols to symbolicate the native stack before shipping more diagnostic builds.
