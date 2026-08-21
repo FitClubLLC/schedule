@@ -172,7 +172,8 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  if (isLiquidGlassAvailable()) {
+  // DIAGNOSTIC: force ClassicTabLayout to isolate iOS 26 TestFlight SIGABRT (RNSTabBarController)
+  if (false && isLiquidGlassAvailable()) {
     return <NativeTabLayout />;
   }
   return <ClassicTabLayout />;
