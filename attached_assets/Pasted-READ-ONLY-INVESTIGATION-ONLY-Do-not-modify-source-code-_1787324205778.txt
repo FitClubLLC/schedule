@@ -1,0 +1,33 @@
+READ-ONLY INVESTIGATION ONLY. Do not modify source code, configuration, secrets, deployment settings, Apple settings, or publish/build anything.
+
+We have now confirmed the following:
+
+This Repl's Expo Launch/App Store publishing is currently linked to App Store Connect record FIT CLUB -- (2aae31), whose bundle ID is app.replit.fitclub15.
+The intended existing App Store Connect record is Fit Club 15, Apple ID 6798079649, bundle ID com.fitclub15.app.
+Both App Store Connect records belong to the same Apple Developer Team; the team identifier matches.
+artifacts/fit-club-mobile/app.json already specifies ios.bundleIdentifier: "com.fitclub15.app".
+app.replit.fitclub15 does not occur anywhere in the repository.
+Replit's Manage App Store Settings link only opens the currently linked FIT CLUB -- (2aae31) record in App Store Connect.
+Replit's Adjust settings page only contains normal production/web deployment settings and exposes no Expo Launch/App Store app-selection or relinking control.
+
+I need you to determine how the saved Expo Launch Apple-app association can actually be reset or changed.
+
+Specifically investigate Replit's installed Expo Launch/mobile publishing documentation, skills, commands, APIs, project metadata, backend-accessible state, and any available Replit tooling for:
+
+resetting the existing Expo Launch iOS publishing setup;
+re-running the original Choose Apple app step;
+changing the linked App Store Connect record;
+disconnecting App Store publishing so it can be configured again;
+determining whether an existing App Store Connect app with bundle ID com.fitclub15.app can be selected when both records belong to the same Apple Developer Team.
+
+Do not infer the answer from EAS commands. We already established that eas build:list contains no iOS builds and that eas device:list does not establish Apple Developer Team ownership.
+
+Also do not assume that app.replit.fitclub15 proves Replit owns the Apple account; we directly confirmed both records use our Apple Developer Team.
+
+If you find a reset/relink mechanism, report the exact user-facing steps or exact supported command/API, but do not execute it.
+
+If there is no user-accessible mechanism, say that explicitly and identify the specific Replit Support request required to reset/relink this Repl's Expo Launch Apple app binding.
+
+Finally, determine whether resetting/relinking this association would affect the existing source code, web deployment, database, secrets, or production data, versus affecting only the mobile publishing association.
+
+Return evidence for every conclusion. Do not make changes.
