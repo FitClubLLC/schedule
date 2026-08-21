@@ -1,0 +1,143 @@
+STRICTLY READ-ONLY iOS 26 / React Native TurboModule crash audit
+
+Do not edit any files. Do not install, remove, upgrade, or downgrade packages. Do not run Expo Launch, EAS Build, Republish, deploy, or submit anything. Do not change credentials, secrets, environment variables, Apple configuration, or native configuration.
+
+We are investigating the immediate TestFlight launch crash before making another diagnostic build.
+
+Verified crash facts
+
+The TestFlight app crashes almost immediately on launch on iOS 26 with:
+
+EXC_CRASH (SIGABRT)
+objc_exception_rethrow
+facebook::react::ObjCTurboModule::performVoidMethodInvocation(...)
+React Native 0.81.5
+Expo SDK 54
+Release/TestFlight build
+
+The Apple crash report does not identify the native module or provide the Objective-C exception reason.
+
+We already performed a TestFlight diagnostic build disabling the module-level expo-notifications setNotificationHandler(...) registration. The app still crashed immediately. That change has since been reverted. Treat that notification-handler hypothesis as ruled out.
+
+We have external evidence from React Native issue #54859 that this crash signature may represent a broader iOS 26 / RN 0.81.5 Release-mode problem in which an Objective-C NSException escaping from a void TurboModule invocation causes a fatal abort. Different native modules may trigger the same underlying crash class.
+
+Therefore, do not assume that one particular dependency is the root cause merely because its stack/API shape looks plausible.
+
+Audit A — react-native-reanimated
+Determine the exact installed and resolved version of react-native-reanimated.
+Determine whether it is a direct dependency or transitive dependency and what imports it in this app.
+Trace whether Reanimated executes native/TurboModule initialization during:
+module evaluation;
+Expo Router initialization;
+root layout initialization;
+navigation/tab initialization;
+before the first visible UI render.
+Inspect its installed native/JS source for New Architecture initialization and any void-returning TurboModule calls that could occur during this startup window.
+Determine whether the app's Babel/Expo configuration contains the required Reanimated configuration for the exact installed version.
+Check the installed package source/changelog/metadata available locally for iOS 26, React Native 0.81, New Architecture, Release-mode, TurboModule, SIGABRT, or startup-crash compatibility information.
+If web research is available, check the official Reanimated repository/issues and Expo documentation for reports matching:
+RN 0.81.x
+Expo 54
+iOS 26
+New Architecture
+TestFlight/Release
+ObjCTurboModule::performVoidMethodInvocation
+SIGABRT
+
+Do not conclude Reanimated is responsible unless there is app-specific evidence connecting its native call path to startup.
+
+Audit B — Expo SecureStore / Clerk token cache
+
+Re-open this from scratch. Do not rely on the previous conclusion that SecureStore was “cleared.”
+
+Determine the exact installed/resolved versions of:
+expo-secure-store
+@clerk/expo
+any Clerk package responsible for token caching/session restoration.
+Locate the exact token-cache implementation passed to ClerkProvider.
+
+Trace what happens from:
+
+RootLayout / ClerkProvider
+→ Clerk startup/session restoration
+→ token cache
+→ SecureStore
+→ native iOS module
+
+Determine whether SecureStore.getItemAsync, setItemAsync, deleteItemAsync, or another SecureStore native method can be invoked during the first second of standalone startup even though those APIs return Promises at the JS layer.
+Inspect the installed SecureStore iOS implementation and generated TurboModule/Expo Module bridge path. Determine whether any underlying native void invocation or synchronous native operation could throw an Objective-C exception that ultimately appears through performVoidMethodInvocation.
+Check whether Clerk performs cache/session restoration before the first visible render.
+Check whether any keychain access-group, entitlement, accessibility, bundle-ID, or standalone-iOS configuration differs from Expo Go and could cause SecureStore/keychain behavior to differ in TestFlight.
+Check official Clerk and Expo documentation/source for the recommended SecureStore token-cache implementation for this exact Expo/Clerk generation and compare it to this project's implementation.
+If web research is available, search official Expo, Clerk, and React Native issue trackers for iOS 26 / RN 0.81 / Expo 54 / SecureStore startup crashes matching this signature.
+
+Important: React Native issue #54859 reportedly mentions SecureStore as a suspected trigger in at least one investigation, but that does NOT prove SecureStore causes our crash. Verify what the issue actually says before using it as evidence.
+
+Audit C — revisit the startup timeline
+
+Produce an evidence-based timeline for approximately the first 1 second after a standalone iOS launch.
+
+Identify every native module that can actually be invoked before first meaningful render and categorize each call as:
+
+JS only
+native property/module lookup
+Promise-returning native call
+synchronous native call
+void TurboModule/native invocation
+unknown
+
+Do not automatically “clear” Promise-returning APIs merely because the JS API returns a Promise. Distinguish the JS API from what its native bridge implementation actually does.
+
+Audit D — compare with react-native-screens
+
+Keep the existing react-native-screens / NativeTabs hypothesis in the comparison, but do not make changes.
+
+Compare the actual evidence for:
+
+react-native-screens / RNSTabBarController
+Reanimated
+SecureStore/Clerk
+any other native module discovered during this audit
+
+Rank them only if the evidence supports doing so.
+
+Explicitly distinguish:
+
+Verified project fact
+
+from
+
+Verified external compatibility evidence
+
+from
+
+Inference/hypothesis
+
+Also check for symbols — read-only
+
+Search only existing accessible Replit/Expo Launch metadata and artifacts for the successful TestFlight build for:
+
+.dSYM
+.xcarchive
+archived .app
+native build artifact URL
+Expo Launch build identifier
+any build-log URL or artifact reference that could allow Expo/Replit Support to retrieve the symbols.
+
+Do not generate or download a new build.
+
+Final report
+
+Report:
+
+Exact relevant package versions.
+The actual first-second startup/native-call timeline.
+Evidence for or against Reanimated.
+Evidence for or against SecureStore/Clerk.
+Updated evidence for react-native-screens/NativeTabs.
+Whether any previous candidate was incorrectly “cleared.”
+Whether one candidate can now be identified with high confidence.
+Whether obtaining the dSYM/xcarchive remains preferable to another diagnostic TestFlight build.
+If another TestFlight experiment is ultimately necessary, identify the single smallest reversible experiment with the highest information value — but do not implement it.
+
+Do not make a fix. Do not alter ClassicTabs/NativeTabs. Do not modify SecureStore, Clerk, Reanimated, Sentry, notifications, or New Architecture. Stop after the report.
