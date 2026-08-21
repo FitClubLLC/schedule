@@ -1,0 +1,136 @@
+The ClassicTabs diagnostic TestFlight build also crashed immediately on launch.
+
+Therefore:
+
+the module-level expo-notifications setNotificationHandler(...) path has been ruled out by a diagnostic TestFlight build;
+the NativeTabs / react-native-screens path has also been ruled out as the sole cause by a separate diagnostic TestFlight build.
+
+We are stopping speculative dependency-by-dependency TestFlight builds.
+
+First: revert only the ClassicTabs diagnostic
+
+In:
+
+artifacts/fit-club-mobile/app/(tabs)/_layout.tsx
+
+restore the original condition:
+
+if (isLiquidGlassAvailable()) {
+
+Remove only:
+
+the diagnostic comment
+false &&
+
+Show the exact revert diff.
+
+Do not change anything else.
+
+Then perform a STRICTLY READ-ONLY native startup audit
+
+Do not edit files. Do not install/remove/update packages. Do not build, publish, republish, run Expo Launch, submit to Apple, modify credentials, secrets, environment variables, bundle IDs, Expo/EAS identity, or native configuration.
+
+A. Remaining startup-time void TurboModule/native calls
+
+Audit every remaining native call that can execute before first meaningful render.
+
+Focus especially on:
+
+react-native-keyboard-controller
+any react-native-gesture-handler void methods that can fire during mount without user interaction
+NativeEventEmitter.addListener(...)
+any event-emitter subscription that invokes a native addListener(eventType): void
+any other TurboModule codegen spec exposing void-returning methods that are reachable during startup
+
+For each candidate, report:
+
+exact package/module
+exact native method
+whether it is void-returning
+whether it is actually reachable during startup
+whether the call can occur before first meaningful render
+evidence from installed source
+
+Do not re-litigate candidates already tested unless new evidence materially changes them.
+
+B. Audit custom/native app-specific code
+
+Search the project for any native iOS behavior specific to this app, including:
+
+hand-written .swift, .m, .mm, .h files
+custom TurboModules or NativeModules
+local Expo config plugins
+app-specific config plugins
+plugins under project plugins/, scripts/, or similar directories
+withXcodeProject, withAppDelegate, withEntitlementsPlist, withInfoPlist, withPodfile, withDangerousMod, or similar Expo config-plugin mutations
+custom react-native.config.js
+native module exclusions/inclusions
+expo-build-properties configuration
+generated iOS build-setting mutations
+New Architecture/Fabric-specific project customization
+
+Determine whether any app-specific code could:
+
+register through TurboModuleRegistry
+invoke an ObjC void native method during startup
+mutate AppDelegate/native initialization
+alter Xcode build phases or runtime native setup
+
+Do not assume the culprit must be a third-party package.
+
+C. Broaden build metadata/artifact search beyond the filesystem
+
+Earlier searches checked /home/runner/workspace, /tmp, and project files only.
+
+Now also inspect any read-only Replit product/UI metadata available to you, including:
+
+Expo Launch history
+App Store publish history
+build/job detail panels
+workflow/job identifiers
+App Store build logs
+Expo Launch logs
+any Replit-generated build URL, job URL, artifact ID, submission ID, or native-build identifier
+
+Search for anything that can correlate the successful TestFlight build with a native archive or support-side record:
+
+Expo Launch build ID
+EAS build ID
+Replit build/job ID
+.xcarchive reference
+.dSYM reference
+.ipa reference
+artifact URL
+App Store submission ID
+transport/upload ID
+
+Do not create or download a new build.
+
+If some Replit UI/system metadata is inaccessible to the Agent, state that explicitly rather than concluding it does not exist.
+
+D. Remaining candidate ranking
+
+After the audit, compare only candidates that still have actual evidence.
+
+Keep separate:
+
+Verified project fact
+Verified native/source fact
+External compatibility evidence
+Inference
+
+Do not create fabricated timing numbers or imply runtime measurements were taken unless you actually performed instrumentation.
+
+E. Final report
+
+Report:
+
+Exact revert diff.
+All remaining startup-reachable void TurboModule/native calls.
+Any custom app-specific native code/configuration found.
+Whether any candidate now has materially stronger evidence.
+Any Replit/Expo Launch/App Store build identifier or artifact reference found outside the filesystem.
+Whether dSYM/xcarchive retrieval is realistically possible through Replit or Expo support.
+The single highest-value next diagnostic step.
+
+Do not implement another fix. Do not start another TestFlight experiment. Stop after the report.
