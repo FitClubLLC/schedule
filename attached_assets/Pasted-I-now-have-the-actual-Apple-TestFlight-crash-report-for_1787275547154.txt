@@ -1,0 +1,51 @@
+I now have the actual Apple TestFlight crash report for FITCLUB15 1.0.0 (build 8).
+
+The crash occurs approximately 0.5 seconds after launch.
+
+Apple reports:
+
+Exception Type: EXC_CRASH (SIGABRT)
+Termination Reason: SIGNAL 6 Abort trap: 6
+Triggered by Thread: 2
+
+The critical crashed-thread frames are:
+
+libobjc.A.dylib objc_exception_rethrow
+
+followed immediately by:
+
+React invocation function for block in facebook::react::ObjCTurboModule::performVoidMethodInvocation(...)
+
+React facebook::react::ObjCTurboModule::performVoidMethodInvocation(...)
+
+at RCTTurboModule.mm
+
+This establishes that an Objective-C exception is being thrown while React Native invokes a native TurboModule method. The crash report does not include the Objective-C exception reason or identify the module by name.
+
+Please diagnose this read-only first. Do not edit files, packages, configuration, credentials, native settings, Sentry, Clerk, build settings, or environment variables. Do not rebuild or publish.
+
+Please:
+
+Trace every native/TurboModule call that can execute during startup, before or immediately after the root UI mounts.
+Pay particular attention to:
+@sentry/react-native
+Expo SecureStore / token cache
+Clerk authentication/token persistence
+Expo modules invoked during root initialization
+any other native module called synchronously or immediately during _layout.tsx startup.
+Inspect the installed versions and generated/autolinked native configuration for those modules.
+Specifically determine whether keeping @sentry/react-native installed/autolinked while removing only @sentry/react-native/expo can cause a TurboModule native exception with this project's React Native/New Architecture configuration.
+Search the project and installed dependency source for native methods called by the startup path that can raise an Objective-C NSException.
+Compare the startup behavior in Expo Go with a standalone iOS binary and identify native functionality that Expo Go may provide/configure differently.
+Do not blame the API Server or network. This is a native SIGABRT occurring through RCTTurboModule::performVoidMethodInvocation.
+Do not assume Sentry is responsible merely because we recently changed it. Follow the startup/native-call evidence.
+
+Report:
+
+the native modules actually invoked during startup;
+which call best matches this crash signature;
+evidence from the installed source/native configuration;
+whether the cause can now be identified with high confidence;
+and the single smallest safe fix if identified.
+
+If the available evidence still cannot identify the specific module, stop rather than making speculative changes.
