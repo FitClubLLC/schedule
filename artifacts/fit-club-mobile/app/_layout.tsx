@@ -57,22 +57,19 @@ import { useDeepLink } from '@/hooks/useDeepLink';
 
 // Show notifications as banners even when the app is in the foreground.
 // Only load expo-notifications in real builds — it throws in Expo Go (SDK 53+).
-// DIAGNOSTIC: disabled to isolate TestFlight SIGABRT (EXC_CRASH Thread 2,
-// objc_exception_rethrow → ObjCTurboModule::performVoidMethodInvocation).
-// Restore this block once the build is confirmed crash-free.
-// if (IS_REAL_BUILD && Platform.OS !== 'web') {
-//   import('expo-notifications').then((Notifications) => {
-//     Notifications.setNotificationHandler({
-//       handleNotification: async () => ({
-//         shouldShowAlert: true,
-//         shouldPlaySound: true,
-//         shouldSetBadge: false,
-//         shouldShowBanner: true,
-//         shouldShowList: true,
-//       }),
-//     });
-//   }).catch(() => { /* expo-notifications unavailable in Expo Go — skip */ });
-// }
+if (IS_REAL_BUILD && Platform.OS !== 'web') {
+  import('expo-notifications').then((Notifications) => {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  }).catch(() => { /* expo-notifications unavailable in Expo Go — skip */ });
+}
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
