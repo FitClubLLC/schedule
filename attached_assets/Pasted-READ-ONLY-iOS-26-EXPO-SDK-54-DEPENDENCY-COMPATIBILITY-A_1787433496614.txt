@@ -1,0 +1,264 @@
+READ-ONLY iOS 26 / EXPO SDK 54 DEPENDENCY COMPATIBILITY AUDIT. DO NOT EDIT ANY FILES, INSTALL/UPDATE/DOWNGRADE/REMOVE DEPENDENCIES, RUN PREBUILD, BUILD, PUBLISH, DEPLOY, OR CHANGE ANY CONFIGURATION, SECRETS, CREDENTIALS, OR APPLE SETTINGS.
+
+Replit Support is currently handling the Expo Launch Apple-app binding. Do not investigate or modify that binding in this task.
+
+We also now have a clean source baseline: no temporary Classic Tabs diagnostic and no temporary KeyboardProvider diagnostic are active. Do not reintroduce either one.
+
+The purpose of this task is to determine whether the currently installed native dependencies are compatible with the project's current Expo / React Native / iOS configuration, particularly iOS 26 standalone/TestFlight builds, and whether there are documented upstream issues matching our crash.
+
+Our TestFlight crash signature is:
+
+EXC_CRASH (SIGABRT)
+objc_exception_rethrow
+facebook::react::ObjCTurboModule::performVoidMethodInvocation
+occurs immediately on app launch in the standalone/TestFlight iOS app
+Expo Go works
+disabling expo-notifications foreground setNotificationHandler(...) did not stop the crash
+forcing Classic Tabs instead of expo-router/unstable-native-tabs did not stop the crash
+
+Do not treat those two failed experiments as proof about unrelated modules.
+
+1. Establish the exact dependency baseline
+
+Report the actually installed version, not merely the semver range in package.json, for:
+
+expo
+react
+react-native
+expo-router
+expo-modules-core
+react-native-screens
+react-native-keyboard-controller
+react-native-gesture-handler
+react-native-reanimated
+react-native-worklets if installed
+expo-secure-store
+expo-notifications
+expo-splash-screen
+expo-constants
+expo-glass-effect if installed
+@clerk/expo
+@sentry/react-native
+
+Also report:
+
+Expo SDK version
+React Native New Architecture enabled/disabled state
+Hermes enabled/disabled state
+iOS deployment target
+
+Use the lockfile / installed package metadata as authoritative for actual versions.
+
+Do not change anything.
+
+2. Run Expo's dependency compatibility check — READ ONLY
+
+Use the appropriate non-mutating Expo dependency/version diagnostic for this installed Expo SDK to determine whether the installed package versions match the versions Expo expects for this SDK.
+
+Do not run any command that offers to install, fix, upgrade, downgrade, or modify packages.
+
+If the diagnostic cannot safely be run without potentially modifying the project, do not run it. Instead inspect Expo's installed package/version metadata directly.
+
+Report every mismatch separately:
+
+package | installed version | Expo-expected version | compatible/mismatch
+
+Do not automatically conclude that a mismatch causes the crash.
+
+3. Check official/upstream compatibility evidence
+
+For each of these packages:
+
+react-native-keyboard-controller
+react-native-screens
+react-native-gesture-handler
+react-native-reanimated
+expo-secure-store
+expo-notifications
+expo-router
+@clerk/expo
+
+check current authoritative upstream sources where available:
+
+official documentation
+official GitHub repository issues
+official release notes/changelog
+Expo compatibility documentation
+
+Search specifically for combinations involving:
+
+iOS 26
+React Native 0.81.x
+Expo SDK 54
+New Architecture / Fabric / TurboModules
+launch/startup crash
+SIGABRT
+NSException
+performVoidMethodInvocation
+TestFlight / standalone builds where relevant
+
+For every upstream issue you cite, provide:
+
+exact issue URL
+issue number
+repository
+issue title
+open/closed status
+affected versions if stated
+fixed version if stated
+whether our installed version is before, at, or after the reported fix
+the specific evidence that makes it relevant to our crash
+
+Do not invent issue numbers, fixes, version ranges, quotes, reproduction conditions, or URLs.
+
+If an issue cannot be verified from the actual upstream source, say UNVERIFIED and do not use it as evidence.
+
+4. Re-examine react-native-keyboard-controller specifically
+
+This is currently one of the remaining plausible startup candidates.
+
+Inspect the installed version's source and determine:
+
+Exactly what native initialization occurs merely from importing KeyboardProvider.
+Exactly what happens when <KeyboardProvider> mounts.
+Which TurboModule methods are invoked during provider startup.
+Which of those methods return void.
+Whether NativeEventEmitter.addListener() causes a native addListener(...): void invocation.
+Whether those calls can occur before the first visible app screen.
+Whether the installed version has documented fixes for iOS 26 / RN 0.81 / New Architecture.
+Whether a newer compatible version exists that specifically addresses any relevant crash.
+
+Distinguish:
+
+Verified from installed source
+
+from
+
+Verified from upstream documentation/issues
+
+from
+
+Inference
+
+Do not call it the crash cause unless upstream evidence or an actual crash frame identifies it.
+
+5. Re-examine Clerk / SecureStore startup without prematurely clearing it
+
+Trace the actual startup path from:
+
+ClerkProvider
+
+through its token cache / SecureStore integration.
+
+Report:
+
+which SecureStore methods can run during initial authentication restoration;
+whether those calls are Expo Modules API calls, TurboModule calls, or another native mechanism;
+whether any synchronous/void native calls occur;
+whether there are verified iOS 26 / RN 0.81 / Expo 54 issues involving SecureStore or Clerk startup;
+whether anything in the available evidence actually allows SecureStore/Clerk to be ruled out.
+
+Important: Do not say that Expo Modules API code is architecturally incapable of appearing beneath an ObjCTurboModule::performVoidMethodInvocation crash unless that claim can be verified from authoritative React Native/Expo architecture documentation or the installed native implementation.
+
+If it cannot be proven, say so.
+
+6. Search for all other startup native-module calls
+
+Audit app/_layout.tsx and everything imported synchronously by it before the first React screen becomes visible.
+
+Identify every native module that can be:
+
+imported,
+instantiated,
+subscribed to,
+or invoked
+
+during initial app startup.
+
+For each one report:
+
+module | call/method | timing | return type | TurboModule/Expo Module/other | standalone-only? | evidence
+
+Do not invent millisecond startup timings.
+
+If no actual runtime trace exists, describe timing qualitatively:
+
+module evaluation
+initial React render
+provider mount
+post-mount effect
+after authentication
+after navigation
+7. Check for custom native/config-plugin code
+
+Search the project for any app-specific:
+
+Expo config plugins
+local plugins
+Swift
+Objective-C / Objective-C++
+.mm
+.m
+native module definitions
+TurboModule specs
+codegen configuration
+expo-build-properties customizations
+AppDelegate modifications generated or requested by project configuration
+
+Report anything capable of altering native startup behavior.
+
+Do not generate an ios/ directory to perform this check.
+
+8. Do NOT overstate eliminations
+
+Use these exact confidence categories in the final report:
+
+CONFIRMED INCOMPATIBILITY
+There is authoritative evidence that our exact installed version/configuration is incompatible.
+
+DOCUMENTED PLAUSIBLE MATCH
+There is a verified upstream issue matching important parts of our configuration/crash, but our crash has not been proven to originate there.
+
+PLAUSIBLE FROM SOURCE
+The installed source contains a native startup path capable of matching the generic crash signature, but no upstream evidence identifies it as our failure.
+
+LOW EVIDENCE
+Technically possible but little concrete evidence.
+
+ELIMINATED BY OUR A/B TEST
+Use this only for the exact code path actually disabled in a TestFlight experiment whose crash persisted. Do not extrapolate beyond that path.
+
+UNKNOWN
+Insufficient evidence.
+
+Do not use words such as "definitively cleared," "proven," "root cause," or "ruled out" unless the evidence genuinely establishes that.
+
+9. Final report
+
+Finish with one table:
+
+Candidate | Installed version | Expo-compatible? | iOS 26/RN 0.81 upstream evidence | Startup native call? | Confidence category | Why
+
+Then answer these questions:
+
+Is there any confirmed dependency mismatch we should correct before another TestFlight build?
+Is there any verified upstream fix applicable to one of our installed versions?
+Which remaining candidate has the strongest evidence, and what kind of evidence supports it?
+Is there enough evidence to justify changing a dependency now, or should we continue waiting for Replit Support/crash-symbolication data?
+If exactly one future diagnostic experiment would provide the most information with the least blast radius, what would it be? Describe it only. Do not implement it.
+
+Do not modify anything.
+
+Do not run a native build.
+
+Do not run Expo Launch.
+
+Do not publish.
+
+Do not install/update/downgrade/remove packages.
+
+Do not modify Sentry.
+
+Do not modify the Apple app binding.
+
+Stop after the report.
