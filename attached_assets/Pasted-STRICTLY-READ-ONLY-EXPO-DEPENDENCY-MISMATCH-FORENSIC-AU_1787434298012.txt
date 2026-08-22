@@ -1,0 +1,239 @@
+STRICTLY READ-ONLY EXPO DEPENDENCY MISMATCH FORENSIC AUDIT. DO NOT EDIT FILES, INSTALL/UPDATE/DOWNGRADE/REMOVE PACKAGES, RUN PREBUILD, BUILD, PUBLISH, DEPLOY, OR CHANGE ANY CONFIGURATION, SECRETS, CREDENTIALS, APPLE SETTINGS, OR EXPO LAUNCH STATE.
+
+Replit Support is still handling the Expo Launch Apple-app binding. Do not touch that.
+
+A prior read-only Expo compatibility check reported six mismatches in this Expo SDK 54 project:
+
+expo-build-properties installed 57.0.8, Expo expects ~1.0.10
+expo-device installed 57.0.1, Expo expects ~8.0.10
+expo-local-authentication installed 17.0.8, Expo expects ~17.0.9
+expo-notifications installed 57.0.8, Expo expects ~0.32.17
+expo installed 54.0.36, Expo expects ~54.0.37
+expo-constants installed 18.0.13, Expo expects ~18.0.14
+
+These findings are suspicious, especially the 57.x versions, but do not assume they should be changed yet. I want to understand exactly how they entered the project and what the intended Expo SDK 54 dependency state should be.
+
+1. Establish requested vs resolved versions
+
+For each of the six packages above, report:
+
+exact version/range declared in artifacts/fit-club-mobile/package.json
+exact version resolved in pnpm-lock.yaml
+exact installed package version in node_modules
+whether the package is a direct dependency or transitive dependency
+which workspace package/importer owns the direct declaration
+
+Present this table:
+
+Package | package.json range | lockfile version | installed version | direct/transitive | owning workspace
+
+Do not modify anything.
+
+2. Trace when/how the mismatched versions entered the repo
+
+Use only read-only Git/history inspection.
+
+For each mismatched package, determine:
+
+when its current package.json declaration first appeared
+the commit that introduced or last changed that declaration
+whether the lockfile version changed in the same commit
+whether the change was part of:
+Expo SDK upgrade
+Replit-generated mobile setup
+dependency repair
+unrelated package install
+Sentry/Clerk/native build troubleshooting
+unknown
+
+If commit messages or diffs provide evidence, quote/summarize them.
+
+Do not speculate beyond what Git history shows.
+
+If Git history is unavailable or shallow, say so explicitly.
+
+3. Verify whether the 57.x packages are actually Expo modules from this project
+
+For:
+
+expo-build-properties@57.0.8
+expo-device@57.0.1
+expo-notifications@57.0.8
+
+inspect their installed package.json metadata and report:
+
+package name
+version
+repository/homepage
+peer dependencies
+Expo module metadata if present
+whether they appear to be legitimate official Expo packages
+whether 57.x is an intentional versioning scheme for those packages or an anomalous resolution
+
+Do not assume the major number is wrong merely because it differs from Expo SDK 54's expected package version.
+
+4. Verify Expo's expected SDK 54 versions from authoritative local metadata
+
+Without installing anything, determine exactly where expo install --check gets the expected versions:
+
+installed Expo bundled native modules metadata
+Expo package map
+SDK manifest
+other local source
+
+Report the authoritative local source and the exact expected version for each mismatch.
+
+Confirm whether the check result is deterministic for this installed Expo SDK.
+
+5. Check for workspace/monorepo resolution contamination
+
+This is a pnpm monorepo with multiple workspace projects.
+
+Determine whether the Mobile artifact is accidentally resolving package versions from:
+
+another workspace package
+root-level dependencies
+overrides/resolutions
+pnpm catalog/config
+hoisting
+peer dependency resolution
+lockfile importer cross-contamination
+
+Inspect:
+
+root package.json
+workspace config
+pnpm-workspace.yaml
+any pnpm.overrides
+package manager settings
+lockfile importers
+
+Report whether the Mobile artifact truly owns these versions or is inheriting them indirectly.
+
+6. Check package aliasing or wrong-package-name scenarios
+
+For the strange 57.x results, verify there is no:
+
+npm alias
+workspace alias
+link:
+file:
+workspace:
+tarball
+custom registry
+forked package
+Replit package mirror anomaly
+
+Report the exact lockfile resolution source for each.
+
+7. Compare declared Expo SDK 54 compatibility
+
+For each mismatch, use authoritative Expo/local package metadata to answer:
+
+Is the installed version outside Expo SDK 54's supported/recommended range?
+Is it merely a patch/minor mismatch?
+Is it a major incompatibility?
+Could it alter native prebuild output or runtime native APIs?
+
+Use these confidence categories only:
+
+CONFIRMED SDK MISMATCH
+Expo's authoritative package map expects a different version.
+
+LIKELY HARMLESS PATCH MISMATCH
+Small patch difference with no known relevant behavior change.
+
+POTENTIALLY MATERIAL NATIVE MISMATCH
+The version gap may change generated native code, native APIs, config plugin behavior, or runtime behavior.
+
+UNKNOWN
+Insufficient evidence.
+
+Do not say "causes the crash."
+
+8. Check whether current Expo Launch/Replit builds actually use these installed versions
+
+Read-only only.
+
+Determine whether the Replit build path runs a fresh:
+
+pnpm install
+lockfile-based install
+Expo prebuild
+
+and whether the published/native build therefore uses the exact versions currently resolved in pnpm-lock.yaml.
+
+If build logs are available, identify the evidence.
+
+If the managed Expo Launch native build behavior cannot be verified, state that clearly.
+
+9. Determine the safest Expo-supported reconciliation — but DO NOT perform it
+
+Based only on authoritative Expo guidance and the project's current SDK 54 state, describe what the supported correction would be if we later choose to align dependencies.
+
+Examples may include:
+
+expo install <package>
+expo install --fix
+explicit version pinning
+
+But do not execute any command.
+
+For each mismatch, report the exact target version/range Expo would recommend.
+
+Also state whether all six should be changed together as one SDK-alignment operation or whether some should remain untouched.
+
+10. Crash relevance assessment
+
+Compare the mismatches against the actual TestFlight crash:
+
+iOS 26
+RN 0.81.5
+Expo SDK 54
+New Architecture
+EXC_CRASH (SIGABRT)
+objc_exception_rethrow
+ObjCTurboModule::performVoidMethodInvocation
+
+For each mismatched package, report:
+
+Direct crash evidence | Indirect plausibility | No known connection
+
+Do not elevate a package merely because its version is wrong.
+
+In particular:
+
+the exact expo-notifications setNotificationHandler(...) path was already disabled in a TestFlight A/B and the crash persisted;
+do not claim that this eliminates the entire notifications package;
+do not claim any mismatch is the root cause without direct evidence.
+11. Final report
+
+Finish with:
+
+A. Root provenance table
+
+Package | Why current version is installed | Commit/history evidence | Expo expected version
+
+B. Risk table
+
+Package | Mismatch severity | Native/prebuild impact | Crash relevance
+
+C. Answers
+Are the 57.x versions legitimate official packages or evidence of a bad resolution?
+Did these mismatches come from a deliberate dependency change, accidental install, or unresolved history?
+Is the Mobile workspace resolving exactly what its own package.json asks for?
+Which mismatches should eventually be corrected for SDK hygiene even if unrelated to the crash?
+Is there enough evidence to justify correcting them before the next TestFlight build once Support fixes the Apple binding?
+What is the single safest future reconciliation plan, described only?
+
+Do not modify anything.
+
+Do not install anything.
+
+Do not update the lockfile.
+
+Do not run prebuild.
+
+Do not build or publish.
+
+Stop after the report.
