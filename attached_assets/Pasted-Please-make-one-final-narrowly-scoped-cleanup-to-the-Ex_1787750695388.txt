@@ -1,0 +1,70 @@
+Please make one final, narrowly scoped cleanup to the Expo SDK 54 dependency alignment we just completed.
+
+Make exactly these four changes and nothing else:
+
+In artifacts/fit-club-mobile/package.json, change:
+
+expo-build-properties: ^1.0.10 → ~1.0.10
+
+Change:
+
+expo-device: ^8.0.10 → ~8.0.10
+
+Change:
+
+expo-notifications: ^0.32.17 → ~0.32.17
+
+In artifacts/fit-club-mobile/app.json, remove only the unsupported expo-notifications plugin option:
+
+"iosDisplayInForeground": true
+
+Leave the expo-notifications plugin itself and every other option exactly as they are.
+
+The expected remaining notification plugin configuration should retain the existing:
+
+icon
+color
+sounds
+mode: "production"
+
+Do not make any other dependency or configuration changes.
+
+In particular:
+
+Do NOT update expo from 54.0.36.
+Do NOT update expo-constants.
+Do NOT update expo-local-authentication.
+Do NOT change React Native or Expo Router.
+Do NOT change Sentry.
+Do NOT change Clerk.
+Do NOT change notification runtime code, including Notifications.setNotificationHandler(...).
+Do NOT change NativeTabs/ClassicTabs.
+Do NOT change KeyboardProvider.
+Do NOT modify API or booking code.
+Do NOT change bundle identifiers.
+Do NOT change Apple credentials, provisioning, App Store Connect configuration, or Expo Launch binding.
+Do NOT run expo prebuild.
+Do NOT create or modify ios/ or android/.
+Do NOT run CocoaPods / pod install.
+Do NOT run EAS Build or Expo Launch.
+Do NOT publish, republish, submit, or create a TestFlight build.
+
+After making those four changes:
+
+Update the lockfile only if required to keep it consistent with package.json. Do not upgrade packages beyond the currently installed versions.
+Confirm the installed versions remain exactly:
+expo-build-properties 1.0.10
+expo-device 8.0.10
+expo-notifications 0.32.17
+Run the mobile TypeScript typecheck.
+Run the same existing focused Mobile tests used in the previous verification.
+Run the Expo dependency compatibility check again.
+Confirm the expo-notifications@0.32.17 plugin configuration contains no unsupported options after removal of iosDisplayInForeground.
+Run git diff --check.
+Show me the complete git diff and list every changed file.
+
+If the existing two membership tests still fail solely because of the previously identified unresolved generated API-client import, report that fact but do not attempt to fix it.
+
+If anything unexpected would require changing another package, configuration option, source file, or native project, stop and report it instead of making the change.
+
+Stop after verification. Do not build or publish anything.

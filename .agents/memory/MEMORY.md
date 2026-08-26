@@ -21,3 +21,4 @@
 - [Clerk iOS native autolinking](clerk-ios-native-autolinking.md) — JS-only Clerk flows can exclude @clerk/expo from iOS native autolinking while preserving Android native modules.
 - [Sentry CLI with pnpm](sentry-cli-pnpm.md) — Sentry’s iOS debug-symbol phase needs @sentry/cli directly visible at the Mobile app root under pnpm.
 - [Sentry EAS upload policy](sentry-eas-upload-policy.md) — production archives skip unauthenticated build-time uploads while preserving runtime Sentry reporting.
+- [Expo pnpm range normalization](expo-pnpm-range-normalization.md) — Expo’s pnpm installer may persist caret ranges even when it selects tilde-compatible SDK targets.

@@ -58,7 +58,6 @@
           "icon": "./assets/images/icon.png",
           "color": "#C8FA5F",
           "sounds": [],
-          "iosDisplayInForeground": true,
           "mode": "production"
         }
       ],
