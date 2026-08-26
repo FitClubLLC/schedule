@@ -1,0 +1,53 @@
+We have identified three confirmed Expo package-version mismatches in artifacts/fit-club-mobile, which is an Expo SDK 54 / React Native 0.81 app:
+
+expo-build-properties is currently 57.0.8; SDK 54 expects the SDK-compatible 1.x version.
+expo-device is currently 57.0.1; SDK 54 expects the SDK-compatible 8.x version.
+expo-notifications is currently 57.0.8; SDK 54 expects the SDK-compatible 0.32.x version.
+
+I want to correct only these three dependency mismatches and nothing else.
+
+Before making any changes:
+
+Confirm the currently installed Expo SDK version and React Native version from the actual mobile project.
+Run Expo's dependency compatibility check/read-only tooling and report what versions Expo SDK 54 itself recommends for these three packages.
+Confirm whether any additional dependency mismatches are reported. Do not fix any additional packages without my approval.
+Show me the current package.json entries for these three packages.
+
+If those checks confirm the three mismatches, use Expo's SDK-aware installer to align only:
+
+expo-build-properties
+expo-device
+expo-notifications
+
+Do not manually guess or type version numbers into package.json if Expo's installer can select the SDK-compatible versions.
+
+Afterward:
+
+Show the exact before/after versions.
+Show the complete git diff.
+Tell me every file changed.
+Run the mobile TypeScript typecheck.
+Run the existing focused mobile tests.
+Run Expo's dependency compatibility check again and report the result.
+Verify that the existing expo-notifications plugin configuration in app.json is still structurally valid for the installed SDK 54 version. Do not alter that configuration unless there is a demonstrated incompatibility; report it first.
+Verify that the existing expo-build-properties configuration uses options supported by the SDK 54 version. Again, report any incompatibility rather than changing configuration beyond the package-version alignment.
+
+Important restrictions:
+
+Do NOT run expo prebuild.
+Do NOT create or modify ios/ or android/.
+Do NOT run CocoaPods / pod install.
+Do NOT run an EAS build.
+Do NOT run Expo Launch.
+Do NOT publish, republish, submit, or create a TestFlight build.
+Do NOT modify Apple credentials, bundle IDs, provisioning, App Store Connect settings, or Expo Launch bindings.
+Do NOT modify Sentry.
+Do NOT modify Clerk.
+Do NOT modify API configuration.
+Do NOT change KeyboardProvider, NativeTabs/ClassicTabs, notification runtime code, or any previous crash-diagnostic code.
+Do NOT upgrade Expo SDK, React Native, Expo Router, or any other dependency.
+Do NOT delete either App Store Connect app.
+
+This is strictly a three-package SDK-54 dependency-alignment task plus local verification.
+
+Stop when the diff and verification results are ready. Do not build or publish anything.
