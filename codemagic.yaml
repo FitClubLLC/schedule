@@ -30,23 +30,19 @@ workflows:
         script: |
           cd $CM_BUILD_DIR/artifacts/fit-club-mobile/ios
           pod install --repo-update
-      - name: Build iOS
+      - name: Inspect generated iOS schemes
         script: |
           set -o pipefail
           cd $CM_BUILD_DIR/artifacts/fit-club-mobile/ios
-          xcode-project use-profiles
-          mkdir -p $CM_BUILD_DIR/build
-          xcodebuild \
-            -workspace fitclub15.xcworkspace \
-            -scheme fitclub15 \
-            -configuration Release \
-            -archivePath $CM_BUILD_DIR/build/app.xcarchive \
-            archive 2>&1 | tee $CM_BUILD_DIR/build/xcodebuild-archive.log
-          xcodebuild \
-            -exportArchive \
-            -archivePath $CM_BUILD_DIR/build/app.xcarchive \
-            -exportPath $CM_BUILD_DIR/build/ \
-            -exportOptionsPlist $CM_EXPORT_OPTIONS_PATH 2>&1 | tee $CM_BUILD_DIR/build/xcodebuild-export.log
+          echo "Generated workspaces:"
+          find . -maxdepth 1 -name '*.xcworkspace' -print
+          echo "Generated projects:"
+          find . -maxdepth 1 -name '*.xcodeproj' -print
+          for workspace in ./*.xcworkspace; do
+            [ -e "$workspace" ] || continue
+            echo "=== xcodebuild -list for $workspace ==="
+            xcodebuild -list -workspace "$workspace"
+          done
     artifacts:
       - build/**/*.ipa
       - build/**/*.xcarchive
