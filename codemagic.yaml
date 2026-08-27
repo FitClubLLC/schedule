@@ -13,8 +13,9 @@ workflows:
         bundle_identifier: com.fitclub15.app
       node: latest
     scripts:
-      - name: Verify pnpm
+      - name: Enable pnpm
         script: |
+          corepack enable
           pnpm --version
       - name: Install dependencies
         script: |
