@@ -13,8 +13,9 @@ workflows:
         bundle_identifier: com.fitclub15.app
       node: latest
     scripts:
-      - name: Install pnpm
-        script: npm install -g pnpm
+      - name: Verify pnpm
+        script: |
+          pnpm --version
       - name: Install dependencies
         script: |
           cd $CM_BUILD_DIR
