@@ -37,7 +37,7 @@ workflows:
           xcode-project use-profiles
           xcode-project build-ipa --workspace FITCLUB15.xcworkspace --scheme FITCLUB15
     artifacts:
-      - artifacts/fit-club-mobile/ios/build/ios/ipa/*.ipa
+      - $CM_BUILD_DIR/artifacts/fit-club-mobile/ios/build/ios/ipa/*.ipa
       - build/**/*.xcarchive
       - build/**/*.dSYM
       - build/**/*.dSYM.zip
