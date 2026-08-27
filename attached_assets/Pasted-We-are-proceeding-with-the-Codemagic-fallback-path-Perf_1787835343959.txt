@@ -1,0 +1,104 @@
+We are proceeding with the Codemagic fallback path.
+
+Perform ONE CONTROLLED CONFIGURATION PREPARATION PASS ONLY for the existing ios-release Codemagic workflow.
+
+Do not run Codemagic. Do not build the iOS app. Do not run expo prebuild, CocoaPods, Xcode, EAS, Expo Launch, or any publishing operation. Do not authenticate to Apple or Codemagic. Do not commit, push, pull, or fetch Git.
+
+We are preparing the workflow so that our first Codemagic run is diagnostic/build-only and CANNOT automatically submit to TestFlight.
+
+Before editing anything, inspect the current files again and confirm the expected starting state.
+
+Then make only the following narrowly scoped changes to codemagic.yaml:
+
+1. Disable automatic TestFlight submission
+
+The first Codemagic build must NOT submit anything to App Store Connect/TestFlight.
+
+Remove or disable the existing automatic publishing behavior containing:
+
+submit_to_testflight: true
+
+The resulting diagnostic workflow must build/export artifacts only.
+
+Do not replace it with another publishing mechanism.
+
+2. Correct the CocoaPods/prebuild sequence
+
+The current workflow runs:
+
+npx expo prebuild --platform ios --clean --no-install
+
+and then expects fitclub15.xcworkspace, without explicitly installing Pods.
+
+Modify the workflow so a clean Codemagic machine deterministically installs the iOS CocoaPods dependencies after prebuild and before xcode-project use-profiles / xcodebuild.
+
+Use the appropriate CocoaPods installation procedure for the generated Expo SDK 54 iOS project.
+
+Do not run the command locally. We are editing the Codemagic workflow only.
+
+3. Preserve diagnostic artifacts
+
+Configure Codemagic artifacts so the first build retains, where generated:
+
+exported .ipa
+build/app.xcarchive
+all .dSYM bundles associated with that archive
+dependable Xcode build/archive/export logs
+
+Do not enable Sentry upload or any other external diagnostic upload.
+
+4. Make the DEVELOPMENT_TEAM handling safe
+
+Review the existing command that derives DEVELOPMENT_TEAM from CM_CERTIFICATE.
+
+If the current command can silently produce an empty team identifier and pass that into xcodebuild, change the workflow so it does NOT override Xcode/Codemagic's correctly resolved signing team with an empty value.
+
+Prefer Codemagic's supported automatic signing/profile mechanism rather than inventing or hardcoding an Apple Team ID.
+
+DO NOT change:
+
+com.fitclub15.app
+Expo SDK
+React Native
+any npm/pnpm dependency
+package.json
+pnpm-lock.yaml
+app.json
+source/runtime code
+Clerk configuration
+Sentry configuration
+Replit secrets
+Git configuration
+Apple credentials
+App Store Connect records
+Expo Launch configuration
+
+Do not touch the existing tracked .p8 file during this pass. We will handle credential remediation separately.
+
+After editing, perform static/read-only validation only:
+
+Show the complete git diff -- codemagic.yaml.
+Confirm YAML syntax is valid.
+Confirm com.fitclub15.app remains the signing bundle identifier.
+Confirm there is no active submit_to_testflight: true.
+Confirm CocoaPods installation occurs after Expo prebuild and before Xcode archive.
+Confirm the artifact definitions retain IPA, xcarchive, dSYM and Xcode logs.
+Confirm no credential/private-key value was introduced into the YAML.
+Run git diff --check.
+Report every changed file.
+
+If accomplishing any of these requirements would require changing something outside codemagic.yaml, STOP and report that requirement instead of making the additional change.
+
+Finish with:
+
+CODEMAGIC WORKFLOW PREPARATION RESULT
+
+and report:
+
+exact changes made
+complete diff
+static validation results
+anything still required in the Codemagic UI/account before the first build
+whether the workflow is now safe to run without automatically uploading to TestFlight
+
+Do not start the build. Stop and wait for approval.

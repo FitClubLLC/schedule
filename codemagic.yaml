@@ -21,27 +21,31 @@ workflows:
         script: |
           cd $CM_BUILD_DIR/artifacts/fit-club-mobile
           npx expo prebuild --platform ios --clean --no-install
-      - name: Build iOS
+      - name: Install CocoaPods dependencies
         script: |
           cd $CM_BUILD_DIR/artifacts/fit-club-mobile/ios
+          pod install --repo-update
+      - name: Build iOS
+        script: |
+          set -o pipefail
+          cd $CM_BUILD_DIR/artifacts/fit-club-mobile/ios
           xcode-project use-profiles
+          mkdir -p $CM_BUILD_DIR/build
           xcodebuild \
             -workspace fitclub15.xcworkspace \
             -scheme fitclub15 \
             -configuration Release \
             -archivePath $CM_BUILD_DIR/build/app.xcarchive \
-            archive \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=$(echo $CM_CERTIFICATE | openssl x509 -noout -subject 2>/dev/null | grep -o 'OU=[^/]*' | cut -d= -f2 || echo "")
+            archive 2>&1 | tee $CM_BUILD_DIR/build/xcodebuild-archive.log
           xcodebuild \
             -exportArchive \
             -archivePath $CM_BUILD_DIR/build/app.xcarchive \
             -exportPath $CM_BUILD_DIR/build/ \
-            -exportOptionsPlist $CM_EXPORT_OPTIONS_PATH
+            -exportOptionsPlist $CM_EXPORT_OPTIONS_PATH 2>&1 | tee $CM_BUILD_DIR/build/xcodebuild-export.log
     artifacts:
       - build/**/*.ipa
+      - build/**/*.xcarchive
+      - build/**/*.dSYM
+      - build/**/*.dSYM.zip
+      - build/xcodebuild-*.log
       - /tmp/xcodebuild_logs/*.log
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
