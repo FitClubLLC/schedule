@@ -8,6 +8,8 @@ workflows:
     environment:
       groups:
         - fitclub_production
+      vars:
+        APP_STORE_APPLE_ID: "6798079649"
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.fitclub15.app
@@ -30,6 +32,14 @@ workflows:
         script: |
           cd $CM_BUILD_DIR/artifacts/fit-club-mobile/ios
           pod install --repo-update
+      - name: Increment iOS build number
+        script: |
+          set -euo pipefail
+          cd $CM_BUILD_DIR/artifacts/fit-club-mobile/ios
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number --platform IOS "$APP_STORE_APPLE_ID")
+          NEXT_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
+          echo "Using iOS build number: $NEXT_BUILD_NUMBER"
+          agvtool new-version -all "$NEXT_BUILD_NUMBER"
       - name: Build iOS
         script: |
           set -o pipefail
@@ -43,3 +53,7 @@ workflows:
       - build/**/*.dSYM.zip
       - build/xcodebuild-*.log
       - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
