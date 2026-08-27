@@ -15,6 +15,7 @@ workflows:
     scripts:
       - name: Enable pnpm
         script: |
+          cd $CM_BUILD_DIR
           corepack enable
           pnpm --version
       - name: Install dependencies
