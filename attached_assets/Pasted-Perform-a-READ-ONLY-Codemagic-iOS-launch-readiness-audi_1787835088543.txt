@@ -1,0 +1,162 @@
+Perform a READ-ONLY Codemagic iOS launch-readiness audit for the Fit Club mobile app.
+
+DO NOT modify any file, dependency, lockfile, secret, Git configuration, Apple configuration, App Store Connect record, Replit setting, Expo configuration, native project, or workflow.
+
+DO NOT run expo prebuild, pod install, xcodebuild, EAS Build, Expo Launch, Codemagic, or any other native build/publishing operation.
+
+DO NOT commit, push, pull, fetch, or modify Git.
+
+DO NOT display, read back, copy, or expose any secret/private credential values.
+
+We are evaluating Codemagic as an independent iOS build/submission path because Replit Expo Launch is currently bound to the wrong App Store Connect record and Replit Support has not yet reset that binding.
+
+The intended production Apple identity is:
+
+App Store Connect app: Fit Club 15
+Apple ID: 6798079649
+iOS bundle identifier: com.fitclub15.app
+Repository: FitClubLLC/schedule
+
+The incorrect Replit Expo Launch record is:
+
+FIT CLUB -- (2aae31)
+bundle identifier app.replit.fitclub15
+
+Do not alter or delete either App Store Connect record.
+
+We already completed a dependency cleanup. Treat the repository's current state as authoritative. In particular, do not attempt additional Expo dependency alignment during this audit.
+
+Please inspect the existing root codemagic.yaml, artifacts/fit-club-mobile/app.json, artifacts/fit-club-mobile/package.json, workspace package/lock configuration, and any other non-secret configuration files necessary to evaluate the workflow.
+
+Also check only the names/presence, never values, of environment variables or credentials that the existing Codemagic workflow would require.
+
+Produce a report covering:
+
+1. Existing Codemagic workflow
+
+Give the exact workflow name(s) defined in codemagic.yaml.
+Explain every build step in execution order.
+Identify the working directory used for the mobile project.
+Confirm whether it performs expo prebuild, CocoaPods installation, code-signing setup, archive/IPA creation, artifact collection, and App Store Connect/TestFlight publishing.
+Identify any obsolete or questionable commands/options for the project's current Expo SDK 54 / React Native 0.81 configuration.
+
+2. Apple identity
+
+Verify from repository configuration that the proposed Codemagic build would target:
+
+com.fitclub15.app
+
+and NOT:
+
+app.replit.fitclub15
+
+Search the workflow and relevant source/configuration for both identifiers and report every relevant occurrence.
+
+Confirm whether codemagic.yaml explicitly targets Apple ID 6798079649. If it does not, report exactly what currently determines the destination App Store Connect app.
+
+3. App Store Connect integration
+
+Inspect the workflow's reference to the App Store Connect integration, including any integration named Fit Club ASC.
+
+Do not attempt to authenticate.
+
+Report:
+
+the integration name expected by the YAML;
+whether that integration exists in repository configuration or is expected to exist only in the Codemagic account;
+what non-secret metadata Codemagic will require (for example Key ID and Issuer ID);
+whether the existing .p8 App Store Connect API key asset appears intended for this integration;
+whether anything in the repository incorrectly embeds an Apple private key or credential.
+
+Do not print any private-key contents.
+
+4. iOS signing
+
+Determine exactly how the existing workflow expects to obtain:
+
+Apple Distribution certificate;
+certificate private key;
+provisioning profile for com.fitclub15.app;
+Apple Developer Team;
+App Store Connect authentication.
+
+Distinguish clearly between things Codemagic can obtain automatically from its Developer Portal/App Store Connect integration and things I would have to configure manually.
+
+Do not create, revoke, download, upload, or modify any certificate/profile/key.
+
+5. Environment variables
+
+Produce a table of every environment variable referenced by the iOS workflow with:
+
+Variable name | Purpose | Secret? | Present in Replit? | Must be configured in Codemagic? | Required before first build?
+
+Presence checks only. Never display values.
+
+Pay particular attention to runtime variables needed by the Expo mobile app, including Clerk/Sentry-related configuration, versus variables needed only for Apple signing/publishing.
+
+6. Monorepo/workspace compatibility
+
+Confirm that the workflow correctly installs this pnpm workspace and builds artifacts/fit-club-mobile, rather than assuming the mobile project is at repository root.
+
+Check whether workspace-generated packages/API clients required by Mobile will exist on a clean Codemagic clone.
+
+Specifically account for the existing focused-test issue where two membership tests cannot resolve:
+
+lib/api-client-react/src/generated/api
+
+Determine whether that same missing/generated-client condition could cause the native Codemagic build itself to fail.
+
+Do not fix it.
+
+7. Expo prebuild risk
+
+Because the repository does not rely on a committed native iOS project as the production source of truth, explain exactly what expo prebuild --platform ios --clean would generate on a clean Codemagic machine using the current app.json.
+
+Verify whether the generated native project should inherit ios.bundleIdentifier = com.fitclub15.app.
+
+Identify any config plugin or dependency that could alter that identifier or signing configuration.
+
+Do not run prebuild.
+
+8. Crash-diagnostic readiness
+
+Determine whether the existing Codemagic workflow preserves:
+
+.ipa
+.xcarchive, if applicable
+.dSYM
+Xcode build logs
+
+Report what artifacts we would have available for diagnosing the existing TestFlight startup crash.
+
+Do not enable or change Sentry.
+
+9. GitHub dependency
+
+Determine whether Codemagic would clone FitClubLLC/schedule using its own GitHub integration or whether it would somehow depend on the expiring classic PAT currently embedded in this Replit checkout.
+
+Do not inspect or expose the PAT.
+
+Explain whether moving iOS builds to Codemagic would allow the Replit Git PAT cleanup to remain a separate task.
+
+10. Final readiness verdict
+
+Finish with exactly three sections:
+
+READY NOW
+
+Items already correctly configured.
+
+REQUIRED BEFORE FIRST CODEMAGIC BUILD
+
+Only items that genuinely must be completed before we can safely initiate the first iOS build.
+
+OPTIONAL / NOT BLOCKING
+
+Cleanup or improvements that should not prevent the first controlled build.
+
+Then give a numbered proposed first-build procedure, but DO NOT execute any part of it.
+
+The goal of the first Codemagic build will initially be to produce a correctly signed binary for com.fitclub15.app and retain diagnostic artifacts. Do not assume we should automatically publish it to TestFlight until we separately approve that step.
+
+Stop after the report and wait for approval.
