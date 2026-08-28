@@ -438,7 +438,7 @@ export default function SelectDateTime() {
       </div>
 
       {/* ── Sticky mobile CTA ────────────────────────────────── */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-border px-4 py-4 z-50 safe-area-bottom">
+      <div className="lg:hidden fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-border px-4 py-4 z-50">
         <Button
           className="w-full gap-2 font-bold text-sm"
           disabled={!selectedDatetime}
