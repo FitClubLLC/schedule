@@ -1,5 +1,13 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from '@clerk/react';
+import {
+  ClerkProvider,
+  SignIn,
+  SignUp,
+  Show,
+  useAuth,
+  useClerk,
+  useUser,
+} from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from 'wouter';
@@ -133,6 +141,38 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+function InvitedMemberNameRepair() {
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  const { isLoaded: userLoaded, user } = useUser();
+  const attemptedUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!authLoaded || !userLoaded || !isSignedIn || !user) return;
+    if (attemptedUserIdRef.current === user.id) return;
+    attemptedUserIdRef.current = user.id;
+
+    void (async () => {
+      try {
+        const response = await fetch(`${basePath}/api/user/name-repair`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!response.ok) {
+          console.warn("[name-repair] portal request failed");
+          return;
+        }
+        const result = await response.json().catch(() => ({}));
+        if (result.repaired) await user.reload();
+      } catch {
+        console.warn("[name-repair] portal request failed");
+      }
+    })();
+  }, [authLoaded, isSignedIn, userLoaded, user]);
+
+  return null;
+}
+
 /**
  * A catalog link opens Acuity in a separate tab. Once this tab regains focus,
  * refresh the existing package query a bounded number of times to account for
@@ -226,6 +266,7 @@ function ClerkProviderWithRoutes() {
     >
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
+        <InvitedMemberNameRepair />
         <MembershipCatalogReturnRefresh />
         <Switch>
           <Route path="/" component={HomeRedirect} />

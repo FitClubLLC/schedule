@@ -113,6 +113,7 @@ export default function AdminPage() {
                   <Label htmlFor="firstName">First name</Label>
                   <Input
                     id="firstName"
+                    required
                     placeholder="Jane"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
@@ -122,6 +123,7 @@ export default function AdminPage() {
                   <Label htmlFor="lastName">Last name</Label>
                   <Input
                     id="lastName"
+                    required
                     placeholder="Smith"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
@@ -160,7 +162,12 @@ export default function AdminPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={inviteMutation.isPending || !email}
+                disabled={
+                  inviteMutation.isPending ||
+                  !email ||
+                  !firstName.trim() ||
+                  !lastName.trim()
+                }
               >
                 {inviteMutation.isPending ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

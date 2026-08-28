@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { Platform, AppState, ActivityIndicator, View, StyleSheet } from 'react-native';
 import * as Sentry from '@sentry/react-native';
 
@@ -32,7 +32,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { ClerkProvider, useAuth } from '@clerk/expo';
+import { ClerkProvider, useAuth, useUser } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import Constants from 'expo-constants';
 
@@ -85,8 +85,10 @@ setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
  */
 function RootLayoutNav() {
   const { isSignedIn, isLoaded, getToken } = useAuth();
+  const { user } = useUser();
   const segments = useSegments();
   const router = useRouter();
+  const nameRepairAttemptedUserIdRef = useRef<string | null>(null);
 
   // Register Clerk JWT getter with the API client.
   // Must be declared before any conditional return (Rules of Hooks).
@@ -150,6 +152,36 @@ function RootLayoutNav() {
       router.replace('/(auth)/sign-in');
     }
   }, [isSignedIn, isLoaded, segments]);
+
+  // Repair invited users whose staff-entered names only exist in public metadata.
+  // The server operation is fill-only and safe to call once per authenticated user.
+  useEffect(() => {
+    if (!isLoaded || isSignedIn !== true || !user) return;
+    if (nameRepairAttemptedUserIdRef.current === user.id) return;
+    nameRepairAttemptedUserIdRef.current = user.id;
+
+    void (async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const response = await fetch(`https://${process.env.EXPO_PUBLIC_DOMAIN}/api/user/name-repair`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) {
+          console.warn('[name-repair] mobile request failed');
+          return;
+        }
+        const result = await response.json().catch(() => ({}));
+        if (result.repaired) await user.reload();
+      } catch {
+        console.warn('[name-repair] mobile request failed');
+      }
+    })();
+  }, [getToken, isLoaded, isSignedIn, user]);
 
   // All hooks declared — safe to gate rendering on Clerk being ready.
   // useAuth().isLoaded is the Expo-safe flag; ClerkLoaded/ClerkLoading are

@@ -75,6 +75,12 @@ router.post(
       res.status(400).json({ error: "email is required" });
       return;
     }
+    const trimmedFirstName = typeof firstName === "string" ? firstName.trim() : "";
+    const trimmedLastName = typeof lastName === "string" ? lastName.trim() : "";
+    if (!trimmedFirstName || !trimmedLastName) {
+      res.status(400).json({ error: "firstName and lastName are required." });
+      return;
+    }
 
     // Build redirect URL to portal sign-up
     const origin = `${req.protocol}://${req.get("host")}`;
@@ -85,8 +91,8 @@ router.post(
         emailAddress: email.trim().toLowerCase(),
         redirectUrl,
         publicMetadata: {
-          ...(firstName ? { firstName } : {}),
-          ...(lastName ? { lastName } : {}),
+          firstName: trimmedFirstName,
+          lastName: trimmedLastName,
         },
         notify: true,
         ignoreExisting: false,
