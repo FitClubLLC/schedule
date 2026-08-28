@@ -208,6 +208,7 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const proxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
   if (!publishableKey) {
     throw new Error('Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY environment variable');
   }
@@ -215,7 +216,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+        <ClerkProvider
+          publishableKey={publishableKey}
+          tokenCache={tokenCache}
+          proxyUrl={proxyUrl}
+        >
           <QueryClientProvider client={queryClient}>
             <GestureHandlerRootView style={{ flex: 1 }}>
               <KeyboardProvider>
