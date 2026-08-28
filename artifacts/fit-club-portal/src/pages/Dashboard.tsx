@@ -67,7 +67,7 @@ export default function Dashboard() {
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Here's what's happening with your fitness schedule.</p>
-          <div className="flex items-center gap-3 mt-4">
+          <div className="flex flex-wrap items-center gap-3 mt-4">
             <Link href="/book">
               <Button size="lg" className="shadow-md">
                 Book a Session
