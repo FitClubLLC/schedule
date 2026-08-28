@@ -88,6 +88,50 @@ router.get(
   },
 );
 
+// POST /admin/invitations/pending/cancel — revoke one pending Clerk invitation
+router.post(
+  "/admin/invitations/pending/cancel",
+  requireAuth,
+  requireAdmin,
+  async (req: any, res): Promise<void> => {
+    const requestedEmail =
+      typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    if (!requestedEmail) {
+      res.status(400).json({ error: "email is required" });
+      return;
+    }
+
+    try {
+      const response = await clerkClient.invitations.getInvitationList({
+        status: "pending",
+        orderBy: "-created_at",
+        limit: 500,
+      });
+      const matches = response.data.filter(
+        (invitation) => invitation.emailAddress.trim().toLowerCase() === requestedEmail,
+      );
+
+      if (matches.length === 0) {
+        res.status(404).json({ error: "Pending invitation not found" });
+        return;
+      }
+      if (matches.length > 1) {
+        res.status(409).json({ error: "Multiple pending invitations match this email" });
+        return;
+      }
+
+      await clerkClient.invitations.revokeInvitation(matches[0].id);
+      res.json({ success: true });
+    } catch (err: any) {
+      if (err?.status === 404 || err?.statusCode === 404) {
+        res.status(404).json({ error: "Pending invitation not found" });
+        return;
+      }
+      res.status(500).json({ error: "Failed to cancel invitation" });
+    }
+  },
+);
+
 // POST /admin/invite — send a Clerk invitation email
 router.post(
   "/admin/invite",

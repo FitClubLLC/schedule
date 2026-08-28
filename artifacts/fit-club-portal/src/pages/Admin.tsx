@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { UserPlus, Trash2, Mail, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { UserPlus, Trash2, Mail, Loader2, CheckCircle, AlertCircle, XCircle } from "lucide-react";
 import { isConfiguredAdmin, isConfiguredAdminEmail } from "@/lib/adminAccess";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -66,6 +66,9 @@ export default function AdminPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [pendingFeedback, setPendingFeedback] = useState<
+    { type: "success" | "error"; msg: string } | null
+  >(null);
 
   const { data: members = [], isLoading: loadingMembers } = useQuery<Member[]>({
     queryKey: ["admin-members"],
@@ -96,6 +99,24 @@ export default function AdminPage() {
     },
     onError: (err: Error) => {
       setFeedback({ type: "error", msg: err.message });
+    },
+  });
+
+  const cancelInvitationMutation = useMutation({
+    mutationFn: (invitationEmail: string) =>
+      apiFetch("/admin/invitations/pending/cancel", {
+        method: "POST",
+        body: JSON.stringify({ email: invitationEmail }),
+      }),
+    onSuccess: (_data, invitationEmail) => {
+      setPendingFeedback({
+        type: "success",
+        msg: `Invitation canceled for ${invitationEmail}`,
+      });
+      qc.invalidateQueries({ queryKey: ["admin-pending-invitations"] });
+    },
+    onError: (err: Error) => {
+      setPendingFeedback({ type: "error", msg: err.message });
     },
   });
 
@@ -239,17 +260,60 @@ export default function AdminPage() {
               {pendingInvitations.map((invitation) => (
                 <div
                   key={`${invitation.email}-${invitation.createdAt}`}
-                  className="rounded-lg border border-border bg-card px-4 py-3"
+                  className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card px-4 py-3"
                 >
-                  <div className="font-semibold text-sm truncate">
-                    {invitation.email}
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate">
+                      {invitation.email}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Status: {invitation.status} · Sent{" "}
+                      {formatAdminDate(invitation.createdAt, true)}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    Status: {invitation.status} · Sent{" "}
-                    {formatAdminDate(invitation.createdAt, true)}
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    disabled={cancelInvitationMutation.isPending}
+                    onClick={() => {
+                      const confirmed = window.confirm(
+                        `Cancel the pending invitation for ${invitation.email}?\n\nThis will invalidate the invitation link.`,
+                      );
+                      if (confirmed) {
+                        setPendingFeedback(null);
+                        cancelInvitationMutation.mutate(invitation.email);
+                      }
+                    }}
+                  >
+                    {cancelInvitationMutation.isPending &&
+                    cancelInvitationMutation.variables === invitation.email ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <XCircle className="w-4 h-4 mr-2" />
+                    )}
+                    Cancel
+                  </Button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {pendingFeedback && (
+            <div
+              className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
+                pendingFeedback.type === "success"
+                  ? "bg-green-950/50 border border-green-800 text-green-300"
+                  : "bg-red-950/50 border border-red-800 text-red-300"
+              }`}
+            >
+              {pendingFeedback.type === "success" ? (
+                <CheckCircle className="w-4 h-4 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0" />
+              )}
+              {pendingFeedback.msg}
             </div>
           )}
         </div>
