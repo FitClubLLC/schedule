@@ -108,3 +108,7 @@
 .cl-formButtonPrimary:hover {
   background-color: hsl(46 63% 45%) !important;
 }
+
+.portal-error-state {
+  position: fixed;
+}
