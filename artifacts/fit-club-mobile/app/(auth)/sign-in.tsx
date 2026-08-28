@@ -175,6 +175,16 @@ export default function SignInScreen() {
       return;
     }
 
+    // Refresh the server-authoritative user before mounting the member tabs.
+    // Invitation-created users can have their Clerk name fields populated even
+    // when the pre-sign-in user resource was still blank.
+    try {
+      await clerk.user?.reload();
+    } catch {
+      // Authentication is already complete; a refresh failure should not block
+      // the member from entering the app.
+    }
+
     // Offer biometric setup if available and not yet saved.
     const [available, saved] = await Promise.all([isBiometricAvailable(), hasSavedCreds()]);
     if (available && !saved) {
@@ -357,6 +367,11 @@ export default function SignInScreen() {
         if (finalized.error) {
           setError(finalized.error.longMessage ?? finalized.error.message ?? 'Biometric sign in failed. Please use your password.');
           return;
+        }
+        try {
+          await clerk.user?.reload();
+        } catch {
+          // Authentication is already complete; continue with the signed-in app.
         }
         router.replace('/(tabs)');
       } else {

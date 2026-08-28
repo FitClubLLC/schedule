@@ -87,6 +87,14 @@ export default function ProfileScreen() {
     firstName.trim() !== (user?.firstName ?? '') ||
     lastName.trim() !== (user?.lastName ?? '');
 
+  // Clerk may resolve the user resource after this screen first mounts.
+  // Keep the editable fields aligned with the refreshed server data.
+  useEffect(() => {
+    if (!user) return;
+    setFirstName(user.firstName ?? '');
+    setLastName(user.lastName ?? '');
+  }, [user?.id, user?.firstName, user?.lastName]);
+
   // ── Preferred location ────────────────────────────────────────────────────
   const [prefLocation, setPrefLocationState] = useState<string | null>(null);
 
