@@ -33,7 +33,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ClerkProvider, useAuth } from '@clerk/expo';
-import * as SecureStore from 'expo-secure-store';
+import { tokenCache } from '@clerk/expo/token-cache';
 import Constants from 'expo-constants';
 
 /** True when running as a real device build (EAS / production). False in Expo Go. */
@@ -77,19 +77,6 @@ SplashScreen.preventAutoHideAsync();
 // Set API base URL — EXPO_PUBLIC_DOMAIN is injected by the dev script at runtime.
 setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
 
-
-// Clerk token cache using expo-secure-store for persistent sessions.
-const tokenCache = {
-  async getToken(key: string) {
-    return SecureStore.getItemAsync(key);
-  },
-  async saveToken(key: string, value: string) {
-    return SecureStore.setItemAsync(key, value);
-  },
-  async clearToken(key: string) {
-    return SecureStore.deleteItemAsync(key);
-  },
-};
 
 /**
  * Watches auth state and redirects between (auth) and (tabs) groups.
