@@ -36,10 +36,8 @@ workflows:
         script: |
           set -euo pipefail
           cd $CM_BUILD_DIR/artifacts/fit-club-mobile/ios
-          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number --platform IOS "$APP_STORE_APPLE_ID")
-          NEXT_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
-          echo "Using iOS build number: $NEXT_BUILD_NUMBER"
-          agvtool new-version -all "$NEXT_BUILD_NUMBER"
+          echo "Using Codemagic iOS build number: $BUILD_NUMBER"
+          agvtool new-version -all "$BUILD_NUMBER"
       - name: Build iOS
         script: |
           set -o pipefail
