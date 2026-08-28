@@ -64,6 +64,30 @@ router.get(
   },
 );
 
+// GET /admin/invitations/pending — list pending Clerk invitations
+router.get(
+  "/admin/invitations/pending",
+  requireAuth,
+  requireAdmin,
+  async (_req: any, res): Promise<void> => {
+    try {
+      const response = await clerkClient.invitations.getInvitationList({
+        status: "pending",
+        orderBy: "-created_at",
+        limit: 500,
+      });
+      const invitations = response.data.map((invitation) => ({
+        email: invitation.emailAddress,
+        status: invitation.status,
+        createdAt: invitation.createdAt,
+      }));
+      res.json(invitations);
+    } catch {
+      res.status(500).json({ error: "Failed to fetch pending invitations" });
+    }
+  },
+);
+
 // POST /admin/invite — send a Clerk invitation email
 router.post(
   "/admin/invite",

@@ -31,6 +31,30 @@ interface Member {
   createdAt: number;
 }
 
+interface PendingInvitation {
+  email: string;
+  status: string;
+  createdAt: number;
+}
+
+function formatAdminDate(timestamp: number, includeTime = false) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toLocaleString("en-US", includeTime
+    ? {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }
+    : {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+}
+
 export default function AdminPage() {
   const { user } = useUser();
   const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
@@ -46,6 +70,15 @@ export default function AdminPage() {
   const { data: members = [], isLoading: loadingMembers } = useQuery<Member[]>({
     queryKey: ["admin-members"],
     queryFn: () => apiFetch("/admin/members"),
+    enabled: isAdmin,
+  });
+
+  const {
+    data: pendingInvitations = [],
+    isLoading: loadingInvitations,
+  } = useQuery<PendingInvitation[]>({
+    queryKey: ["admin-pending-invitations"],
+    queryFn: () => apiFetch("/admin/invitations/pending"),
     enabled: isAdmin,
   });
 
@@ -182,6 +215,47 @@ export default function AdminPage() {
 
         <Separator />
 
+        {/* Pending invitations — read-only */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-display font-bold tracking-tight">
+            Pending Invitations{" "}
+            {!loadingInvitations && (
+              <span className="text-muted-foreground font-normal text-base">
+                ({pendingInvitations.length})
+              </span>
+            )}
+          </h2>
+
+          {loadingInvitations ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : pendingInvitations.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-4">
+              No pending invitations.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {pendingInvitations.map((invitation) => (
+                <div
+                  key={`${invitation.email}-${invitation.createdAt}`}
+                  className="rounded-lg border border-border bg-card px-4 py-3"
+                >
+                  <div className="font-semibold text-sm truncate">
+                    {invitation.email}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Status: {invitation.status} · Sent{" "}
+                    {formatAdminDate(invitation.createdAt, true)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <Separator />
+
         {/* Members list */}
         <div className="space-y-4">
           <h2 className="text-xl font-display font-bold tracking-tight">
@@ -208,11 +282,6 @@ export default function AdminPage() {
                    const isMe = m.id === user?.id;
                    const isProtectedAdmin = isConfiguredAdminEmail(m.email, adminEmail);
                   const name = [m.firstName, m.lastName].filter(Boolean).join(" ") || "—";
-                  const joined = new Date(m.createdAt).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  });
                   return (
                     <div
                       key={m.id}
@@ -228,7 +297,9 @@ export default function AdminPage() {
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground truncate">{m.email}</div>
-                        <div className="text-xs text-muted-foreground">Joined {joined}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Joined {formatAdminDate(m.createdAt)}
+                        </div>
                       </div>
                        {!isMe && !isProtectedAdmin && (
                         <Button
