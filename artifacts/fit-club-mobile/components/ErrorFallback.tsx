@@ -76,6 +76,16 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
           Please reload the app to continue.
         </Text>
 
+        {/* TEMPORARY DIAGNOSTIC: remove after capturing the TestFlight error. */}
+        {!__DEV__ ? (
+          <Text
+            style={[styles.message, { color: colors.destructive }]}
+            selectable
+          >
+            Diagnostic error: {error.message}
+          </Text>
+        ) : null}
+
         <Pressable
           onPress={handleRestart}
           style={({ pressed }) => [
