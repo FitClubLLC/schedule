@@ -4,6 +4,7 @@ import appointmentsRouter from "./appointments";
 import adminRouter from "./admin";
 import bookingRouter from "./booking";
 import userRouter from "./user";
+import deletionRequestRouter from "./deletion-requests";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(appointmentsRouter);
 router.use(adminRouter);
 router.use(bookingRouter);
 router.use(userRouter);
+router.use(deletionRequestRouter);
 
 export default router;

@@ -7,6 +7,7 @@
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
+    "test:admin-deletion": "node --experimental-strip-types --test src/lib/adminDeletionFinalization.test.mts",
     "test:studio-time": "node --experimental-strip-types --test src/lib/studioTime.test.mts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

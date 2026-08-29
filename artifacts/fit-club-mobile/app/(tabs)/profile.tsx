@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   TextInput, ActivityIndicator, Alert, Modal,
@@ -19,6 +19,7 @@ import {
 import { useGetUpcomingAppointments } from '@workspace/api-client-react';
 import { useSessionReminders } from '@/hooks/useSessionReminders';
 import { getSessionReminderStatusCopy } from '@/lib/sessionReminderPresentation';
+import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 
 // Locations match the env-var defaults used across the app
 const LOCATIONS = [
@@ -32,6 +33,23 @@ const NOTIF_OPTIONS: { value: NotifTiming; label: string; sub: string }[] = [
   { value: 'both', label: 'Both',             sub: '24-hour and 2-hour reminders' },
   { value: 'off',  label: 'Off',              sub: 'No session reminders' },
 ];
+
+type DeletionRequest = {
+  id?: string;
+  status: string;
+  requestedAt?: string;
+  updatedAt?: string;
+};
+
+type DeletionStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+function isDeletionRequest(value: unknown): value is DeletionRequest {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { status?: unknown }).status === 'string'
+  );
+}
 
 // ─── Reusable sub-components ────────────────────────────────────────────────
 
@@ -76,6 +94,8 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useUser();
   const { signOut, getToken, isSignedIn } = useAuth();
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
 
   // ── Name editing ──────────────────────────────────────────────────────────
   const [firstName, setFirstName] = useState(user?.firstName ?? '');
@@ -116,6 +136,17 @@ export default function ProfileScreen() {
   const [showNew, setShowNew] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
 
+  // ── Account deletion request ──────────────────────────────────────────────
+  const [deletionStatus, setDeletionStatus] = useState<DeletionStatus>('loading');
+  const [deletionRequest, setDeletionRequest] = useState<DeletionRequest | null>(null);
+  const [deletionStatusError, setDeletionStatusError] = useState('');
+  const [deletionSuccess, setDeletionSuccess] = useState(false);
+  const [deletionModalVisible, setDeletionModalVisible] = useState(false);
+  const [deletionStep, setDeletionStep] = useState<1 | 2>(1);
+  const [deletionConfirmation, setDeletionConfirmation] = useState('');
+  const [deletionSubmitError, setDeletionSubmitError] = useState('');
+  const [deletionSubmitting, setDeletionSubmitting] = useState(false);
+
   // ── Signing out ───────────────────────────────────────────────────────────
   const [signingOut, setSigningOut] = useState(false);
 
@@ -127,6 +158,47 @@ export default function ProfileScreen() {
     notifTimingLoaded ? notifTiming : undefined,
   );
   const reminderStatusCopy = getSessionReminderStatusCopy(reminderStatus);
+
+  // ── Account deletion request status ────────────────────────────────────────
+  // This request is deliberately independent of the rest of Profile. A
+  // temporary API failure should leave settings usable while offering retry.
+  const loadDeletionStatus = async () => {
+    if (isSignedIn !== true) {
+      setDeletionStatus('idle');
+      return;
+    }
+
+    setDeletionStatus('loading');
+    setDeletionStatusError('');
+    try {
+      const token = await getTokenRef.current();
+      if (!token) throw new Error('Not signed in.');
+
+      const response = await fetch(
+        `https://${process.env.EXPO_PUBLIC_DOMAIN}/api/user/deletion-request`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`Request failed (${response.status})`);
+      }
+
+      const body = await response.json();
+      setDeletionRequest(isDeletionRequest(body?.deletionRequest) ? body.deletionRequest : null);
+      setDeletionStatus('ready');
+    } catch {
+      setDeletionStatus('error');
+      setDeletionStatusError('We couldn’t check your request status. Please try again.');
+    }
+  };
+
+  useEffect(() => {
+    void loadDeletionStatus();
+    // The Clerk hook can replace getToken between renders. The latest getter is
+    // read through getTokenRef, so this effect must only follow auth state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn]);
 
   // ── Load preferences on mount ─────────────────────────────────────────────
   useEffect(() => {
@@ -246,6 +318,72 @@ export default function ProfileScreen() {
     }
   }, [currentPw, newPw, confirmPw, user, resetPwForm]);
 
+  const closeDeletionModal = useCallback(() => {
+    if (deletionSubmitting) return;
+    setDeletionModalVisible(false);
+    setDeletionStep(1);
+    setDeletionConfirmation('');
+    setDeletionSubmitError('');
+  }, [deletionSubmitting]);
+
+  const openDeletionModal = useCallback(() => {
+    if (deletionStatus !== 'ready' || deletionRequest) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setDeletionSuccess(false);
+    setDeletionSubmitError('');
+    setDeletionStep(1);
+    setDeletionConfirmation('');
+    setDeletionModalVisible(true);
+  }, [deletionRequest, deletionStatus]);
+
+  const handleSubmitDeletionRequest = useCallback(async () => {
+    if (deletionSubmitting || deletionConfirmation !== 'DELETE') return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setDeletionSubmitting(true);
+    setDeletionSubmitError('');
+    try {
+      const token = await getToken();
+      if (!token) throw new Error('Not signed in.');
+
+      const response = await fetch(
+        `https://${process.env.EXPO_PUBLIC_DOMAIN}/api/user/deletion-request`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ confirmation: 'DELETE' }),
+        },
+      );
+
+      const body = response.status === 200 || response.status === 201
+        ? await response.json().catch(() => ({}))
+        : {};
+      if (response.status !== 200 && response.status !== 201) {
+        throw new Error('Deletion request failed.');
+      }
+
+      // The API is idempotent: both a newly created request (201) and an
+      // existing active request (200) put the member in the same pending UI.
+      setDeletionRequest(
+        isDeletionRequest(body?.deletionRequest)
+          ? body.deletionRequest
+          : { status: 'pending' },
+      );
+      setDeletionSuccess(true);
+      setDeletionModalVisible(false);
+      setDeletionStep(1);
+      setDeletionConfirmation('');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      setDeletionSubmitError("We couldn't submit your deletion request. Please try again.");
+    } finally {
+      setDeletionSubmitting(false);
+    }
+  }, [deletionConfirmation, deletionSubmitting, getToken]);
+
   // ── Sign out ──────────────────────────────────────────────────────────────
   const handleSignOut = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -350,11 +488,192 @@ export default function ProfileScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Account deletion request modal */}
+      <Modal
+        visible={deletionModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={closeDeletionModal}
+        onDismiss={() => {
+          if (!deletionSubmitting) {
+            setDeletionStep(1);
+            setDeletionConfirmation('');
+            setDeletionSubmitError('');
+          }
+        }}
+      >
+        <View style={[styles.deletionModalWrap, { backgroundColor: colors.background }]}>
+          <View
+            style={[
+              styles.modalHeader,
+              styles.deletionModalHeader,
+              { borderBottomColor: colors.border, paddingTop: insets.top + 16 },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+              {deletionStep === 1 ? 'ACCOUNT DELETION' : 'CONFIRM REQUEST'}
+            </Text>
+            <TouchableOpacity
+              onPress={closeDeletionModal}
+              disabled={deletionSubmitting}
+              hitSlop={12}
+              testID="deletion-modal-close"
+              accessibilityRole="button"
+              accessibilityLabel="Cancel account deletion request"
+            >
+              <SvgIcon name="x" size={22} color={deletionSubmitting ? colors.muted : colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
+
+          <KeyboardAwareScrollViewCompat
+            contentContainerStyle={[
+              styles.deletionModalContent,
+              { paddingBottom: insets.bottom + 28 },
+            ]}
+            bottomOffset={36}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={[styles.deletionModalIcon, { backgroundColor: colors.destructive + '18' }]}>
+              <SvgIcon name="trash-2" size={25} color={colors.destructive} />
+            </View>
+            {deletionStep === 1 ? (
+              <>
+                <Text style={[styles.deletionModalHeading, { color: colors.foreground }]}>
+                  Request account deletion
+                </Text>
+                <View style={styles.deletionCopyStack}>
+                  <Text style={[styles.deletionModalBody, { color: colors.mutedForeground }]}>
+                    You can request deletion of your FIT CLUB 15 account and associated personal information.
+                  </Text>
+                  <Text style={[styles.deletionModalBody, { color: colors.mutedForeground }]}>
+                    Your account will not be deleted immediately. Fit Club must review and reconcile information held in our account and scheduling systems before completing the request.
+                  </Text>
+                  <Text style={[styles.deletionModalBody, { color: colors.mutedForeground }]}>
+                    Some records may be retained where required or permitted by law or for legitimate business obligations.
+                  </Text>
+                  <Text style={[styles.deletionModalBody, { color: colors.mutedForeground }]}>
+                    Deletion may take time to complete. We will send you confirmation when the process is complete.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.deletionPrimaryBtn, { backgroundColor: colors.destructive }]}
+                  onPress={() => setDeletionStep(2)}
+                  activeOpacity={0.8}
+                  testID="deletion-continue"
+                  accessibilityRole="button"
+                  accessibilityLabel="Continue to confirm account deletion request"
+                >
+                  <Text style={[styles.deletionPrimaryBtnText, { color: colors.destructiveForeground }]}>
+                    CONTINUE
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.deletionCancelBtn}
+                  onPress={closeDeletionModal}
+                  disabled={deletionSubmitting}
+                  activeOpacity={0.7}
+                  testID="deletion-cancel"
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel account deletion request"
+                >
+                  <Text style={[styles.deletionCancelBtnText, { color: colors.mutedForeground }]}>
+                    CANCEL
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.deletionModalHeading, { color: colors.foreground }]}>
+                  TYPE DELETE TO CONFIRM
+                </Text>
+                <Text style={[styles.deletionModalBody, { color: colors.mutedForeground }]}>
+                  To submit your account deletion request, type DELETE exactly as shown below.
+                </Text>
+                <TextInput
+                  style={[
+                    styles.deletionInput,
+                    {
+                      color: colors.foreground,
+                      backgroundColor: colors.input,
+                      borderColor: deletionConfirmation === 'DELETE' ? colors.destructive : colors.border,
+                    },
+                  ]}
+                  value={deletionConfirmation}
+                  onChangeText={setDeletionConfirmation}
+                  placeholder="DELETE"
+                  placeholderTextColor={colors.mutedForeground}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  spellCheck={false}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleSubmitDeletionRequest}
+                  editable={!deletionSubmitting}
+                  accessibilityLabel="Type DELETE to confirm account deletion request"
+                  testID="deletion-confirmation-input"
+                />
+                {deletionSubmitError ? (
+                  <View style={[styles.deletionErrorBox, { backgroundColor: colors.destructive + '12' }]}>
+                    <SvgIcon name="alert-circle" size={17} color={colors.destructive} />
+                    <Text style={[styles.deletionErrorText, { color: colors.destructive }]}>
+                      {deletionSubmitError}
+                    </Text>
+                  </View>
+                ) : null}
+                <TouchableOpacity
+                  style={[
+                    styles.deletionPrimaryBtn,
+                    { backgroundColor: colors.destructive },
+                    (deletionSubmitting || deletionConfirmation !== 'DELETE') && styles.disabledBtn,
+                  ]}
+                  onPress={handleSubmitDeletionRequest}
+                  disabled={deletionSubmitting || deletionConfirmation !== 'DELETE'}
+                  activeOpacity={0.8}
+                  testID="deletion-submit"
+                  accessibilityRole="button"
+                  accessibilityLabel="Submit account deletion request"
+                  accessibilityState={{
+                    disabled: deletionSubmitting || deletionConfirmation !== 'DELETE',
+                    busy: deletionSubmitting,
+                  }}
+                >
+                  {deletionSubmitting ? (
+                    <ActivityIndicator size="small" color={colors.destructiveForeground} />
+                  ) : (
+                    <Text style={[styles.deletionPrimaryBtnText, { color: colors.destructiveForeground }]}>
+                      {deletionSubmitError ? 'TRY AGAIN' : 'SUBMIT REQUEST'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.deletionCancelBtn}
+                  onPress={() => {
+                    setDeletionStep(1);
+                    setDeletionConfirmation('');
+                    setDeletionSubmitError('');
+                  }}
+                  disabled={deletionSubmitting}
+                  activeOpacity={0.7}
+                  testID="deletion-back"
+                  accessibilityRole="button"
+                  accessibilityLabel="Go back to account deletion information"
+                >
+                  <Text style={[styles.deletionCancelBtnText, { color: colors.mutedForeground }]}>
+                    BACK
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </KeyboardAwareScrollViewCompat>
+        </View>
+      </Modal>
+
       {/* ── Main scroll ───────────────────────────────────────────────────── */}
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: topPad + 16, paddingBottom: insets.bottom + 40 },
+          { paddingTop: topPad + 16, paddingBottom: insets.bottom + 96 },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -534,6 +853,86 @@ export default function ProfileScreen() {
                   thumbColor="#fff"
                 />
               )}
+            </View>
+          )}
+        </View>
+
+        {/* ── Account deletion ──────────────────────────────────────────────── */}
+        <SectionLabel title="ACCOUNT DELETION" colors={colors} />
+        <View
+          style={[
+            styles.deletionCard,
+            {
+              backgroundColor: colors.destructive + '0D',
+              borderColor: colors.destructive + '66',
+            },
+          ]}
+          testID="account-deletion-section"
+        >
+          {deletionStatus === 'loading' ? (
+            <View style={styles.deletionStatusRow}>
+              <ActivityIndicator size="small" color={colors.destructive} />
+              <Text style={[styles.deletionStatusText, { color: colors.mutedForeground }]}>
+                Checking request status…
+              </Text>
+            </View>
+          ) : deletionStatus === 'error' ? (
+            <View style={styles.deletionStatusStack}>
+              <View style={styles.deletionStatusRow}>
+                <SvgIcon name="alert-circle" size={18} color={colors.destructive} />
+                <Text style={[styles.deletionStatusText, { color: colors.mutedForeground }]}>
+                  {deletionStatusError}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.deletionRetryBtn, { borderColor: colors.destructive + '66' }]}
+                onPress={loadDeletionStatus}
+                activeOpacity={0.75}
+                testID="deletion-status-retry"
+                accessibilityRole="button"
+                accessibilityLabel="Retry checking account deletion request status"
+              >
+                <SvgIcon name="rotate-ccw" size={15} color={colors.destructive} />
+                <Text style={[styles.deletionRetryText, { color: colors.destructive }]}>TRY AGAIN</Text>
+              </TouchableOpacity>
+            </View>
+          ) : deletionRequest ? (
+            <View style={styles.deletionStatusStack}>
+              <View style={styles.deletionStatusRow}>
+                <SvgIcon name="clock" size={18} color={colors.destructive} />
+                <Text style={[styles.deletionPendingTitle, { color: colors.foreground }]}>
+                  {deletionSuccess ? 'Deletion request received' : 'Deletion Request Pending'}
+                </Text>
+              </View>
+              <Text style={[styles.deletionPendingText, { color: colors.mutedForeground }]}>
+                {deletionSuccess
+                  ? 'Your request has been submitted for review. Your FIT CLUB 15 account has not been deleted yet.\n\nSome records may be retained where required or permitted by law or for legitimate business obligations. We will send you confirmation when deletion is complete.'
+                  : 'Your account deletion request has been submitted and is being reviewed. Your account has not been deleted yet. We will send you confirmation when the process is complete.'}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.deletionStatusStack}>
+              <View style={styles.deletionStatusRow}>
+                <SvgIcon name="trash-2" size={18} color={colors.destructive} />
+                <Text style={[styles.deletionPendingTitle, { color: colors.foreground }]}>
+                  REQUEST ACCOUNT DELETION
+                </Text>
+              </View>
+              <Text style={[styles.deletionPendingText, { color: colors.mutedForeground }]}>
+                Start a request to delete your account. Your account stays active until the Fit Club team reviews it.
+              </Text>
+              <TouchableOpacity
+                style={[styles.deletionActionBtn, { backgroundColor: colors.destructive }]}
+                onPress={openDeletionModal}
+                activeOpacity={0.8}
+                testID="request-account-deletion"
+                accessibilityRole="button"
+                accessibilityLabel="Request account deletion"
+              >
+                <Text style={[styles.deletionActionText, { color: colors.destructiveForeground }]}>
+                  REQUEST DELETION
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -730,6 +1129,65 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
 
+  // Account deletion
+  deletionCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 24,
+    padding: 16,
+  },
+  deletionStatusStack: { gap: 12 },
+  deletionCopyStack: { gap: 12 },
+  deletionStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  deletionStatusText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    flex: 1,
+  },
+  deletionPendingTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    letterSpacing: 0.4,
+    flex: 1,
+  },
+  deletionPendingText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  deletionActionBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    paddingVertical: 13,
+    marginTop: 2,
+  },
+  deletionActionText: {
+    fontFamily: 'BarlowCondensed_800ExtraBold',
+    fontSize: 15,
+    letterSpacing: 1.6,
+  },
+  deletionRetryBtn: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderWidth: 1,
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  deletionRetryText: {
+    fontFamily: 'BarlowCondensed_700Bold',
+    fontSize: 13,
+    letterSpacing: 1.3,
+  },
+
   // Setting rows (security)
   settingRow: {
     flexDirection: 'row',
@@ -802,4 +1260,97 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 15,
   },
+
+  // Account deletion modal
+  deletionModalWrap: { flex: 1 },
+  deletionModalHeader: { paddingBottom: 16 },
+  deletionModalContent: {
+    paddingHorizontal: 24,
+    paddingTop: 30,
+  },
+  deletionModalIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  deletionModalHeading: {
+    fontFamily: 'BarlowCondensed_800ExtraBold',
+    fontSize: 25,
+    letterSpacing: 1.4,
+    marginBottom: 12,
+  },
+  deletionModalBody: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  deletionInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 13,
+    marginTop: 22,
+  },
+  deletionInfoText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 19,
+    flex: 1,
+  },
+  deletionPrimaryBtn: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    marginTop: 26,
+  },
+  deletionPrimaryBtnText: {
+    fontFamily: 'BarlowCondensed_800ExtraBold',
+    fontSize: 16,
+    letterSpacing: 1.8,
+  },
+  deletionCancelBtn: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginTop: 7,
+  },
+  deletionCancelBtnText: {
+    fontFamily: 'BarlowCondensed_700Bold',
+    fontSize: 14,
+    letterSpacing: 1.6,
+  },
+  deletionInput: {
+    borderWidth: 1,
+    borderRadius: 9,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 17,
+    letterSpacing: 2,
+    marginTop: 24,
+  },
+  deletionErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+    borderRadius: 9,
+    padding: 12,
+    marginTop: 14,
+  },
+  deletionErrorText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    flex: 1,
+  },
+  disabledBtn: { opacity: 0.4 },
 });
