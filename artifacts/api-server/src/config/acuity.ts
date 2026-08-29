@@ -19,6 +19,9 @@ export interface AcuityAppointmentTypes {
   freeTrial: string;
 }
 
+export const CANONICAL_LOCATION_KEYS = ["potomac", "kentlands"] as const;
+export type CanonicalLocationKey = (typeof CANONICAL_LOCATION_KEYS)[number];
+
 /**
  * A single bookable service at a location.
  *
@@ -53,6 +56,8 @@ export interface AcuityService {
 }
 
 export interface AcuityLocation {
+  /** Stable account-preference key; independent of Acuity IDs and display names. */
+  key: CanonicalLocationKey;
   id: string;
   name: string;
   /**
@@ -215,6 +220,7 @@ export function getAcuityConfig(): AcuityConfig {
     },
     locations: [
       {
+        key: "potomac",
         id: "1",
         name:       process.env.LOCATION_1_NAME ?? "POTOMAC",
         calendarId: potomacCalendar,
@@ -222,6 +228,7 @@ export function getAcuityConfig(): AcuityConfig {
         appointmentTypeIDs: potomacNativeIds,
       },
       {
+        key: "kentlands",
         id: "2",
         name:       process.env.LOCATION_2_NAME ?? "KENTLANDS",
         calendarId: kentlandsCalendar,

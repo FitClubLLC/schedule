@@ -1,5 +1,11 @@
 import { Router, type IRouter } from "express";
 import { getAuth, clerkClient } from "@clerk/express";
+import {
+  PREFERRED_LOCATION_METADATA_KEY,
+  mergePreferredLocationMetadata,
+  parsePreferredLocationKey,
+  readPreferredLocationKey,
+} from "../lib/user-preferences.js";
 
 const router: IRouter = Router();
 
@@ -47,6 +53,73 @@ router.patch("/user/profile", requireAuth, async (req: any, res: any) => {
       err?.errors?.[0]?.longMessage ??
       err?.errors?.[0]?.message ??
       "Failed to update profile.";
+    res.status(500).json({ error: msg });
+  }
+});
+
+// GET /api/user/preferences — read the authenticated user's account preference.
+// A missing or invalid stored value is explicitly represented as null.
+router.get("/user/preferences", requireAuth, async (req: any, res: any) => {
+  try {
+    const user = await clerkClient.users.getUser(req.userId);
+    res.json({
+      preferredLocationKey: readPreferredLocationKey(user.publicMetadata),
+    });
+  } catch (err: any) {
+    const msg =
+      err?.errors?.[0]?.longMessage ??
+      err?.errors?.[0]?.message ??
+      "Failed to read user preferences.";
+    res.status(500).json({ error: msg });
+  }
+});
+
+// PATCH /api/user/preferences — update only the authenticated user's
+// Preferred Location. The namespace merge preserves invitation/name-repair
+// metadata and any other unrelated public metadata.
+router.patch("/user/preferences", requireAuth, async (req: any, res: any) => {
+  const body = req.body;
+  const hasPreferredLocationKey =
+    body !== null &&
+    typeof body === "object" &&
+    !Array.isArray(body) &&
+    Object.prototype.hasOwnProperty.call(body, PREFERRED_LOCATION_METADATA_KEY);
+
+  if (!hasPreferredLocationKey || Object.keys(body).length !== 1) {
+    res.status(400).json({
+      error: `${PREFERRED_LOCATION_METADATA_KEY} is the only accepted field and must be "potomac", "kentlands", or null.`,
+    });
+    return;
+  }
+
+  const parsed = parsePreferredLocationKey(
+    body[PREFERRED_LOCATION_METADATA_KEY],
+  );
+  if (!parsed.ok) {
+    res.status(400).json({
+      error: `${PREFERRED_LOCATION_METADATA_KEY} must be "potomac", "kentlands", or null.`,
+    });
+    return;
+  }
+
+  try {
+    const user = await clerkClient.users.getUser(req.userId);
+    const publicMetadata = mergePreferredLocationMetadata(
+      user.publicMetadata,
+      parsed.value,
+    );
+    await clerkClient.users.updateUserMetadata(req.userId, {
+      publicMetadata,
+    });
+
+    res.json({
+      preferredLocationKey: parsed.value,
+    });
+  } catch (err: any) {
+    const msg =
+      err?.errors?.[0]?.longMessage ??
+      err?.errors?.[0]?.message ??
+      "Failed to update user preferences.";
     res.status(500).json({ error: msg });
   }
 });

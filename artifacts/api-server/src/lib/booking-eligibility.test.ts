@@ -21,6 +21,7 @@ const config: AcuityConfig = {
   termsAcknowledgement: { formId: "form", fieldId: "field" },
   locations: [
     {
+      key: "potomac",
       id: "1",
       name: "POTOMAC",
       calendarId: "cal-potomac",
@@ -45,6 +46,7 @@ const config: AcuityConfig = {
       appointmentTypeIDs: ["workout"],
     },
     {
+      key: "kentlands",
       id: "2",
       name: "KENTLANDS",
       calendarId: "cal-kentlands",
