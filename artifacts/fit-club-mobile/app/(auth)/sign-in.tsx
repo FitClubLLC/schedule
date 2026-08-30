@@ -11,9 +11,11 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Alert,
+  Linking,
 } from 'react-native';
 import { useSignIn, useClerk, useAuth } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useColors } from '@/hooks/useColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -27,6 +29,8 @@ import {
 } from '@/hooks/useBiometrics';
 
 type Screen = 'login' | 'forgot-email' | 'forgot-code' | 'client-trust';
+
+const PRIVACY_POLICY_URL = 'https://fitclub15.com/privacy';
 
 export default function SignInScreen() {
   // ── Clerk hooks ────────────────────────────────────────────────────────────
@@ -755,6 +759,17 @@ export default function SignInScreen() {
             </TouchableOpacity>
           </Link>
         </View>
+        <TouchableOpacity
+          style={styles.privacyLink}
+          onPress={() => {
+            WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL).catch(() => Linking.openURL(PRIVACY_POLICY_URL));
+          }}
+          activeOpacity={0.7}
+          accessibilityRole="link"
+          accessibilityLabel="Privacy Policy"
+        >
+          <Text style={[styles.privacyLinkText, { color: colors.primary }]}>Privacy Policy</Text>
+        </TouchableOpacity>
       </>
     );
   };
@@ -871,4 +886,6 @@ const styles = StyleSheet.create({
   footerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 32 },
   footerText: { fontFamily: 'Inter_400Regular', fontSize: 14 },
   footerLink: { fontFamily: 'Inter_600SemiBold', fontSize: 14 },
+  privacyLink: { alignSelf: 'center', marginTop: 16, paddingVertical: 4 },
+  privacyLinkText: { fontFamily: 'Inter_500Medium', fontSize: 12 },
 });
