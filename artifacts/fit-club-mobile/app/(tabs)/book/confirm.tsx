@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/expo';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
@@ -18,7 +17,6 @@ import { BookingProgress } from '@/components/book/BookingProgress';
 
 const STEPS_WITH_SERVICE    = ['Location', 'Service', 'Date & Time', 'Confirm'];
 const STEPS_WITHOUT_SERVICE = ['Location', 'Date & Time', 'Confirm'];
-const CTA_TO_TAB_BAR_GAP = 8;
 
 function usablePhoneNumber(value: unknown): string {
   if (typeof value !== 'string') return '';
@@ -45,7 +43,7 @@ interface BookingRequest {
 export default function ConfirmScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const bookingBottomClearance = insets.bottom + 96;
   const router = useRouter();
   const { getToken, sessionClaims } = useAuth();
   const { user } = useUser();
@@ -164,13 +162,12 @@ export default function ConfirmScreen() {
         {
           backgroundColor: colors.background,
           paddingTop: insets.top,
-          // The Android tab bar is absolutely positioned by the parent tabs
-          // navigator. Bound the whole screen above that navigator-owned
-          // region instead of positioning the CTA into it.
+          // Safe-area-based clearance keeps booking content and the CTA
+          // above the native tab region.
           position: 'absolute',
           top: 0,
           right: 0,
-          bottom: tabBarHeight + CTA_TO_TAB_BAR_GAP,
+          bottom: bookingBottomClearance,
           left: 0,
         },
       ]}

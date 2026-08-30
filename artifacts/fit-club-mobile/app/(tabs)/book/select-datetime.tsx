@@ -28,7 +28,6 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@clerk/expo';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
@@ -88,14 +87,13 @@ const DAY_HEADERS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 const STEPS_WITH_SERVICE  = ['Location', 'Service', 'Date & Time', 'Confirm'];
 const STEPS_WITHOUT_SERVICE = ['Location', 'Date & Time', 'Confirm'];
-const CTA_TO_TAB_BAR_GAP = 8;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SelectDateTimeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const bookingBottomClearance = insets.bottom + 96;
   const router = useRouter();
   const { getToken } = useAuth();
 
@@ -319,10 +317,9 @@ export default function SelectDateTimeScreen() {
         styles.screen,
         {
           backgroundColor: colors.background,
-          // The Android tab bar is absolutely positioned by the parent tabs
-          // navigator. Keep this screen's own layout boundary above that
-          // navigator-owned region instead of positioning the CTA into it.
-          marginBottom: tabBarHeight + CTA_TO_TAB_BAR_GAP,
+          // Safe-area-based clearance keeps booking content and the CTA
+          // above the native tab region.
+          marginBottom: bookingBottomClearance,
         },
       ]}
     >
