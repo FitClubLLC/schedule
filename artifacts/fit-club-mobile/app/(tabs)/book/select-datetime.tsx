@@ -28,7 +28,6 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@clerk/expo';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
@@ -95,7 +94,7 @@ const CTA_TO_TAB_BAR_GAP = 8;
 export default function SelectDateTimeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const bookingBottomClearance = insets.bottom + 96;
   const router = useRouter();
   const { getToken } = useAuth();
 
@@ -322,7 +321,7 @@ export default function SelectDateTimeScreen() {
           // The Android tab bar is absolutely positioned by the parent tabs
           // navigator. Keep this screen's own layout boundary above that
           // navigator-owned region instead of positioning the CTA into it.
-          marginBottom: tabBarHeight + CTA_TO_TAB_BAR_GAP,
+          marginBottom: bookingBottomClearance,
         },
       ]}
     >

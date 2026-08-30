@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/expo';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
@@ -45,7 +44,7 @@ interface BookingRequest {
 export default function ConfirmScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const bookingBottomClearance = insets.bottom + 96;
   const router = useRouter();
   const { getToken, sessionClaims } = useAuth();
   const { user } = useUser();
@@ -170,7 +169,7 @@ export default function ConfirmScreen() {
           position: 'absolute',
           top: 0,
           right: 0,
-          bottom: tabBarHeight + CTA_TO_TAB_BAR_GAP,
+          bottom: bookingBottomClearance,
           left: 0,
         },
       ]}

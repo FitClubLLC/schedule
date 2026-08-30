@@ -27,7 +27,6 @@ import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth, useUser } from '@clerk/expo';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import {
   customFetch,
   getAcuitySchedulerUrl,
@@ -93,7 +92,7 @@ const STEPS = ['Location', 'Service', 'Date & Time', 'Confirm'];
 export default function SelectServiceScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const bookingBottomClearance = insets.bottom + 96;
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
@@ -299,7 +298,7 @@ export default function SelectServiceScreen() {
           paddingTop: insets.top + 16,
           // The classic Android tab bar is absolute, so keep the last
           // service card scrollable above it and the system safe area.
-          paddingBottom: tabBarHeight + 24,
+          paddingBottom: bookingBottomClearance,
         },
       ]}
       showsVerticalScrollIndicator={false}
