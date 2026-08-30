@@ -17,7 +17,6 @@ import { BookingProgress } from '@/components/book/BookingProgress';
 
 const STEPS_WITH_SERVICE    = ['Location', 'Service', 'Date & Time', 'Confirm'];
 const STEPS_WITHOUT_SERVICE = ['Location', 'Date & Time', 'Confirm'];
-const CTA_TO_TAB_BAR_GAP = 8;
 
 function usablePhoneNumber(value: unknown): string {
   if (typeof value !== 'string') return '';
@@ -163,9 +162,8 @@ export default function ConfirmScreen() {
         {
           backgroundColor: colors.background,
           paddingTop: insets.top,
-          // The Android tab bar is absolutely positioned by the parent tabs
-          // navigator. Bound the whole screen above that navigator-owned
-          // region instead of positioning the CTA into it.
+          // Safe-area-based clearance keeps booking content and the CTA
+          // above the native tab region.
           position: 'absolute',
           top: 0,
           right: 0,

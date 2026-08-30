@@ -296,8 +296,8 @@ export default function SelectServiceScreen() {
         styles.container,
         {
           paddingTop: insets.top + 16,
-          // The classic Android tab bar is absolute, so keep the last
-          // service card scrollable above it and the system safe area.
+          // Safe-area-based clearance keeps the last service card
+          // scrollable above the native tab region.
           paddingBottom: bookingBottomClearance,
         },
       ]}

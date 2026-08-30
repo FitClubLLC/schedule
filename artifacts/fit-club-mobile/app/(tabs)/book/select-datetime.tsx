@@ -87,7 +87,6 @@ const DAY_HEADERS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 const STEPS_WITH_SERVICE  = ['Location', 'Service', 'Date & Time', 'Confirm'];
 const STEPS_WITHOUT_SERVICE = ['Location', 'Date & Time', 'Confirm'];
-const CTA_TO_TAB_BAR_GAP = 8;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -318,9 +317,8 @@ export default function SelectDateTimeScreen() {
         styles.screen,
         {
           backgroundColor: colors.background,
-          // The Android tab bar is absolutely positioned by the parent tabs
-          // navigator. Keep this screen's own layout boundary above that
-          // navigator-owned region instead of positioning the CTA into it.
+          // Safe-area-based clearance keeps booking content and the CTA
+          // above the native tab region.
           marginBottom: bookingBottomClearance,
         },
       ]}
