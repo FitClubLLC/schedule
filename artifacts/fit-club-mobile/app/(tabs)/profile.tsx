@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   TextInput, ActivityIndicator, Alert, Modal,
-  KeyboardAvoidingView, Platform, Switch,
+  KeyboardAvoidingView, Linking, Platform, Switch,
 } from 'react-native';
 import { useUser, useAuth } from '@clerk/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon, { type SvgIconName } from '@/components/SvgIcon';
@@ -26,6 +27,8 @@ const LOCATIONS = [
   { id: '1', name: process.env.EXPO_PUBLIC_LOCATION_1_NAME ?? 'Potomac' },
   { id: '2', name: process.env.EXPO_PUBLIC_LOCATION_2_NAME ?? 'Kentlands' },
 ];
+
+const PRIVACY_POLICY_URL = 'https://fitclub15.com/privacy';
 
 const NOTIF_OPTIONS: { value: NotifTiming; label: string; sub: string }[] = [
   { value: '24h',  label: '24 hours before', sub: 'Reminder the day before your session' },
@@ -62,16 +65,19 @@ function SectionLabel({ title, colors }: { title: string; colors: any }) {
 }
 
 function SettingRow({
-  icon, label, value, onPress, destructive, colors,
+  icon, label, value, onPress, destructive, colors, accessibilityRole, accessibilityLabel,
 }: {
   icon: SvgIconName; label: string; value?: string;
   onPress?: () => void; destructive?: boolean; colors: any;
+  accessibilityRole?: 'button' | 'link'; accessibilityLabel?: string;
 }) {
   return (
     <TouchableOpacity
       style={[styles.settingRow, { borderBottomColor: colors.border }]}
       onPress={onPress}
       activeOpacity={onPress ? 0.7 : 1}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel}
     >
       <SvgIcon name={icon} size={18} color={destructive ? colors.destructive : colors.mutedForeground} />
       <Text style={[styles.settingLabel, { color: destructive ? colors.destructive : colors.foreground }]}>
@@ -855,6 +861,21 @@ export default function ProfileScreen() {
               )}
             </View>
           )}
+        </View>
+
+        {/* ── Legal ─────────────────────────────────────────────────────────── */}
+        <SectionLabel title="LEGAL" colors={colors} />
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SettingRow
+            icon="external-link"
+            label="Privacy Policy"
+            onPress={() => {
+              WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL).catch(() => Linking.openURL(PRIVACY_POLICY_URL));
+            }}
+            colors={colors}
+            accessibilityRole="link"
+            accessibilityLabel="Privacy Policy"
+          />
         </View>
 
         {/* ── Account deletion ──────────────────────────────────────────────── */}
