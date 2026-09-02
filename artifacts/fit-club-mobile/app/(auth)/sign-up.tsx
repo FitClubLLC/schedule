@@ -33,8 +33,6 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
   const [verifyCode, setVerifyCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -48,27 +46,15 @@ export default function SignUpScreen() {
 
   // ── Sign up: create account + send verification code ──────────────────────
   const handleSignUp = async () => {
-    const trimmedFirstName = firstName.trim();
-    const trimmedLastName = lastName.trim();
-
-    if (!email || !password || !trimmedFirstName || !trimmedLastName || busy) {
-      if (!trimmedFirstName || !trimmedLastName) {
-        setError('Enter your first and last name to create your member account.');
-      }
-      return;
-    }
+    if (!email || !password || busy) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     clearError();
     try {
-      // The typed v4 password flow accepts profile fields alongside credentials.
-      // Sending names here ensures Clerk stores them on the completed user.
       const result = await signUp.password({
         emailAddress: email.trim(),
         password,
-        firstName: trimmedFirstName,
-        lastName: trimmedLastName,
       });
       if (result.error) {
         setError(result.error.longMessage ?? result.error.message ?? 'Could not create account. Please try again.');
@@ -216,25 +202,6 @@ export default function SignUpScreen() {
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Create your member account</Text>
 
         <View style={styles.form}>
-          <View style={styles.nameRow}>
-            <TextInput
-              style={[styles.input, styles.halfInput, { backgroundColor: colors.input, borderColor: colors.border, color: colors.foreground }]}
-              placeholder="First name"
-              placeholderTextColor={colors.mutedForeground}
-              value={firstName}
-              onChangeText={(value) => { setFirstName(value); clearError(); }}
-              autoCapitalize="words"
-            />
-            <TextInput
-              style={[styles.input, styles.halfInput, { backgroundColor: colors.input, borderColor: colors.border, color: colors.foreground }]}
-              placeholder="Last name"
-              placeholderTextColor={colors.mutedForeground}
-              value={lastName}
-              onChangeText={(value) => { setLastName(value); clearError(); }}
-              autoCapitalize="words"
-            />
-          </View>
-
           <TextInput
             style={[styles.input, { backgroundColor: colors.input, borderColor: colors.border, color: colors.foreground }]}
             placeholder="Email address"
@@ -265,9 +232,9 @@ export default function SignUpScreen() {
           {!!error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
 
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || !password || !firstName.trim() || !lastName.trim() || busy) && styles.buttonDisabled]}
+            style={[styles.button, { backgroundColor: colors.primary, marginTop: 8 }, (!email || !password || busy) && styles.buttonDisabled]}
             onPress={handleSignUp}
-            disabled={!email || !password || !firstName.trim() || !lastName.trim() || busy}
+            disabled={!email || !password || busy}
             activeOpacity={0.8}
           >
             {busy
@@ -316,8 +283,6 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   form: { width: '100%', gap: 10 },
-  nameRow: { flexDirection: 'row', gap: 10 },
-  halfInput: { flex: 1 },
   input: {
     borderWidth: 1,
     borderRadius: 8,
