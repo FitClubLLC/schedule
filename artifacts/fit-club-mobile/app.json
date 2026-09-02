@@ -23,7 +23,7 @@
     },
     "android": {
       "package": "com.fitclub15.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "intentFilters": [
         {
           "action": "VIEW",
