@@ -3,12 +3,11 @@
  *
  * Shown for every location. Services are sourced from the API config:
  *   - External services (Free Trial) open the Acuity hosted scheduler.
- *   - Native services (Workout for 1, Red Light Therapy) are always shown.
+ *   - Native services are filtered by their certificate requirements.
  *
- * All native services are presented regardless of certificate status.
- * Certificate/package eligibility is enforced server-side at appointment
- * creation (POST /booking/appointments → 422), so members see every option
- * and receive a clear error only when they are actually ineligible.
+ * Workout for 1 preserves its existing native-credit or hosted-payment flow.
+ * Red Light Therapy is shown only when the applicable certificate covers it;
+ * server-side appointment eligibility remains the final authority.
  * Red Light Therapy is Kentlands-only (calendar 14464905); Potomac never
  * includes it in its service list.
  */
@@ -38,6 +37,7 @@ import { BookingProgress } from '@/components/book/BookingProgress';
 import { MEMBER_CERTIFICATES_QUERY_KEY } from '@/lib/membershipRefresh';
 import {
   getWorkoutBookingAction,
+  getVisibleBookingServices,
   isWorkoutBookingActionUnavailable,
   WORKOUT_CHOOSE_MEMBERSHIP_MESSAGE,
   type MobileMemberCertificate,
@@ -191,15 +191,27 @@ export default function SelectServiceScreen() {
       })
     : { kind: 'hosted-payment' as const };
 
-  // Build the visible service list: all services in config order.
+  const {
+    visibleServices: eligibleServiceConfigs,
+    redLightCertificateCode,
+  } = locationCfg && acuityConfig
+    ? getVisibleBookingServices({
+        services: locationCfg.services,
+        locationAppointmentTypeIds: locationCfg.appointmentTypeIDs,
+        redLightAppointmentTypeId: acuityConfig.appointmentTypes.redLightTherapy,
+        certificates,
+        selectedCertificateCode: certCode,
+      })
+    : { visibleServices: [], redLightCertificateCode: '' };
+
+  // Build the visible service list in config order.
   // External services (Free Trial) open the Acuity hosted scheduler.
-  // Native services are always shown — the server enforces eligibility at
-  // appointment-creation time (POST /booking/appointments → 422) so members
-  // see every option and receive a clear error only if they are ineligible.
+  // Workout keeps its existing credit/payment decision. Red Light Therapy is
+  // native-only and is present only when the applicable certificate covers it.
   const visibleServices: Array<AcuityService & { meta?: AcuityAppointmentType }> = [];
 
   if (locationCfg) {
-    for (const service of locationCfg.services) {
+    for (const service of eligibleServiceConfigs) {
       const meta =
         service.bookingMode === 'native'
           ? appointmentTypes.find((t) => String(t.id) === service.appointmentTypeID)
@@ -226,6 +238,8 @@ export default function SelectServiceScreen() {
 
       const isWorkoutFor1 =
         service.appointmentTypeID === acuityConfig?.appointmentTypes.workoutFor1;
+      const isRedLightTherapy =
+        service.appointmentTypeID === acuityConfig?.appointmentTypes.redLightTherapy;
       if (isWorkoutFor1) {
         if (workoutAction.kind === 'error') {
           setSelectionMessage('We couldn’t verify your packages. Please retry before continuing.');
@@ -257,9 +271,11 @@ export default function SelectServiceScreen() {
           locationName:        locationName as string,
           appointmentTypeID:   service.appointmentTypeID,
           appointmentTypeName: service.meta?.name ?? service.name,
-            certificate:         isWorkoutFor1 && workoutAction.kind === 'native'
+          certificate:         isWorkoutFor1 && workoutAction.kind === 'native'
              ? workoutAction.certificateCode
-            : certCode,
+            : isRedLightTherapy
+              ? redLightCertificateCode
+              : certCode,
           from:                'select-service',
         },
       });
@@ -274,6 +290,7 @@ export default function SelectServiceScreen() {
       certificatesQuery.isError,
       selectedCertificateQuery.isLoading,
       workoutAction,
+      redLightCertificateCode,
     ],
   );
 
