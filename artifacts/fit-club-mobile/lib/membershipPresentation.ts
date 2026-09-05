@@ -1,4 +1,5 @@
 import {
+  certificateCoversAppointmentType,
   formatMembershipBalance,
   getCreditBookingDecision,
   getEligibleCertificatesForAppointmentType,
@@ -13,6 +14,39 @@ export interface MobileMemberCertificate {
   remainingValue: string;
   appointmentTypeIDs?: string[];
   appliesToAllProducts?: boolean;
+}
+
+export interface MobileBookingService {
+  appointmentTypeID: string;
+}
+
+export function getVisibleBookingServices<T extends MobileBookingService>(input: {
+  services: T[];
+  locationAppointmentTypeIds: string[];
+  redLightAppointmentTypeId: string;
+  certificates: MobileMemberCertificate[];
+  selectedCertificateCode?: string;
+}): {
+  visibleServices: T[];
+  redLightCertificateCode: string;
+} {
+  const selectedCode = input.selectedCertificateCode?.trim();
+  const applicableCertificates = selectedCode
+    ? input.certificates.filter((certificate) => certificate.code === selectedCode)
+    : input.certificates;
+  const redLightCertificateCode = applicableCertificates.find((certificate) =>
+    certificateCoversAppointmentType(certificate, input.redLightAppointmentTypeId),
+  )?.code ?? "";
+  const redLightIsConfiguredAtLocation =
+    input.locationAppointmentTypeIds.includes(input.redLightAppointmentTypeId);
+
+  return {
+    visibleServices: input.services.filter((service) =>
+      service.appointmentTypeID !== input.redLightAppointmentTypeId ||
+      (redLightIsConfiguredAtLocation && !!redLightCertificateCode),
+    ),
+    redLightCertificateCode,
+  };
 }
 
 export const WORKOUT_CHOOSE_MEMBERSHIP_MESSAGE =
