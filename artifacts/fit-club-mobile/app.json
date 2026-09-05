@@ -2,7 +2,7 @@
   "expo": {
     "name": "FIT CLUB 15",
     "slug": "fit-club-15",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "fitclub15",
@@ -23,7 +23,7 @@
     },
     "android": {
       "package": "com.fitclub15.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "intentFilters": [
         {
           "action": "VIEW",
