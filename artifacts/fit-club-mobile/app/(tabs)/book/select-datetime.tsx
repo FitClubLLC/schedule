@@ -32,6 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
 import { BookingProgress } from '@/components/book/BookingProgress';
+import { buildMonthGrid } from '@/lib/calendarGrid';
 import { formatStudioTime, studioHour } from '@/lib/studioTime';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -42,14 +43,6 @@ function toYMD(date: Date): string {
 
 function toMonthParam(year: number, month: number): string {
   return `${year}-${String(month + 1).padStart(2, '0')}`;
-}
-
-function startOfMonth(year: number, month: number): Date {
-  return new Date(year, month, 1);
-}
-
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month + 1, 0).getDate();
 }
 
 function formatMonthLabel(year: number, month: number): string {
@@ -299,8 +292,7 @@ export default function SelectDateTimeScreen() {
 
   // ── Calendar grid ──────────────────────────────────────────────────────────
 
-  const firstDay   = startOfMonth(viewYear, viewMonth).getDay();
-  const totalDays  = daysInMonth(viewYear, viewMonth);
+  const calendarRows = buildMonthGrid(viewYear, viewMonth);
   const isPrevDisabled = viewYear === today.getFullYear() && viewMonth === today.getMonth();
 
   // ── Time slot groups ───────────────────────────────────────────────────────
@@ -419,51 +411,54 @@ export default function SelectDateTimeScreen() {
         {/* ── Calendar grid ─────────────────────────────────────── */}
         {!datesLoading && !datesError && (
           <View style={styles.calendarGrid}>
-            {Array.from({ length: firstDay }).map((_, i) => (
-              <View key={`empty-${i}`} style={styles.dayCell} />
+            {calendarRows.map((week, weekIndex) => (
+              <View key={`week-${weekIndex}`} style={styles.calendarRow}>
+                {week.map((dayNum, dayIndex) => {
+                  if (dayNum === null) {
+                    return <View key={`empty-${weekIndex}-${dayIndex}`} style={styles.dayCell} />;
+                  }
+
+                  const date = new Date(viewYear, viewMonth, dayNum);
+                  const ymd = toYMD(date);
+                  const isPast = ymd < todayYMD;
+                  const isAvailable = availableDates.has(ymd);
+                  const isSelected = selectedDate ? toYMD(selectedDate) === ymd : false;
+                  const isDisabled = isPast || !isAvailable;
+
+                  return (
+                    <TouchableOpacity
+                      key={ymd}
+                      onPress={() => !isDisabled && handleSelectDate(date)}
+                      disabled={isDisabled}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected, disabled: isDisabled }}
+                      accessibilityLabel={`${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}${isAvailable ? '' : ', unavailable'}`}
+                      style={[
+                        styles.dayCell,
+                        isSelected && {
+                          backgroundColor: colors.primary,
+                          borderRadius: 12,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.dayNum,
+                          isSelected
+                            ? { color: colors.primaryForeground, fontFamily: 'Inter_700Bold' }
+                            : isAvailable
+                            ? { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }
+                            : { color: colors.mutedForeground, opacity: 0.35, fontFamily: 'Inter_400Regular' },
+                        ]}
+                      >
+                        {dayNum}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             ))}
-
-            {Array.from({ length: totalDays }).map((_, i) => {
-              const dayNum = i + 1;
-              const date   = new Date(viewYear, viewMonth, dayNum);
-              const ymd    = toYMD(date);
-              const isPast      = ymd < todayYMD;
-              const isAvailable = availableDates.has(ymd);
-              const isSelected  = selectedDate ? toYMD(selectedDate) === ymd : false;
-              const isDisabled  = isPast || !isAvailable;
-
-              return (
-                <TouchableOpacity
-                  key={ymd}
-                  onPress={() => !isDisabled && handleSelectDate(date)}
-                  disabled={isDisabled}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isSelected, disabled: isDisabled }}
-                  accessibilityLabel={`${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}${isAvailable ? '' : ', unavailable'}`}
-                  style={[
-                    styles.dayCell,
-                    isSelected && {
-                      backgroundColor: colors.primary,
-                      borderRadius: 12,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.dayNum,
-                      isSelected
-                        ? { color: colors.primaryForeground, fontFamily: 'Inter_700Bold' }
-                        : isAvailable
-                        ? { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }
-                        : { color: colors.mutedForeground, opacity: 0.35, fontFamily: 'Inter_400Regular' },
-                    ]}
-                  >
-                    {dayNum}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
           </View>
         )}
 
@@ -700,12 +695,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     marginBottom: 8,
   },
+  calendarRow: {
+    flexDirection: 'row',
+  },
   dayCell: {
-    width: `${100 / 7}%` as any,
+    flex: 1,
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
