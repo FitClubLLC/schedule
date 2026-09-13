@@ -878,14 +878,32 @@ export default function ProfileScreen() {
           />
         </View>
 
+        {/* ── Sign out ─────────────────────────────────────────────────────── */}
+        <TouchableOpacity
+          style={[
+            styles.signOutBtn,
+            { backgroundColor: colors.destructive, borderColor: colors.destructive },
+          ]}
+          onPress={handleSignOut}
+          disabled={signingOut}
+          activeOpacity={0.8}
+        >
+          {signingOut
+            ? <ActivityIndicator size="small" color={colors.destructiveForeground} />
+            : <>
+                <SvgIcon name="log-out" size={16} color={colors.destructiveForeground} />
+                <Text style={[styles.signOutText, { color: colors.destructiveForeground }]}>SIGN OUT</Text>
+              </>}
+        </TouchableOpacity>
+
         {/* ── Account deletion ──────────────────────────────────────────────── */}
         <SectionLabel title="ACCOUNT DELETION" colors={colors} />
         <View
           style={[
             styles.deletionCard,
             {
-              backgroundColor: colors.destructive + '0D',
-              borderColor: colors.destructive + '66',
+              backgroundColor: colors.card,
+              borderColor: colors.border,
             },
           ]}
           testID="account-deletion-section"
@@ -934,7 +952,7 @@ export default function ProfileScreen() {
           ) : (
             <View style={styles.deletionStatusStack}>
               <View style={styles.deletionStatusRow}>
-                <SvgIcon name="trash-2" size={18} color={colors.destructive} />
+                <SvgIcon name="trash-2" size={18} color={colors.mutedForeground} />
                 <Text style={[styles.deletionPendingTitle, { color: colors.foreground }]}>
                   REQUEST ACCOUNT DELETION
                 </Text>
@@ -943,35 +961,20 @@ export default function ProfileScreen() {
                 Start a request to delete your account. Your account stays active until the Fit Club team reviews it.
               </Text>
               <TouchableOpacity
-                style={[styles.deletionActionBtn, { backgroundColor: colors.destructive }]}
+                style={[styles.deletionActionBtn, { borderColor: colors.border }]}
                 onPress={openDeletionModal}
                 activeOpacity={0.8}
                 testID="request-account-deletion"
                 accessibilityRole="button"
                 accessibilityLabel="Request account deletion"
               >
-                <Text style={[styles.deletionActionText, { color: colors.destructiveForeground }]}>
+                <Text style={[styles.deletionActionText, { color: colors.foreground }]}>
                   REQUEST DELETION
                 </Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
-
-        {/* ── Sign out ─────────────────────────────────────────────────────── */}
-        <TouchableOpacity
-          style={[styles.signOutBtn, { borderColor: colors.destructive + '66' }]}
-          onPress={handleSignOut}
-          disabled={signingOut}
-          activeOpacity={0.8}
-        >
-          {signingOut
-            ? <ActivityIndicator size="small" color={colors.destructive} />
-            : <>
-                <SvgIcon name="log-out" size={16} color={colors.destructive} />
-                <Text style={[styles.signOutText, { color: colors.destructive }]}>SIGN OUT</Text>
-              </>}
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -1184,6 +1187,7 @@ const styles = StyleSheet.create({
   deletionActionBtn: {
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
     borderRadius: 10,
     paddingVertical: 13,
     marginTop: 2,
@@ -1238,7 +1242,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     marginTop: 4,
-    marginBottom: 8,
+    marginBottom: 24,
   },
   signOutText: {
     fontFamily: 'BarlowCondensed_700Bold',
