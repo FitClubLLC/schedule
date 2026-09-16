@@ -62,6 +62,10 @@ export function useAppointmentActions() {
     return authFetch(`/api/appointments/${id}/times?date=${encodeURIComponent(date)}`);
   }
 
+  async function fetchAvailableDates(id: number, month: string): Promise<string[]> {
+    return authFetch(`/api/appointments/${id}/dates?month=${encodeURIComponent(month)}`);
+  }
+
   async function rescheduleAppointment(id: number, datetime: string): Promise<void> {
     await authFetch(`/api/appointments/${id}`, {
       method: 'PUT',
@@ -70,5 +74,10 @@ export function useAppointmentActions() {
     invalidateAll();
   }
 
-  return { cancelAppointment, fetchAvailableTimes, rescheduleAppointment };
+  return {
+    cancelAppointment,
+    fetchAvailableDates,
+    fetchAvailableTimes,
+    rescheduleAppointment,
+  };
 }

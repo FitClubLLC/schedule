@@ -234,6 +234,59 @@ router.delete(
   },
 );
 
+// GET /appointments/:id/dates?month=YYYY-MM — available dates for rescheduling
+router.get(
+  "/appointments/:id/dates",
+  requireAuth,
+  async (req: any, res): Promise<void> => {
+    const { id } = req.params;
+    const { month } = req.query as { month?: string };
+    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+      res.status(400).json({ error: "month query param must be YYYY-MM" });
+      return;
+    }
+
+    const email = await getClerkUserEmail(req.userId);
+    if (!email) { res.status(400).json({ error: "Could not resolve user email" }); return; }
+
+    const apptRes = await fetch(`${ACUITY_BASE_URL}/appointments/${id}`, {
+      headers: { Authorization: acuityAuthHeader() },
+    });
+    if (!apptRes.ok) { res.status(404).json({ error: "Appointment not found" }); return; }
+    const appt = (await apptRes.json()) as AcuityAppointmentResponse;
+    if (appt.email?.toLowerCase() !== email.toLowerCase()) {
+      res.status(403).json({ error: "Forbidden" }); return;
+    }
+
+    const datesUrl =
+      `${ACUITY_BASE_URL}/availability/dates` +
+      `?month=${encodeURIComponent(month)}` +
+      `&appointmentTypeID=${appt.appointmentTypeID}` +
+      `&calendarID=${appt.calendarID}` +
+      `&timezone=${encodeURIComponent(STUDIO_TIME_ZONE)}`;
+
+    const datesRes = await fetch(datesUrl, { headers: { Authorization: acuityAuthHeader() } });
+    if (!datesRes.ok) {
+      res.status(502).json({ error: "Failed to fetch available dates" }); return;
+    }
+
+    const data = await datesRes.json();
+    const dates = Array.isArray(data)
+      ? [...new Set(
+          data
+            .map((item: any) => item?.date)
+            .filter(
+              (date: unknown): date is string =>
+                typeof date === "string" &&
+                date.startsWith(`${month}-`) &&
+                /^\d{4}-\d{2}-\d{2}$/.test(date),
+            ),
+        )].sort()
+      : [];
+    res.json(dates);
+  },
+);
+
 // GET /appointments/:id/times?date=YYYY-MM-DD — available slots for rescheduling
 router.get(
   "/appointments/:id/times",
