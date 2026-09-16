@@ -12,15 +12,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import SvgIcon from '@/components/SvgIcon';
 import { useAppointmentActions, TimeSlot } from '@/hooks/useAppointmentActions';
-import { buildStudioDateRange, formatStudioTime } from '@/lib/studioTime';
+import { buildMonthGrid } from '@/lib/calendarGrid';
+import { formatStudioTime, studioDateKey } from '@/lib/studioTime';
 
 function toYMD(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function formatDayLabel(date: Date): string {
-  return date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+function toMonthParam(year: number, month: number): string {
+  return `${year}-${String(month + 1).padStart(2, '0')}`;
 }
+
+function formatMonthLabel(year: number, month: number): string {
+  return new Date(year, month, 1)
+    .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    .toUpperCase();
+}
+
+const DAY_HEADERS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 interface Props {
   visible: boolean;
@@ -39,10 +48,20 @@ export default function RescheduleModal({
 }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { fetchAvailableTimes, rescheduleAppointment } = useAppointmentActions();
+  const {
+    fetchAvailableDates,
+    fetchAvailableTimes,
+    rescheduleAppointment,
+  } = useAppointmentActions();
 
-  const dates = buildStudioDateRange(14);
-  const [selectedDate, setSelectedDate] = useState<Date>(dates[0]);
+  const todayYMD = studioDateKey();
+  const [currentYear, currentMonth] = todayYMD.split('-').map(Number);
+  const [viewYear, setViewYear] = useState(currentYear);
+  const [viewMonth, setViewMonth] = useState(currentMonth - 1);
+  const [availableDates, setAvailableDates] = useState<Set<string>>(new Set());
+  const [datesLoading, setDatesLoading] = useState(false);
+  const [datesError, setDatesError] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -53,6 +72,30 @@ export default function RescheduleModal({
   // Tracks the date key of the most-recently-started request so stale
   // responses from earlier taps are silently discarded (race condition guard).
   const currentDateKey = React.useRef<string>('');
+  const currentMonthKey = React.useRef<string>('');
+
+  const loadDates = useCallback(async (year: number, month: number) => {
+    const key = toMonthParam(year, month);
+    currentMonthKey.current = key;
+    currentDateKey.current = '';
+    setDatesLoading(true);
+    setDatesError('');
+    setAvailableDates(new Set());
+    setSelectedDate(null);
+    setSlots([]);
+    setSelectedSlot(null);
+    setSlotsError('');
+    try {
+      const result = await fetchAvailableDates(appointmentId, key);
+      if (currentMonthKey.current !== key) return;
+      setAvailableDates(new Set(result ?? []));
+    } catch (err: any) {
+      if (currentMonthKey.current !== key) return;
+      setDatesError(err?.message ?? 'Could not load available dates.');
+    } finally {
+      if (currentMonthKey.current === key) setDatesLoading(false);
+    }
+  }, [appointmentId]);
 
   const loadSlots = useCallback(async (date: Date) => {
     const key = toYMD(date);
@@ -76,16 +119,33 @@ export default function RescheduleModal({
 
   useEffect(() => {
     if (visible) {
-      setSelectedDate(dates[0]);
-      setSelectedSlot(null);
+      setViewYear(currentYear);
+      setViewMonth(currentMonth - 1);
       setSubmitError('');
-      loadSlots(dates[0]);
+      void loadDates(currentYear, currentMonth - 1);
     }
   }, [visible]);
 
   function handleSelectDate(date: Date) {
+    if (!availableDates.has(toYMD(date)) || toYMD(date) < todayYMD) return;
     setSelectedDate(date);
-    loadSlots(date);
+    setSelectedSlot(null);
+    void loadSlots(date);
+  }
+
+  function goToPreviousMonth() {
+    if (viewYear === currentYear && viewMonth === currentMonth - 1) return;
+    const previous = new Date(viewYear, viewMonth - 1, 1);
+    setViewYear(previous.getFullYear());
+    setViewMonth(previous.getMonth());
+    void loadDates(previous.getFullYear(), previous.getMonth());
+  }
+
+  function goToNextMonth() {
+    const next = new Date(viewYear, viewMonth + 1, 1);
+    setViewYear(next.getFullYear());
+    setViewMonth(next.getMonth());
+    void loadDates(next.getFullYear(), next.getMonth());
   }
 
   async function handleConfirm() {
@@ -101,6 +161,10 @@ export default function RescheduleModal({
       setSubmitting(false);
     }
   }
+
+  const calendarRows = buildMonthGrid(viewYear, viewMonth);
+  const previousMonthDisabled =
+    viewYear === currentYear && viewMonth === currentMonth - 1;
 
   return (
     <Modal
@@ -127,52 +191,151 @@ export default function RescheduleModal({
             </TouchableOpacity>
           </View>
 
-          {/* Date picker */}
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>SELECT DATE</Text>
           <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.dateRow}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.sheetContent}
           >
-            {dates.map((date) => {
-              const isSelected = toYMD(date) === toYMD(selectedDate);
-              return (
-                <TouchableOpacity
-                  key={toYMD(date)}
-                  onPress={() => handleSelectDate(date)}
-                  style={[
-                    styles.datePill,
-                    {
-                      backgroundColor: isSelected ? colors.primary : colors.card,
-                      borderColor: isSelected ? colors.primary : colors.border,
-                    },
-                  ]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.datePillDay, { color: isSelected ? colors.primaryForeground : colors.mutedForeground }]}>
-                    {formatDayLabel(date)}
-                  </Text>
-                  <Text style={[styles.datePillNum, { color: isSelected ? colors.primaryForeground : colors.foreground }]}>
-                    {date.getDate()}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          {/* Time slots */}
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground, marginTop: 20 }]}>SELECT TIME</Text>
-          <View style={styles.slotsArea}>
-            {loadingSlots ? (
-              <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
-            ) : slotsError ? (
-              <Text style={[styles.errorText, { color: colors.destructive }]}>{slotsError}</Text>
-            ) : slots.length === 0 ? (
-              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                No available times on this date.
+            {/* Date picker */}
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>SELECT DATE</Text>
+            <View style={[styles.monthNav, { borderColor: colors.border }]}>
+              <TouchableOpacity
+                onPress={goToPreviousMonth}
+                disabled={previousMonthDisabled}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Previous month"
+                accessibilityState={{ disabled: previousMonthDisabled }}
+                style={styles.monthNavButton}
+              >
+                <SvgIcon
+                  name="chevron-left"
+                  size={20}
+                  color={previousMonthDisabled ? colors.muted : colors.foreground}
+                />
+              </TouchableOpacity>
+              <Text style={[styles.monthLabel, { color: colors.foreground }]}>
+                {formatMonthLabel(viewYear, viewMonth)}
               </Text>
+              <TouchableOpacity
+                onPress={goToNextMonth}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Next month"
+                style={styles.monthNavButton}
+              >
+                <SvgIcon name="chevron-right" size={20} color={colors.foreground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.dayHeaders}>
+              {DAY_HEADERS.map((day) => (
+                <Text key={day} style={[styles.dayHeader, { color: colors.mutedForeground }]}>
+                  {day}
+                </Text>
+              ))}
+            </View>
+
+            {datesLoading ? (
+              <View style={styles.dateStateArea}>
+                <ActivityIndicator color={colors.primary} />
+                <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                  Loading availability…
+                </Text>
+              </View>
+            ) : datesError ? (
+              <View style={styles.dateStateArea}>
+                <Text style={[styles.errorText, { color: colors.destructive }]}>{datesError}</Text>
+                <TouchableOpacity
+                  onPress={() => void loadDates(viewYear, viewMonth)}
+                  style={[styles.retryButton, { borderColor: colors.border }]}
+                >
+                  <Text style={[styles.retryButtonText, { color: colors.primary }]}>TRY AGAIN</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
-              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 200 }}>
+              <>
+                <View style={styles.calendarGrid}>
+                  {calendarRows.map((week, weekIndex) => (
+                    <View key={`week-${weekIndex}`} style={styles.calendarRow}>
+                      {week.map((dayNumber, dayIndex) => {
+                        if (dayNumber === null) {
+                          return <View key={`empty-${weekIndex}-${dayIndex}`} style={styles.dayCell} />;
+                        }
+                        const date = new Date(viewYear, viewMonth, dayNumber, 12);
+                        const ymd = toYMD(date);
+                        const isPast = ymd < todayYMD;
+                        const isAvailable = availableDates.has(ymd);
+                        const isSelected = selectedDate ? toYMD(selectedDate) === ymd : false;
+                        const isDisabled = isPast || !isAvailable;
+
+                        return (
+                          <TouchableOpacity
+                            key={ymd}
+                            onPress={() => handleSelectDate(date)}
+                            disabled={isDisabled}
+                            activeOpacity={0.75}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: isSelected, disabled: isDisabled }}
+                            accessibilityLabel={`${date.toLocaleDateString('en-US', {
+                              month: 'long',
+                              day: 'numeric',
+                            })}${isAvailable ? '' : ', unavailable'}`}
+                            style={[
+                              styles.dayCell,
+                              isSelected && {
+                                backgroundColor: colors.primary,
+                                borderRadius: 10,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.dayNumber,
+                                isSelected
+                                  ? { color: colors.primaryForeground, fontFamily: 'Inter_700Bold' }
+                                  : isAvailable && !isPast
+                                    ? { color: colors.foreground, fontFamily: 'Inter_600SemiBold' }
+                                    : {
+                                        color: colors.mutedForeground,
+                                        opacity: 0.35,
+                                        fontFamily: 'Inter_400Regular',
+                                      },
+                              ]}
+                            >
+                              {dayNumber}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ))}
+                </View>
+                {availableDates.size === 0 ? (
+                  <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                    No availability in {formatMonthLabel(viewYear, viewMonth)}.
+                  </Text>
+                ) : null}
+              </>
+            )}
+
+            {/* Time slots */}
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground, marginTop: 20 }]}>
+              SELECT TIME
+            </Text>
+            <View style={styles.slotsArea}>
+              {!selectedDate ? (
+                <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                  Select an available date to view times.
+                </Text>
+              ) : loadingSlots ? (
+                <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
+              ) : slotsError ? (
+                <Text style={[styles.errorText, { color: colors.destructive }]}>{slotsError}</Text>
+              ) : slots.length === 0 ? (
+                <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                  No available times on this date.
+                </Text>
+              ) : (
                 <View style={styles.slotGrid}>
                   {slots.map((slot, i) => {
                     const isSelected = slot.datetime === selectedSlot?.datetime;
@@ -190,15 +353,15 @@ export default function RescheduleModal({
                         activeOpacity={0.8}
                       >
                         <Text style={[styles.slotText, { color: isSelected ? colors.primaryForeground : colors.foreground }]}>
-                        {formatStudioTime(slot.time)}
+                          {formatStudioTime(slot.time)}
                         </Text>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
-              </ScrollView>
-            )}
-          </View>
+              )}
+            </View>
+          </ScrollView>
 
           {/* Error */}
           {submitError ? (
@@ -252,7 +415,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
     paddingTop: 12,
+    maxHeight: '92%',
   },
+  sheetContent: { paddingBottom: 4 },
   handle: {
     width: 36,
     height: 4,
@@ -285,28 +450,65 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     marginBottom: 10,
   },
-  dateRow: {
-    gap: 8,
-    paddingRight: 8,
-  },
-  datePill: {
+  monthNav: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    minWidth: 52,
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
   },
-  datePillDay: {
+  monthNavButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthLabel: {
+    fontFamily: 'BarlowCondensed_700Bold',
+    fontSize: 17,
+    letterSpacing: 1.2,
+  },
+  dayHeaders: {
+    flexDirection: 'row',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  dayHeader: {
+    flex: 1,
+    textAlign: 'center',
     fontFamily: 'Inter_600SemiBold',
     fontSize: 10,
     letterSpacing: 0.5,
   },
-  datePillNum: {
-    fontFamily: 'BarlowCondensed_700Bold',
-    fontSize: 22,
-    lineHeight: 24,
-    marginTop: 2,
+  calendarGrid: { marginBottom: 4 },
+  calendarRow: { flexDirection: 'row' },
+  dayCell: {
+    flex: 1,
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 2,
+  },
+  dayNumber: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  dateStateArea: {
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  retryButton: {
+    borderWidth: 1,
+    borderRadius: 9,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  retryButtonText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
   },
   slotsArea: {
     minHeight: 80,
